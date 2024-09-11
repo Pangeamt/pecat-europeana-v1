@@ -1,0 +1,122 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId], map: "accounts_userId_fkey")
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "sessions_userId_fkey")
+  @@map("sessions")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  salt          String?
+  hash          String?
+  emailVerified DateTime?
+  image         Bytes?
+  role          Role      @default(USER)
+  provider      String?
+  accounts      Account[]
+  projects      Project[]
+  sessions      Session[]
+
+  @@map("users")
+}
+
+model Project {
+  id             String    @id @default(cuid())
+  label          String?
+  filename       String
+  filePath       String
+  uuid           String?   @unique
+  accessDeadline DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  userId         String
+  deletedAt      DateTime?
+  User           User      @relation(fields: [userId], references: [id])
+  tus            Tu[]
+
+  @@index([userId], map: "projects_userId_fkey")
+  @@map("projects")
+}
+
+model Tu {
+  id                      String   @id @default(cuid())
+  externalId              String?
+  translationLiteralId    Int?
+  translationId           Int?
+  count                   Int?
+  fieldName               String?
+  shortFieldname          String?
+  srcLiteral              String   @db.Text
+  translatedLiteral       String?  @db.Text
+  reviewLiteral           String?  @db.Text
+  sourceLanguage          String
+  targetLanguage          String
+  translationScorePercent Float?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  Status                  Status   @default(NOT_REVIEWED)
+  projectId               String?
+  levenshteinDistance     Float?
+  belongTo                String?
+  Project                 Project? @relation(fields: [projectId], references: [id])
+
+  @@index([projectId], map: "tus_projectId_fkey")
+  @@map("tus")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum Status {
+  EDITED
+  ACCEPTED
+  TRANSLATED_MT
+  NOT_REVIEWED
+  REJECTED
+}

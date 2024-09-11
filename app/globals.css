@@ -1,0 +1,193 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+.demo-logo-vertical {
+    height: 32px;
+    margin: 16px;
+    background: rgba(255, 255, 255, .2);
+    border-radius: 6px;
+}
+
+
+
+
+.sider-collapsed-button {
+    position: absolute !important;
+    width: 24px !important;
+    height: 24px !important;
+    min-width: 24px !important;
+    inset-block-start: 18px;
+    z-index: 101;
+
+    text-align: center;
+    border-radius: 40px;
+    inset-inline-end: -13px;
+    transition: transform 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: rgba(0, 0, 0, 0.25) !important;
+    background-color: #ffffff;
+    box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.05), 0 1px 4px -1px rgba(25, 15, 15, 0.07), 0 0 1px 0 rgba(0, 0, 0, 0.08);
+}
+
+.sider-collapsed-button .anticon {
+    font-size: 10px !important;
+}
+
+.sider-collapsed-button-tm {
+    position: absolute !important;
+    width: 24px !important;
+    height: 24px !important;
+    min-width: 24px !important;
+    inset-block-start: 18px;
+    z-index: 101;
+    left: -10px;
+    text-align: center;
+    border-radius: 40px;
+    inset-inline-end: -13px;
+    transition: transform 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: rgba(0, 0, 0, 0.25) !important;
+    background-color: #ffffff;
+    box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.05), 0 1px 4px -1px rgba(25, 15, 15, 0.07), 0 0 1px 0 rgba(0, 0, 0, 0.08);
+}
+
+.sider-collapsed-button-tm .anticon {
+    font-size: 10px !important;
+}
+
+
+.ant-menu-light.ant-menu-root.ant-menu-inline,
+.ant-menu-light>.ant-menu.ant-menu-root.ant-menu-inline,
+.ant-menu-light.ant-menu-root.ant-menu-vertical,
+.ant-menu-light>.ant-menu.ant-menu-root.ant-menu-vertical {
+    border-inline-end: unset !important;
+}
+
+.ant-pro-layout-bg-list {
+    pointer-events: none;
+    position: fixed;
+    overflow: hidden;
+    inset-block-start: 0;
+    inset-inline-start: 0;
+    z-index: 0;
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(#ffffff, #f5f5f5 28%);
+}
+
+
+.ant-layout-sider .ant-layout-sider-children {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding-inline: 8px;
+    padding-block: 0;
+    border-inline-end: 1px solid rgba(5, 5, 5, 0.06);
+    margin-inline-end: -1px;
+}
+
+.ant-menu-item:not(.ant-menu-item-selected):active,
+.ant-menu-item:not(.ant-menu-item-selected):active {
+    background-color: rgba(0, 0, 0, 0.15);
+}
+
+
+
+.ant-menu-light .ant-menu-item-selected,
+.ant-menu-light>.ant-menu .ant-menu-item-selected {
+    background-color: rgba(0, 0, 0, 0.15) !important;
+    color: black !important;
+}
+
+.tus-layout {
+    padding: 0
+}
+
+
+
+.ant-table-row.edited {
+    background-color: #e6f4ff;
+}
+
+.ant-table-row.rejected {
+    background-color: #fff1f0;
+}
+
+.ant-table-row.original-accepted {
+    background-color: #f6ffed;
+}
+
+:where(.css-dev-only-do-not-override-j9bb5n).ant-input-outlined.ant-input-status-warning:not(.ant-input-disabled) {
+    border-width: 2px !important;
+}
+
+.selected-row textarea {
+    border: #bae0ff;
+}
+
+.tm-checkbox label.ant-checkbox-wrapper {
+    display: flex;
+    align-items: center;
+}
+
+/* .tm-tus-table .selected-row {
+    background-color: #d9d9d9
+} */
+
+.tm-tus-table .selected-use-row {
+    background-color: #bae0ff;
+}
+
+.tm-tus-table .selected-use-row .ant-table-cell-row-hover {
+    background-color: transparent !important;
+}
+
+.ant-collapse-content-box {
+    padding: 0 !important;
+}
+
+.sider-tm .ant-layout-sider-children {
+
+    border-inline-start: 1px solid rgba(5, 5, 5, 0.06) !important;
+    margin-inline-start: -1px !important;
+    margin-left: 10px !important;
+    border-inline-end: unset !important;
+    margin-inline-start: unset !important;
+}
+
+.sider-tm {
+    margin-left: 10px !important;
+}
+
+.project-list-card .ant-card-body {
+    padding: 10px !important;
+}
+
+.ql-editor {
+    background-color: white !important;
+}
+
+.ant-table-wrapper .ant-table-column-title {
+    z-index: 0;
+}
+
+.ql-container {
+    font-size: 20px;
+}
+
+.ant-table {
+    border-bottom: 1px solid #f0f0f0;
+}
+
+#tus-list .ant-card-body {
+    padding: 5px 5px;
+}
