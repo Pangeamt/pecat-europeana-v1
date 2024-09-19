@@ -309,28 +309,34 @@ export const POST = async (req) => {
           let segmentedTexts = {};
           let mtTexts = {};
 
-          for (let language in textsToSegment) {
-            const [srcLang] = language.split("-");
-            segmentedTexts[language] = await segmentTexts(
-              srcLang,
-              textsToSegment[language].map((item) => item.srcLiteral)
-            );
+          if (mt) {
+            for (let language in textsToSegment) {
+              const [srcLang] = language.split("-");
+              segmentedTexts[language] = await segmentTexts(
+                srcLang,
+                textsToSegment[language].map((item) => item.srcLiteral)
+              );
 
-            for (let language1 in segmentedTexts) {
-              const [srcLang, tgtLang] = language1.split("-");
-              const aux = [];
+              for (let language1 in segmentedTexts) {
+                const [srcLang, tgtLang] = language1.split("-");
+                const aux = [];
 
-              segmentedTexts[language1].segments.forEach((segment, index) => {
-                segment.forEach((s) => {
-                  aux.push(
-                    textsToSegment[language1][index].srcLiteral
-                      .substring(s.start, s.stop)
-                      .trim()
-                  );
+                segmentedTexts[language1].segments.forEach((segment, index) => {
+                  segment.forEach((s) => {
+                    aux.push(
+                      textsToSegment[language1][index].srcLiteral
+                        .substring(s.start, s.stop)
+                        .trim()
+                    );
+                  });
                 });
-              });
 
-              mtTexts[language1] = await translateTexts(srcLang, tgtLang, aux);
+                mtTexts[language1] = await translateTexts(
+                  srcLang,
+                  tgtLang,
+                  aux
+                );
+              }
             }
           }
 
@@ -343,7 +349,6 @@ export const POST = async (req) => {
                 segmentIndices[language] = 0;
               }
 
-              // Obtén los segmentos de la respuesta de la API
               let segments =
                 segmentedTexts[language].segments[segmentIndices[language]];
               segmentIndices[language]++;
@@ -357,10 +362,12 @@ export const POST = async (req) => {
                     .trim(),
                   belongTo: item.id,
                   Status: "TRANSLATED_MT",
-                  translatedLiteral:
-                    mtTexts[language].translations[result.length].tgt,
-                  translationScorePercent:
-                    mtTexts[language].translations[index].score,
+                  translatedLiteral: mt
+                    ? mtTexts[language].translations[index].tgt
+                    : null,
+                  translationScorePercent: mt
+                    ? mtTexts[language].translations[index].score
+                    : null,
                 };
                 result.push(aux);
               });
