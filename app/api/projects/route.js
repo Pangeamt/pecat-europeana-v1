@@ -1,17 +1,20 @@
-import axios from "axios";
+import { checkFile, segmentTexts, translateTexts } from "../../../lib/utils";
+
 import Joi from "joi";
-import { getServerSession } from "next-auth";
+import { authOptions } from "../../../lib/auth";
+import axios from "axios";
 import contentDisposition from "content-disposition";
-import fs, { stat } from "fs";
+import { count } from "console";
+import fs from "fs";
+import { getServerSession } from "next-auth";
+import { oxygenTranslateFile } from "../../../lib/utils";
 import { pipeline } from "stream";
+import prisma from "../../../lib/prisma";
 import { promisify } from "util";
 import { uid } from "uid";
 import zlib from "zlib";
-const pump = promisify(pipeline);
 
-import prisma from "../../../lib/prisma";
-import { segmentTexts, translateTexts } from "../../../lib/utils";
-import { authOptions } from "../../../lib/auth";
+const pump = promisify(pipeline);
 
 const schemaPUT = Joi.object({
   url: Joi.string().required(),
@@ -47,6 +50,8 @@ export const GET = async () => {
     select: {
       id: true,
       filename: true,
+      mt: true,
+      extension: true,
       createdAt: true,
       deletedAt: true,
       label: true,
@@ -127,7 +132,6 @@ export const PUT = async (req) => {
       writer.on("error", reject);
     });
 
-    console.log("File downloaded successfully:", downloadPath);
     const decompressedFilePath = `${downloadPath}.json`;
 
     // Descomprimir el archivo
@@ -140,8 +144,6 @@ export const PUT = async (req) => {
       writeStream.on("finish", resolve);
       writeStream.on("error", reject);
     });
-
-    console.log("File decompressed successfully:", decompressedFilePath);
 
     // Leer el archivo JSON
     const data = fs.readFileSync(decompressedFilePath, "utf8");
@@ -257,6 +259,9 @@ export const POST = async (req) => {
 
     const formData = await req.formData();
     const files = formData.getAll("file");
+    const mt = formData.get("mt");
+    const src = formData.get("src");
+    const tgt = formData.get("tgt");
 
     if (files.length === 0) {
       return Response.json({ message: "No file uploaded" }, { status: 400 });
@@ -266,104 +271,131 @@ export const POST = async (req) => {
       if (file && file.name) {
         const fileName = file.name.trim().replace(/\s+/g, "");
         const fileExtension = fileName.split(".").pop().toLowerCase();
-        if (fileExtension !== "json") {
+
+        if (!checkFile(file)) {
           return Response.json(
-            { message: "The file must be of type JSON" },
+            {
+              message: `The file type is not allowed`,
+            },
             { status: 400 }
           );
         }
 
-        const filePath = `./public/files/${file.name}_${uid()}`;
+        const filePath = `./public/files/${uid()}_${file.name}`;
         await pump(file.stream(), fs.createWriteStream(filePath));
-
-        const jsonData = JSON.parse(fs.readFileSync(filePath, "utf8"));
-
-        let textsToSegment = {}; // Usaremos un objeto para agrupar los textos por idioma
-
-        jsonData.forEach((item) => {
-          if (!item.translatedLiteral) {
-            if (
-              !textsToSegment[`${item.sourceLanguage}-${item.targetLanguage}`]
-            ) {
-              textsToSegment[`${item.sourceLanguage}-${item.targetLanguage}`] =
-                [];
-            }
-            textsToSegment[
-              `${item.sourceLanguage}-${item.targetLanguage}`
-            ].push(item);
-          }
-        });
-
-        let segmentedTexts = {};
-        let mtTexts = {};
-
-        for (let language in textsToSegment) {
-          const [srcLang] = language.split("-");
-          segmentedTexts[language] = await segmentTexts(
-            srcLang,
-            textsToSegment[language].map((item) => item.srcLiteral)
-          );
-
-          for (let language1 in segmentedTexts) {
-            const [srcLang, tgtLang] = language1.split("-");
-            const aux = [];
-
-            segmentedTexts[language1].segments.forEach((segment, index) => {
-              segment.forEach((s) => {
-                aux.push(
-                  textsToSegment[language1][index].srcLiteral
-                    .substring(s.start, s.stop)
-                    .trim()
-                );
-              });
-            });
-
-            mtTexts[language1] = await translateTexts(srcLang, tgtLang, aux);
-            console.log(mtTexts);
-          }
-        }
-
+        let jsonData = null;
         let result = [];
-        let segmentIndices = {}; // Para mantener el índice de cada idioma
 
-        jsonData.forEach((item) => {
-          if (!item.translatedLiteral) {
-            let language = `${item.sourceLanguage}-${item.targetLanguage}`;
-            if (!segmentIndices[language]) {
-              segmentIndices[language] = 0;
+        if (fileExtension === "json") {
+          jsonData = JSON.parse(fs.readFileSync(filePath, "utf8"));
+
+          let textsToSegment = {}; // Usaremos un objeto para agrupar los textos por idioma
+
+          jsonData.forEach((item) => {
+            if (!item.translatedLiteral) {
+              if (
+                !textsToSegment[`${item.sourceLanguage}-${item.targetLanguage}`]
+              ) {
+                textsToSegment[
+                  `${item.sourceLanguage}-${item.targetLanguage}`
+                ] = [];
+              }
+              textsToSegment[
+                `${item.sourceLanguage}-${item.targetLanguage}`
+              ].push(item);
             }
+          });
 
-            // Obtén los segmentos de la respuesta de la API
-            let segments =
-              segmentedTexts[language].segments[segmentIndices[language]];
-            segmentIndices[language]++;
+          let segmentedTexts = {};
+          let mtTexts = {};
 
-            segments.forEach((segment, index) => {
-              const aux = {
-                ...item,
-                id: `${item.id}-${index}`,
-                srcLiteral: item.srcLiteral
-                  .substring(segment.start, segment.stop)
-                  .trim(),
-                belongTo: item.id,
-                Status: "TRANSLATED_MT",
-                translatedLiteral:
-                  mtTexts[language].translations[result.length].tgt,
-                translationScorePercent:
-                  mtTexts[language].translations[index].score,
-              };
-              result.push(aux);
-            });
-          } else {
-            result.push(item); // Si no se segmenta, se añade el objeto original
+          for (let language in textsToSegment) {
+            const [srcLang] = language.split("-");
+            segmentedTexts[language] = await segmentTexts(
+              srcLang,
+              textsToSegment[language].map((item) => item.srcLiteral)
+            );
+
+            for (let language1 in segmentedTexts) {
+              const [srcLang, tgtLang] = language1.split("-");
+              const aux = [];
+
+              segmentedTexts[language1].segments.forEach((segment, index) => {
+                segment.forEach((s) => {
+                  aux.push(
+                    textsToSegment[language1][index].srcLiteral
+                      .substring(s.start, s.stop)
+                      .trim()
+                  );
+                });
+              });
+
+              mtTexts[language1] = await translateTexts(srcLang, tgtLang, aux);
+            }
           }
-        });
+
+          let segmentIndices = {}; // Para mantener el índice de cada idioma
+
+          jsonData.forEach((item) => {
+            if (!item.translatedLiteral) {
+              let language = `${item.sourceLanguage}-${item.targetLanguage}`;
+              if (!segmentIndices[language]) {
+                segmentIndices[language] = 0;
+              }
+
+              // Obtén los segmentos de la respuesta de la API
+              let segments =
+                segmentedTexts[language].segments[segmentIndices[language]];
+              segmentIndices[language]++;
+
+              segments.forEach((segment, index) => {
+                const aux = {
+                  ...item,
+                  id: `${item.id}-${index}`,
+                  srcLiteral: item.srcLiteral
+                    .substring(segment.start, segment.stop)
+                    .trim(),
+                  belongTo: item.id,
+                  Status: "TRANSLATED_MT",
+                  translatedLiteral:
+                    mtTexts[language].translations[result.length].tgt,
+                  translationScorePercent:
+                    mtTexts[language].translations[index].score,
+                };
+                result.push(aux);
+              });
+            } else {
+              result.push(item); // Si no se segmenta, se añade el objeto original
+            }
+          });
+        } else {
+          const tmp = await oxygenTranslateFile({
+            filePath,
+            src_lang: src || "en",
+            tgt_lang: tgt || null,
+            mt,
+          });
+
+          result = tmp.map((item, index) => ({
+            externalId: null,
+            count: index,
+            srcLiteral: item.src,
+            translatedLiteral: item.tgt,
+            sourceLanguage: src,
+            targetLanguage: tgt,
+            Status: "NOT_REVIEWED",
+          }));
+        }
 
         const createOne = await prisma.project.create({
           data: {
             filename: file.name.trim(),
             userId: user.id,
             filePath,
+            mt: mt === "true" ? true : false,
+            extension: fileExtension,
+            sourceLanguage: src,
+            targetLanguage: tgt,
           },
         });
 

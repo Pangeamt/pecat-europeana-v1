@@ -1,13 +1,13 @@
 "use client";
 
+import { Avatar, Button, Card, Popconfirm, Space, Table, Tooltip } from "antd";
 import React, { useState } from "react";
-import { Space, Avatar, Table, Tooltip, Button, Popconfirm, Card } from "antd";
-import { DeleteOutlined } from "@ant-design/icons";
-import axios from "axios";
 
-import { useEffect } from "react";
-import UserEdit from "./edit";
+import { DeleteOutlined } from "@ant-design/icons";
 import UserAdd from "./add";
+import UserEdit from "./edit";
+import axios from "axios";
+import { useEffect } from "react";
 
 const saveUser = async (newUser) => {
   return await axios({
@@ -65,7 +65,6 @@ const UserList = () => {
 
   const add = async ({ ...values }) => {
     try {
-      console.log(values);
       await addUser(values);
       await fetchData();
     } catch (error) {

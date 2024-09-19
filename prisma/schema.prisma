@@ -66,6 +66,10 @@ model Project {
   updatedAt      DateTime  @updatedAt
   userId         String
   deletedAt      DateTime?
+  mt             Boolean   @default(false)
+  extension      String
+  sourceLanguage String?
+  targetLanguage String?
   User           User      @relation(fields: [userId], references: [id])
   tus            Tu[]
 

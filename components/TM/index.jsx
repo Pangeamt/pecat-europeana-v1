@@ -1,28 +1,28 @@
-import React, { useState, useEffect } from "react";
-import {
-  Button,
-  Modal,
-  Form,
-  Input,
-  Table,
-  Divider,
-  Select,
-  message,
-  Checkbox,
-  Radio,
-  Row,
-  Col,
-} from "antd";
 import {
   AuditOutlined,
   CloseCircleTwoTone,
   PieChartOutlined,
 } from "@ant-design/icons";
-
-import axios from "axios";
+import {
+  Button,
+  Checkbox,
+  Col,
+  Divider,
+  Form,
+  Input,
+  Modal,
+  Radio,
+  Row,
+  Select,
+  Table,
+  message,
+} from "antd";
+import React, { useEffect, useState } from "react";
 import { tmStore, userStore } from "../../store";
 
+import axios from "axios";
 import locales from "../../lib/locales.json";
+
 const languages = locales;
 
 const TM_HOST = process.env.NEXT_PUBLIC_TM_HOST;
@@ -170,7 +170,6 @@ const TM = ({ project, tmRequesting }) => {
       title: "Actions",
       key: "actions",
       render: (record) => {
-        console.log("record", record);
         // Use it
         return (
           <Button

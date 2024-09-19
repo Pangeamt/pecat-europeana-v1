@@ -1,38 +1,36 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { useParams } from "next/navigation";
 import {
+  Button,
+  Card,
+  Divider,
+  Input,
+  Space,
   Table,
   Tag,
-  Card,
-  Input,
-  message,
-  Button,
-  Space,
   Tooltip,
-  Divider,
+  message,
 } from "antd";
 import {
-  HourglassTwoTone,
-  StopTwoTone,
   CheckCircleTwoTone,
-  EditTwoTone,
   CheckOutlined,
   CloseOutlined,
-  SearchOutlined,
   ColumnHeightOutlined,
+  EditTwoTone,
+  HourglassTwoTone,
+  SearchOutlined,
+  StopTwoTone,
 } from "@ant-design/icons";
-import axios from "axios";
-import Highlighter from "react-highlight-words";
-import { Resizable } from "re-resizable";
+import React, { useEffect, useRef, useState } from "react";
+import { tmStore, userStore } from "../../store";
 
-import { useHotkeys } from "react-hotkeys-hook";
 import CustomTextArea from "../../components/CustomTextArea";
 import HeaderTus from "../../components/Tus/header";
-
-import { tmStore, userStore } from "../../store";
-import { parse } from "path";
+import Highlighter from "react-highlight-words";
+import { Resizable } from "re-resizable";
+import axios from "axios";
+import { useHotkeys } from "react-hotkeys-hook";
+import { useParams } from "next/navigation";
 
 const style = {
   border: "solid 2px #ddd",
@@ -73,11 +71,8 @@ const getTus = async (projectId) => {
 };
 
 const stripHTML = (html) => {
-  // Crear un elemento temporal
   var temporalDiv = document.createElement("div");
-  // Establecer el HTML del que quieres eliminar las etiquetas
   temporalDiv.innerHTML = html;
-  // Devolver el texto plano usando textContent
   return temporalDiv.textContent || temporalDiv.innerText || "";
 };
 
@@ -94,7 +89,6 @@ const TusList = () => {
   const [requesting, setRequesting] = useState(true);
   const [data, setData] = useState([]);
 
-  // const [selectedTmTuId, setSelectedTmTuId] = useState<any>(null);
   const [stats, setStats] = React.useState({
     notReviewed: 0,
     rejected: 0,
@@ -232,6 +226,12 @@ const TusList = () => {
   });
 
   const columns = [
+    // {
+    //   title: "ID",
+    //   dataIndex: "id",
+    //   key: "id",
+    //   width: 250,
+    // },
     {
       title: "No.",
       dataIndex: "index",
@@ -259,13 +259,6 @@ const TusList = () => {
       width: "40%",
       ...getColumnSearchProps("srcLiteral"),
     },
-    // {
-    //   // width: 500,
-    //   title: "Translated",
-    //   dataIndex: "translatedLiteral",
-    //   key: "translatedLiteral",
-    //   ...getColumnSearchProps("translatedLiteral"),
-    // },
     {
       title: "Review",
       dataIndex: "reviewLiteral",
@@ -320,7 +313,7 @@ const TusList = () => {
       render: (text) => (
         <div className="absolute top-2 left-2">
           <Tag bordered={false} color="geekblue">
-            {parseFloat(text).toFixed(2)}
+            {text ? parseFloat(text).toFixed(2) : ""}
           </Tag>
         </div>
       ),
@@ -396,6 +389,7 @@ const TusList = () => {
       key: "action",
       width: 100,
       render: (record) => {
+        if (selectedRow && selectedRow.id !== record.id) return null;
         return (
           <div className="absolute top-2 left-2">
             <Tooltip title="Confirm Tu (ctrl+enter)">
@@ -466,7 +460,7 @@ const TusList = () => {
           setStats((prev) => ({ ...prev, edited: prev.edited + 1 }));
         }
       });
-      setSelectedRow(data[0]);
+      if (!selectedRow) setSelectedRow(data[0]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requesting]);
@@ -478,6 +472,7 @@ const TusList = () => {
         reviewLiteral,
         action,
       });
+      fetchData();
     } catch (error) {
       console.error(error);
     }
@@ -612,7 +607,8 @@ const TusList = () => {
       type: "loading",
       content: "Rejecting...",
     });
-    await confirm.mutateAsync({
+
+    await confirm({
       tuId: selectedRow.id,
       reviewLiteral: null,
       action: "reject",
@@ -702,7 +698,9 @@ const TusList = () => {
           loading={requesting}
           columns={newColumns}
           dataSource={data}
-          rowKey={(record) => record.id}
+          rowKey={(record) => {
+            return record?.id;
+          }}
           size="small"
           ref={tblRef}
           onRow={(record) => {

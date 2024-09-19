@@ -1,24 +1,23 @@
-import React, { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
 import {
-  Progress,
-  Row,
-  Table,
-  Col,
-  Button,
-  Modal,
-  Typography,
-  Radio,
   Badge,
+  Button,
+  Col,
+  Modal,
+  Progress,
+  Radio,
+  Row,
   Space,
+  Table,
+  Typography,
 } from "antd";
 import { InfoCircleOutlined, LoadingOutlined } from "@ant-design/icons";
+import React, { useEffect, useState } from "react";
+import { tmStore, userStore } from "../../store";
 
-import axios from "axios";
-
-import { userStore, tmStore } from "../../store";
 import TM from "../../components/TM";
 import TusTm from "../../components/TM/tus";
+import axios from "axios";
+import { useParams } from "next/navigation";
 
 const { Text } = Typography;
 
@@ -141,16 +140,19 @@ const HeaderTus = ({
   const queryTmTus = async () => {
     try {
       setTmRequesting(true);
-      const { data } = await getTmTus({
-        translation_memory_id: tm.id,
-        source_language: tm.context.source,
-        target_language: tm.context.target,
-        source_text: selectedRow.srcLiteral,
-        user: user ? user?.email : null,
-      });
-      setTmTus(data.docs);
-      setTmRequesting(false);
-      return data;
+      if (tm?.id) {
+        const { data } = await getTmTus({
+          translation_memory_id: tm.id,
+          source_language: tm.context.source,
+          target_language: tm.context.target,
+          source_text: selectedRow.srcLiteral,
+          user: user ? user?.email : null,
+        });
+        setTmTus(data.docs);
+        setTmRequesting(false);
+        return data;
+      }
+      return null;
     } catch (error) {
       console.error(error);
       setTmRequesting(false);
