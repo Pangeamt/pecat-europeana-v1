@@ -1,18 +1,18 @@
-import { checkFile, segmentTexts, translateTexts } from "../../../lib/utils";
-
-import Joi from "joi";
-import { authOptions } from "../../../lib/auth";
 import axios from "axios";
-import contentDisposition from "content-disposition";
 import { count } from "console";
+import contentDisposition from "content-disposition";
 import fs from "fs";
+import Joi from "joi";
 import { getServerSession } from "next-auth";
-import { oxygenTranslateFile } from "../../../lib/utils";
 import { pipeline } from "stream";
-import prisma from "../../../lib/prisma";
-import { promisify } from "util";
 import { uid } from "uid";
+import { promisify } from "util";
 import zlib from "zlib";
+
+import { authOptions } from "../../../lib/auth";
+import prisma from "../../../lib/prisma";
+import { checkFile, segmentTexts, translateTexts } from "../../../lib/utils";
+import { oxygenTranslateFile } from "../../../lib/utils";
 
 const pump = promisify(pipeline);
 
@@ -101,12 +101,20 @@ export const PUT = async (req) => {
     if (!user)
       return Response.json({ message: "Unauthorized" }, { status: 401 });
 
-    // Realizar la solicitud GET
-    const response = await axios({
-      method: "get",
-      url,
-      responseType: "stream",
-    });
+    let response = null;
+
+    try {
+      response = await axios({
+        method: "get",
+        url,
+        responseType: "stream",
+      });
+    } catch (error) {
+      return Response.json(
+        { message: "The URL is not reachable" },
+        { status: 500 }
+      );
+    }
 
     let fileName = "downloaded-file";
     const contentDispositionHeader = response.headers["content-disposition"];
@@ -155,6 +163,7 @@ export const PUT = async (req) => {
         filename: fileName.trim(),
         userId: user.id,
         filePath: decompressedFilePath,
+        extension: "json",
       },
     });
 

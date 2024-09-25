@@ -14,7 +14,6 @@ import { PlusOutlined, UploadOutlined } from "@ant-design/icons";
 import React, { useState } from "react";
 
 import { EUROPEAN_LANGUAGES } from "../../lib/utils";
-import { get } from "http";
 
 const ProjectAdd = ({ add, refetch }) => {
   const [form] = Form.useForm();
@@ -35,7 +34,7 @@ const ProjectAdd = ({ add, refetch }) => {
     try {
       setAdding(true);
       const values = await form.validateFields();
-      await add.mutateAsync(values);
+      await add(values);
       setAdding(false);
       form.resetFields();
       setIsModalOpen(false);

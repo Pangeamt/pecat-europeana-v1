@@ -1,33 +1,33 @@
 "use client";
 
-import React, { useState } from "react";
-import Link from "next/link";
 import {
-  Space,
   Avatar,
-  Table,
-  Progress,
-  Tooltip,
   Button,
-  Popconfirm,
   Card,
-  message,
-  Typography,
   List,
+  Popconfirm,
+  Progress,
+  Space,
+  Table,
+  Tooltip,
+  Typography,
+  message,
 } from "antd";
 import {
-  UserOutlined,
-  DownloadOutlined,
   DeleteOutlined,
+  DownloadOutlined,
+  UserOutlined,
 } from "@ant-design/icons";
+import React, { useState } from "react";
+import { capitalize, formatDate } from "../../lib/utils";
+
+import Link from "next/link";
+import ProjectAdd from "../Project/add";
+import ProjectEdit from "../Project/edit";
 import axios from "axios";
+import { useEffect } from "react";
 
 const { Title } = Typography;
-
-import { capitalize, formatDate } from "../../lib/utils";
-import { useEffect } from "react";
-import ProjectEdit from "../Project/edit";
-import ProjectAdd from "../Project/add";
 
 const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -47,8 +47,13 @@ const removeProject = async (projectId) => {
 };
 
 const addProject = async (newProject) => {
+  console.log("newProject", newProject);
+  let METHOD = "post";
+  if (newProject.url) {
+    METHOD = "put";
+  }
   return await axios({
-    method: "post",
+    method: METHOD,
     url: "/api/projects",
     data: newProject,
   });

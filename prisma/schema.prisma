@@ -67,9 +67,10 @@ model Project {
   userId         String
   deletedAt      DateTime?
   mt             Boolean   @default(false)
-  extension      String
+  extension      String    @default("json")
   sourceLanguage String?
   targetLanguage String?
+  exampleXml     String?
   User           User      @relation(fields: [userId], references: [id])
   tus            Tu[]
 
@@ -92,6 +93,7 @@ model Tu {
   targetLanguage          String
   translationScorePercent Float?
   createdAt               DateTime @default(now())
+  exampleXml              String?  @db.VarChar(500)
   updatedAt               DateTime @updatedAt
   Status                  Status   @default(NOT_REVIEWED)
   projectId               String?

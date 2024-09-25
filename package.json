@@ -29,6 +29,7 @@
     "react-highlight-words": "^0.20.0",
     "react-hotkeys-hook": "^4.5.0",
     "react-quill": "^2.0.0",
+    "react-xml-viewer": "^2.0.1",
     "stream": "^0.0.3",
     "uid": "^2.0.2",
     "zlib": "^1.0.5",

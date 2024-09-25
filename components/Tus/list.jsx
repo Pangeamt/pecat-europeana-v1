@@ -1,16 +1,23 @@
 "use client";
-
+import React, { useEffect, useRef, useState } from "react";
 import {
   Button,
   Card,
   Divider,
   Input,
+  Modal,
   Space,
   Table,
   Tag,
   Tooltip,
   message,
 } from "antd";
+import axios from "axios";
+import { useParams } from "next/navigation";
+import { Resizable } from "re-resizable";
+import Highlighter from "react-highlight-words";
+import { useHotkeys } from "react-hotkeys-hook";
+import XMLViewer from "react-xml-viewer";
 import {
   CheckCircleTwoTone,
   CheckOutlined,
@@ -21,16 +28,10 @@ import {
   SearchOutlined,
   StopTwoTone,
 } from "@ant-design/icons";
-import React, { useEffect, useRef, useState } from "react";
-import { tmStore, userStore } from "../../store";
 
 import CustomTextArea from "../../components/CustomTextArea";
 import HeaderTus from "../../components/Tus/header";
-import Highlighter from "react-highlight-words";
-import { Resizable } from "re-resizable";
-import axios from "axios";
-import { useHotkeys } from "react-hotkeys-hook";
-import { useParams } from "next/navigation";
+import { tmStore, userStore } from "../../store";
 
 const style = {
   border: "solid 2px #ddd",
@@ -71,14 +72,14 @@ const getTus = async (projectId) => {
 };
 
 const stripHTML = (html) => {
-  var temporalDiv = document.createElement("div");
+  let temporalDiv = document.createElement("div");
   temporalDiv.innerHTML = html;
   return temporalDiv.textContent || temporalDiv.innerText || "";
 };
 
 const TusList = () => {
   const params = useParams();
-
+  const [open, setOpen] = useState(false);
   const tmSt = tmStore();
   const userSt = userStore();
   const { tm, tu: tmTu, config } = tmSt;
@@ -88,6 +89,7 @@ const TusList = () => {
   const [selectedRow, setSelectedRow] = useState(null);
   const [requesting, setRequesting] = useState(true);
   const [data, setData] = useState([]);
+  const [xmlData, setXmlData] = useState(null);
 
   const [stats, setStats] = React.useState({
     notReviewed: 0,
@@ -100,10 +102,10 @@ const TusList = () => {
   const [searchedColumn, setSearchedColumn] = useState("");
   const searchInput = useRef(null);
 
-  // const [checkedList, setCheckedList] = useState(defaultCheckedList);
   const [pageSize, setPageSize] = useState(20);
   const [page, setPage] = useState(1);
   const [height, setHeight] = useState(110);
+  const [xmlRequesting, setXmlRequesting] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -226,12 +228,6 @@ const TusList = () => {
   });
 
   const columns = [
-    // {
-    //   title: "ID",
-    //   dataIndex: "id",
-    //   key: "id",
-    //   width: 250,
-    // },
     {
       title: "No.",
       dataIndex: "index",
@@ -266,7 +262,7 @@ const TusList = () => {
       width: "40%",
       ...getColumnSearchProps("reviewLiteral"),
       render: (text, record) => {
-        const aux = text ? text : record.translatedLiteral || "";
+        const aux = text || record.translatedLiteral || "";
         if (selectedRow && record.id === selectedRow.id) {
           return (
             <CustomTextArea
@@ -298,9 +294,7 @@ const TusList = () => {
           );
         } else {
           const reviewLiteral = getColumnSearchProps("reviewLiteral");
-          if (reviewLiteral) {
-            return reviewLiteral.render(aux);
-          }
+          return reviewLiteral.render(aux);
         }
       },
     },
@@ -387,13 +381,29 @@ const TusList = () => {
     {
       title: "Actions",
       key: "action",
-      width: 100,
+      width: 150,
       render: (record) => {
         if (selectedRow && selectedRow.id !== record.id) return null;
         return (
           <div className="absolute top-2 left-2">
+            {selectedRow?.exampleXml && (
+              <Button
+                onClick={() => {
+                  loadXml(record);
+                }}
+                style={{ fontSize: "11px", lineHeight: "1.5" }}
+                shape="circle"
+                type="primary"
+                size="small"
+                loading={xmlRequesting && xmlRequesting.id === record.id}
+              >
+                {!xmlRequesting && <code>Xml</code>}
+              </Button>
+            )}
+
             <Tooltip title="Confirm Tu (ctrl+enter)">
               <Button
+                className="ml-2"
                 onClick={() => {
                   save(null);
                 }}
@@ -644,6 +654,26 @@ const TusList = () => {
     );
   };
 
+  const loadXml = async (record) => {
+    try {
+      setXmlRequesting({
+        id: record.id,
+      });
+      const { data } = await axios.get(record.exampleXml, {
+        headers: {
+          "Content-Type": "application/xml",
+        },
+        responseType: "text",
+      });
+      setXmlData(data);
+      setOpen(true);
+      setXmlRequesting(null);
+    } catch (error) {
+      messageApi.error("Error loading XML");
+      console.error(error);
+    }
+  };
+
   return (
     <div>
       {contextHolder}
@@ -651,10 +681,10 @@ const TusList = () => {
       <Resizable
         style={style}
         size={{ height }}
-        onResizeStop={(e, direction, ref, d) => {
+        onResizeStop={(_, __, ___, d) => {
           setHeight(height + d.height);
         }}
-        className="overflow-y-auto overflow-x-hidden"
+        className="overflow-x-hidden overflow-y-auto"
         enable={{
           top: true,
           right: false,
@@ -694,6 +724,23 @@ const TusList = () => {
       </Resizable>
       <Divider className="my-2" />
       <Card id="tus-list">
+        <Modal
+          title="XML Example"
+          centered
+          open={open}
+          onCancel={() => setOpen(false)}
+          width={1000}
+          footer={null}
+        >
+          <XMLViewer
+            xml={xmlData}
+            theme={{
+              attributeKeyColor: "#0074D9",
+              attributeValueColor: "#2ECC40",
+            }}
+            collapsible
+          />
+        </Modal>
         <Table
           loading={requesting}
           columns={newColumns}
