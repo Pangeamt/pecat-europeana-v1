@@ -1,8 +1,4 @@
-import {
-  AuditOutlined,
-  CloseCircleTwoTone,
-  PieChartOutlined,
-} from "@ant-design/icons";
+import React, { useEffect, useState } from "react";
 import {
   Button,
   Checkbox,
@@ -17,11 +13,15 @@ import {
   Table,
   message,
 } from "antd";
-import React, { useEffect, useState } from "react";
-import { tmStore, userStore } from "../../store";
-
 import axios from "axios";
+import {
+  AuditOutlined,
+  CloseCircleTwoTone,
+  PieChartOutlined,
+} from "@ant-design/icons";
+
 import locales from "../../lib/locales.json";
+import { tmStore, userStore } from "../../store";
 
 const languages = locales;
 

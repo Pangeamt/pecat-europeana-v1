@@ -1,3 +1,4 @@
+import React, { useEffect, useState } from "react";
 import {
   Badge,
   Button,
@@ -10,14 +11,14 @@ import {
   Table,
   Typography,
 } from "antd";
+import axios from "axios";
+import { useParams } from "next/navigation";
+import PropTypes from "prop-types";
 import { InfoCircleOutlined, LoadingOutlined } from "@ant-design/icons";
-import React, { useEffect, useState } from "react";
-import { tmStore, userStore } from "../../store";
 
 import TM from "../../components/TM";
 import TusTm from "../../components/TM/tus";
-import axios from "axios";
-import { useParams } from "next/navigation";
+import { tmStore, userStore } from "../../store";
 
 const { Text } = Typography;
 
@@ -102,6 +103,13 @@ const HeaderTus = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, tm?.id, selectedRow?.srcLiteral]);
+
+  useEffect(() => {
+    if (selectedText) {
+      setView("tus");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedText]);
 
   const columns = [
     {
@@ -219,7 +227,7 @@ const HeaderTus = ({
                 <Radio value="tms">TMs</Radio>
               </Badge>
               <Badge count={getCount(tmTusText)}>
-                <Radio value="tus">TUs</Radio>
+                <Radio value="tus">Term</Radio>
               </Badge>
             </Space>
           </Radio.Group>
@@ -306,6 +314,17 @@ const HeaderTus = ({
       )}
     </Row>
   );
+};
+HeaderTus.propTypes = {
+  stats: PropTypes.object.isRequired,
+  percentage: PropTypes.func.isRequired,
+  selectedRow: PropTypes.shape({
+    srcLiteral: PropTypes.string,
+  }),
+  selectedText: PropTypes.string,
+  changeTextInTextarea: PropTypes.func.isRequired,
+  setHeight: PropTypes.func.isRequired,
+  requesting: PropTypes.bool.isRequired,
 };
 
 export default HeaderTus;
