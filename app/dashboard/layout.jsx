@@ -1,18 +1,17 @@
 "use client";
-import Image from "next/image";
 import React, { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { Button, Layout, Menu, theme } from "antd";
 import Link from "next/link";
-
+import { usePathname } from "next/navigation";
 import {
   FileTextOutlined,
   LeftOutlined,
   RightOutlined,
   UserOutlined,
 } from "@ant-design/icons";
-import { Button, Layout, Menu, theme } from "antd";
 
 import AvatarDropdown from "../../components/AvatarDropdown";
+import Logo from "../../components/Logo";
 import { userStore } from "../../store";
 
 const { Header, Sider, Content } = Layout;
@@ -93,20 +92,7 @@ const App = ({ children }) => {
         }}
       >
         <div className="flex justify-between">
-          {/* LINK */}
-          <Link href="/">
-            <Image
-              src="/images/logo_PECAT_horizontal.png"
-              alt="logo"
-              width={150}
-              height={51}
-              style={{
-                height: 51,
-                width: 150,
-                marginTop: 7,
-              }}
-            />
-          </Link>
+          <Logo />
 
           <AvatarDropdown />
         </div>
