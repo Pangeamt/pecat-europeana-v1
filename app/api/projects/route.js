@@ -268,7 +268,7 @@ export const POST = async (req) => {
 
     const formData = await req.formData();
     const files = formData.getAll("file");
-    const mt = formData.get("mt");
+    const mt = formData.get("mt") === "true";
     const src = formData.get("src");
     const tgt = formData.get("tgt");
 
@@ -408,7 +408,7 @@ export const POST = async (req) => {
             filename: file.name.trim(),
             userId: user.id,
             filePath,
-            mt: mt === "true" ? true : false,
+            mt,
             extension: fileExtension,
             sourceLanguage: src,
             targetLanguage: tgt,
