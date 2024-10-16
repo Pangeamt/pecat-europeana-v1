@@ -1,5 +1,4 @@
 import axios from "axios";
-import { count } from "console";
 import contentDisposition from "content-disposition";
 import fs from "fs";
 import Joi from "joi";

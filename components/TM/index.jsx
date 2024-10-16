@@ -1,4 +1,8 @@
-import React, { useEffect, useState } from "react";
+import {
+  AuditOutlined,
+  CloseCircleTwoTone,
+  PieChartOutlined,
+} from "@ant-design/icons";
 import {
   Button,
   Checkbox,
@@ -13,15 +17,11 @@ import {
   Table,
   message,
 } from "antd";
-import axios from "axios";
-import {
-  AuditOutlined,
-  CloseCircleTwoTone,
-  PieChartOutlined,
-} from "@ant-design/icons";
-
-import locales from "../../lib/locales.json";
+import React, { useEffect, useState } from "react";
 import { tmStore, userStore } from "../../store";
+
+import axios from "axios";
+import locales from "../../lib/locales.json";
 
 const languages = locales;
 
@@ -237,16 +237,14 @@ const TM = ({ project, tmRequesting }) => {
   return (
     <>
       <div className="mb-2">
-        {tms.length > 0 && (
-          <Button
-            className="ml-2"
-            icon={<AuditOutlined />}
-            type="primary"
-            onClick={showModal}
-          >
-            Translation Memories
-          </Button>
-        )}
+        <Button
+          className="ml-2"
+          icon={<AuditOutlined />}
+          type="primary"
+          onClick={showModal}
+        >
+          Translation Memories
+        </Button>
 
         {tm && (
           <div className="flex justify-center">
