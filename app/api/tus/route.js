@@ -90,11 +90,15 @@ export const POST = async (req) => {
     const data = {};
     if (action === "approve") {
       let Status = "NOT_REVIEWED";
-      if (tu.translatedLiteral === reviewLiteral || !reviewLiteral) {
-        Status = "ACCEPTED";
-      } else {
-        Status = "EDITED";
-      }
+
+      const txtClear = (txt) => { return txt.trim().replace(/<[^>]*>|\n/g,'').replace(/\s{2,}/g, ' ').replace('. ','.');}
+
+      let translatedL_clear = txtClear(tu.translatedLiteral);
+      let reviewL_clear = txtClear(reviewLiteral);
+
+      if (translatedL_clear === reviewL_clear || !reviewL_clear) Status = "ACCEPTED";
+      else  Status = "EDITED";
+      
       data.Status = Status;
       data.reviewLiteral = reviewLiteral;
     } else if (action === "reject") {

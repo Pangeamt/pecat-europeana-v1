@@ -32,43 +32,12 @@ import {
 import CustomTextArea from "../../components/CustomTextArea";
 import HeaderTus from "../../components/Tus/header";
 import { tmStore, userStore } from "../../store";
+import { confirmTu, confirmTuTm, updateTuTm, getTus } from "./request";
 
 const style = {
   border: "solid 2px #ddd",
   background: "#f0f0f0",
   padding: "15px 5px",
-};
-
-const confirmTu = async (data) => {
-  return await axios({
-    method: "post",
-    url: "/api/tus",
-    data: data,
-  });
-};
-
-const confirmTuTm = async (data) => {
-  return await axios({
-    method: "post",
-    url: `${process.env.NEXT_PUBLIC_TM_HOST}/tu`,
-    data: data,
-  });
-};
-
-const updateTuTm = async (data) => {
-  return await axios({
-    method: "patch",
-    url: `${process.env.NEXT_PUBLIC_TM_HOST}/tu`,
-    data: data,
-  });
-};
-
-const getTus = async (projectId) => {
-  return await axios({
-    method: "get",
-    url: "/api/tus",
-    params: { projectId },
-  });
 };
 
 const stripHTML = (html) => {
@@ -108,22 +77,24 @@ const TusList = () => {
   const [xmlRequesting, setXmlRequesting] = useState(null);
 
   useEffect(() => {
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const get = async () => {
+        try {
+          setRequesting(true);
+          const { data } = await getTus(params.projectId);
+          setData(data.docs);
+          setRequesting(false);
+        } catch (error) {
+          console.error(error);
+          setRequesting(false);
+        }
+    };
+    if(params.projectId) get();
   }, []);
 
-  useHotkeys("ctrl+enter", async () => {
-    save(null);
-  });
-  useHotkeys("ctrl+shift+enter", () => {
-    reject();
-  });
-  useHotkeys("ctrl+shift+down", () => {
-    moveNext();
-  });
-  useHotkeys("ctrl+shift+up", () => {
-    movePrevious();
-  });
+  useHotkeys("ctrl+enter", async () => { save(null); });
+  useHotkeys("ctrl+shift+enter", () => { reject() });
+  useHotkeys("ctrl+shift+down", () => { moveNext() });
+  useHotkeys("ctrl+shift+up", () => { movePrevious() });
 
   const handleSearch = (selectedKeys, confirm, dataIndex) => {
     confirm();
@@ -440,20 +411,6 @@ const TusList = () => {
     };
   });
 
-  const fetchData = async () => {
-    try {
-      setRequesting(true);
-      const { data } = await getTus(params.projectId);
-      setData(data.docs);
-
-      setRequesting(false);
-      return data;
-    } catch (error) {
-      console.error(error);
-      setRequesting(false);
-    }
-  };
-
   useEffect(() => {
     if (!requesting && data.length > 0) {
       data.forEach((doc) => {
@@ -477,66 +434,13 @@ const TusList = () => {
 
   const confirm = async ({ tuId, reviewLiteral, action }) => {
     try {
-      await confirmTu({
-        tuId,
-        reviewLiteral,
-        action,
-      });
-      fetchData();
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const confirmTm = async ({
-    translation_memory_id,
-    source_language,
-    target_language,
-    source_text,
-    translated_text,
-    user,
-    project,
-    domain,
-  }) => {
-    try {
-      await confirmTuTm({
-        translation_memory_id,
-        source_language,
-        target_language,
-        source_text,
-        translated_text,
-        user,
-        project,
-        domain,
-      });
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const updateTm = async ({
-    translation_unit_id,
-    translation_memory_id,
-    source_language,
-    target_language,
-    source_text,
-    translated_text,
-    user,
-    project,
-    domain,
-  }) => {
-    try {
-      await updateTuTm({
-        translation_unit_id,
-        translation_memory_id,
-        source_language,
-        target_language,
-        source_text,
-        translated_text,
-        user,
-        project,
-        domain,
-      });
+      const response = await confirmTu({ tuId, reviewLiteral, action });
+      const tu =  response.data.tu;
+      setData((prev) => 
+        prev.map((doc) => 
+          doc.id === tu.id ? {...doc, Status : tu.Status} : doc
+        )
+      );
     } catch (error) {
       console.error(error);
     }
@@ -578,28 +482,36 @@ const TusList = () => {
 
     if (tm && config.update) {
       if (config.value === 1 && tmTu) {
-        await updateTm({
-          translation_unit_id: tmTu.id,
-          translation_memory_id: tm.id,
-          source_language: tm.context.source,
-          target_language: tm.context.target,
-          source_text: selectedRow.srcLiteral,
-          translated_text: str || selectedRow.reviewLiteral,
-          user: user ? user?.email : null,
-          project: tm.context.project,
-          domain: tm.context.domain,
-        });
+        try {
+          await updateTuTm({
+            translation_unit_id: tmTu.id,
+            translation_memory_id: tm.id,
+            source_language: tm.context.source,
+            target_language: tm.context.target,
+            source_text: selectedRow.srcLiteral,
+            translated_text: str || selectedRow.reviewLiteral,
+            user: user ? user?.email : null,
+            project: tm.context.project,
+            domain: tm.context.domain,
+          });
+        } catch (error) {
+          console.error(error);
+        }
       } else {
-        await confirmTm({
-          translation_memory_id: tm.id,
-          source_language: tm.context.source,
-          target_language: tm.context.target,
-          source_text: selectedRow.srcLiteral,
-          translated_text: str || selectedRow.reviewLiteral,
-          user: user ? user?.email : null,
-          project: tm.context.project,
-          domain: tm.context.domain,
-        });
+        try {
+          await confirmTuTm({
+            translation_memory_id: tm.id,
+            source_language: tm.context.source,
+            target_language: tm.context.target,
+            source_text: selectedRow.srcLiteral,
+            translated_text: str || selectedRow.reviewLiteral,
+            user: user ? user?.email : null,
+            project: tm.context.project,
+            domain: tm.context.domain,
+          });
+        } catch (error) {
+          console.error(error);
+        }
       }
     }
     moveNext();
