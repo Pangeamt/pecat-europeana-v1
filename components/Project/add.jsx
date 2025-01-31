@@ -78,7 +78,7 @@ const ProjectAdd = ({ add, refetch }) => {
       }
       const extension = checkFile(file);
       if (!extension) {
-        message.error("Only files with correct format (JSON or XLF)");
+        message.error("File type not supported"); 
         return false;
       }
       return true;
