@@ -5,13 +5,16 @@ This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next
 First, run the development server:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install -g pnpm
+
+pnpm install
+
+mkdir -p public/files && chmod -R 755 public/files
+
+npx prisma generate --schema=./prisma/schema.prisma
+
+pnpm run build
+
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
