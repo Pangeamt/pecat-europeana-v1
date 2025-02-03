@@ -16,19 +16,18 @@ import React, { useState } from "react";
 import { EUROPEAN_LANGUAGES } from "../../lib/utils";
 
 const ProjectAdd = ({ add, refetch }) => {
-  const [form] = Form.useForm();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [by, setBy] = useState("url");
-  const [mt, setMt] = useState(false);
+  const [ form] = Form.useForm();
+  const [ isModalOpen, setIsModalOpen] = useState(false);
+  const [ by, setBy] = useState("url");
+  const [ mt, setMt] = useState(false);
+  const [ src, setSrc] = useState(null);
+  const [ tgt, setTgt] = useState(null);
+  const [ adding, setAdding] = useState(false);
 
-  const [src, setSrc] = useState(null);
-  const [tgt, setTgt] = useState(null);
-
-  const [adding, setAdding] = useState(false);
-
-  const showModal = () => {
-    setIsModalOpen(true);
-  };
+  const showModal = () => { setIsModalOpen(true) }
+  const handleCancel = () => { setIsModalOpen(false) }
+  const onChangeSrc = (value) => {  setSrc(value) }
+  const onChangeTgt = (value) => {  setTgt(value) }
 
   const handleOk = async () => {
     try {
@@ -44,9 +43,6 @@ const ProjectAdd = ({ add, refetch }) => {
     }
   };
 
-  const handleCancel = () => {
-    setIsModalOpen(false);
-  };
 
   const props = {
     multiple: true,
@@ -55,11 +51,7 @@ const ProjectAdd = ({ add, refetch }) => {
     headers: {
       authorization: "authorization-text",
     },
-    data: {
-      mt,
-      src,
-      tgt,
-    },
+    data: { mt, src, tgt },
     onChange(info) {
       if (info.file.status === "done") {
         message.success(`${info.file.name} file uploaded successfully`);
@@ -84,14 +76,6 @@ const ProjectAdd = ({ add, refetch }) => {
       return true;
     },
     disabled: mt && (!src || !tgt),
-  };
-
-  const onChangeSrc = (value) => {
-    setSrc(value);
-  };
-
-  const onChangeTgt = (value) => {
-    setTgt(value);
   };
 
   const getTgtOptions = (src) => {
