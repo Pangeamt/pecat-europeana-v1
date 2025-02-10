@@ -26,45 +26,11 @@ import ProjectAdd from "../Project/add";
 import ProjectEdit from "../Project/edit";
 import axios from "axios";
 import { useEffect } from "react";
+import { saveProject, removeProject, addProject, getProjects } from "./request";
 
 const { Title } = Typography;
 
 const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL;
-
-const saveProject = async (newProject) => {
-  return await axios({
-    method: "patch",
-    url: "/api/projects",
-    data: newProject,
-  });
-};
-const removeProject = async (projectId) => {
-  return await axios({
-    method: "delete",
-    url: `/api/projects`,
-    data: { projectId },
-  });
-};
-
-const addProject = async (newProject) => {
-  console.log("newProject", newProject);
-  let METHOD = "post";
-  if (newProject.url) {
-    METHOD = "put";
-  }
-  return await axios({
-    method: METHOD,
-    url: "/api/projects",
-    data: newProject,
-  });
-};
-
-const getProjects = async () => {
-  return await axios({
-    method: "get",
-    url: "/api/projects",
-  });
-};
 
 const ProjectList = () => {
   const [requesting, setRequesting] = useState(true);
@@ -85,6 +51,7 @@ const ProjectList = () => {
       setRequesting(false);
     }
   };
+
   const save = async ({ ...values }) => {
     try {
       await saveProject(values);
@@ -130,9 +97,7 @@ const ProjectList = () => {
     const clipboard = navigator.clipboard;
 
     if (!clipboard || !clipboard.writeText) {
-      console.error(
-        "La API del portapapeles no es compatible con este navegador"
-      );
+      console.error("La API del portapapeles no es compatible con este navegador");
       return;
     }
 
@@ -144,9 +109,7 @@ const ProjectList = () => {
       setRequesting(projectId);
       const link = `${baseURL}/api/file/${projectId}`;
       const { data } = await axios.get(link);
-      await copyTextToClipboard(
-        `${baseURL}/api/file?uuid=${data.uuid}&projectId=${projectId}`
-      );
+      await copyTextToClipboard(`${baseURL}/api/file?uuid=${data.uuid}&projectId=${projectId}`);
 
       // await copyTextToClipboard(
       //   `${baseURL}/api/file?uuid=${1}&projectId=${projectId}`

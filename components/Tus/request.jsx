@@ -32,4 +32,12 @@ const confirmTu = async (data) => {
     });
   };
 
-  export { confirmTu, confirmTuTm, updateTuTm, getTus };
+  const getTmTus = async (params) => {
+    return axios.get(`${process.env.NEXT_PUBLIC_TM_HOST}/tu`, {
+      params: {
+        ...params,
+      },
+    });
+  };
+
+  export { confirmTu, confirmTuTm, updateTuTm, getTus, getTmTus };

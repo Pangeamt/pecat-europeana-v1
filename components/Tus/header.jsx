@@ -11,7 +11,6 @@ import {
   Table,
   Typography,
 } from "antd";
-import axios from "axios";
 import { useParams } from "next/navigation";
 import PropTypes from "prop-types";
 import { InfoCircleOutlined, LoadingOutlined } from "@ant-design/icons";
@@ -19,16 +18,9 @@ import { InfoCircleOutlined, LoadingOutlined } from "@ant-design/icons";
 import TM from "../../components/TM";
 import TusTm from "../../components/TM/tus";
 import { tmStore, userStore } from "../../store";
+import { getTmTus } from "./request";
 
 const { Text } = Typography;
-
-const getTmTus = async (params) => {
-  return axios.get(`${process.env.NEXT_PUBLIC_TM_HOST}/tu`, {
-    params: {
-      ...params,
-    },
-  });
-};
 
 const HeaderTus = ({
   stats,
@@ -62,6 +54,8 @@ const HeaderTus = ({
   const [tmTus, setTmTus] = useState([]);
   const [tmTusText, setTmTusText] = useState([]);
   const [tmRequesting, setTmRequesting] = useState(false);
+  const onChange = ({ target: { value } }) => { setView(value); };
+  const getCount = (value) => { return value.length; };
 
   useEffect(() => {
     if (!requesting) {
@@ -95,19 +89,13 @@ const HeaderTus = ({
   ]);
 
   useEffect(() => {
-    if (view === "tms") {
-      queryTmTus();
-    }
-    if (view === "tus") {
-      queryTmTusText();
-    }
+    if (view === "tms")  queryTmTus();
+    if (view === "tus") queryTmTusText();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, tm?.id, selectedRow?.srcLiteral]);
 
   useEffect(() => {
-    if (selectedText) {
-      setView("tus");
-    }
+    if (selectedText) setView("tus");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedText]);
 
@@ -192,15 +180,53 @@ const HeaderTus = ({
     setHeight(400);
   };
 
-  const onChange = ({ target: { value } }) => {
-    setView(value);
-  };
-  const getCount = (value) => {
-    return value.length;
-  };
+  const infoModal = () => {
+    Modal.info({
+      title: "Shortcuts",
+      content: (
+        <>
+          <Row>
+            <Col span={14}>
+              <Text>Confirm Tu</Text>
+            </Col>
+            <Col span={10} className="weight-500">
+              <Text strong> (ctrl+enter)</Text>
+            </Col>
+          </Row>
+
+          <Row>
+            <Col span={14}>
+              <Text>Reject Tu</Text>
+            </Col>
+            <Col span={10} className="weight-500">
+              <Text strong> (ctrl+shift+enter)</Text>
+            </Col>
+          </Row>
+          <Row>
+            <Col span={14}>
+              <Text>Next Tu</Text>
+            </Col>
+            <Col span={10} className="weight-500">
+              <Text strong> (ctrl+shift+down)</Text>
+            </Col>
+          </Row>
+          <Row>
+            <Col span={14}>
+              <Text>Previous Tu</Text>
+            </Col>
+            <Col span={10} className="weight-500">
+              <Text strong> (ctrl+shift+up)</Text>
+            </Col>
+          </Row>
+        </>
+      ),
+      onOk() {},
+    })
+  }
 
   return (
     <Row gutter={[8, 8]}>
+
       <Col>
         <Table
           className="mb-2"
@@ -211,9 +237,11 @@ const HeaderTus = ({
           bordered
         />
       </Col>
+
       <Col>
         <TM project={params.projectId} tmRequesting={tmRequesting} />
       </Col>
+
       <Col>
         {tm && tm.id && (
           <Radio.Group
@@ -236,49 +264,7 @@ const HeaderTus = ({
           className="ml-4"
           type="default"
           icon={<InfoCircleOutlined />}
-          onClick={() =>
-            Modal.info({
-              title: "Shortcuts",
-              content: (
-                <>
-                  <Row>
-                    <Col span={14}>
-                      <Text>Confirm Tu</Text>
-                    </Col>
-                    <Col span={10} className="weight-500">
-                      <Text strong> (ctrl+enter)</Text>
-                    </Col>
-                  </Row>
-
-                  <Row>
-                    <Col span={14}>
-                      <Text>Reject Tu</Text>
-                    </Col>
-                    <Col span={10} className="weight-500">
-                      <Text strong> (ctrl+shift+enter)</Text>
-                    </Col>
-                  </Row>
-                  <Row>
-                    <Col span={14}>
-                      <Text>Next Tu</Text>
-                    </Col>
-                    <Col span={10} className="weight-500">
-                      <Text strong> (ctrl+shift+down)</Text>
-                    </Col>
-                  </Row>
-                  <Row>
-                    <Col span={14}>
-                      <Text>Previous Tu</Text>
-                    </Col>
-                    <Col span={10} className="weight-500">
-                      <Text strong> (ctrl+shift+up)</Text>
-                    </Col>
-                  </Row>
-                </>
-              ),
-              onOk() {},
-            })
-          }
+          onClick={() => infoModal()}
         >
           Info
         </Button>
@@ -298,6 +284,7 @@ const HeaderTus = ({
           />
         </Col>
       )}
+
       {tm && tm.id && view === "tus" && (
         <Col>
           <TusTm
@@ -312,9 +299,11 @@ const HeaderTus = ({
           />
         </Col>
       )}
+
     </Row>
   );
 };
+
 HeaderTus.propTypes = {
   stats: PropTypes.object.isRequired,
   percentage: PropTypes.func.isRequired,

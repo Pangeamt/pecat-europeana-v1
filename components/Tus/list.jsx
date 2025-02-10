@@ -311,17 +311,13 @@ const TusList = () => {
         let cpm = (
           <HourglassTwoTone
             twoToneColor="#faad14"
-            style={{
-              fontSize: "25px",
-            }}
+            style={{ fontSize: "25px" }}
           />
         );
         if (text === "REJECTED") {
           cpm = (
             <StopTwoTone
-              style={{
-                fontSize: "25px",
-              }}
+              style={{ fontSize: "25px" }}
               twoToneColor="#f5222d"
             />
           );
@@ -330,9 +326,7 @@ const TusList = () => {
           cpm = (
             <CheckCircleTwoTone
               twoToneColor="#52c41a"
-              style={{
-                fontSize: "25px",
-              }}
+              style={{ fontSize: "25px" }}
             />
           );
         }
@@ -340,9 +334,7 @@ const TusList = () => {
           cpm = (
             <EditTwoTone
               twoToneColor="#4096ff"
-              style={{
-                fontSize: "25px",
-              }}
+              style={{ fontSize: "25px" }}
             />
           );
         }
@@ -357,6 +349,7 @@ const TusList = () => {
         if (selectedRow && selectedRow.id !== record.id) return null;
         return (
           <div className="absolute top-2 left-2">
+
             {selectedRow?.exampleXml && (
               <Button
                 onClick={() => {
@@ -384,6 +377,7 @@ const TusList = () => {
                 size="small"
               ></Button>
             </Tooltip>
+
             <Tooltip title="Reject Tu (ctrl+shift+enter)">
               <Button
                 className="ml-2"
@@ -395,6 +389,7 @@ const TusList = () => {
                 size="small"
               ></Button>
             </Tooltip>
+
           </div>
         );
       },
@@ -411,26 +406,45 @@ const TusList = () => {
     };
   });
 
+  // useEffect(() => {
+  //   if (!requesting && data.length > 0) {
+  //     data.forEach((doc) => {
+  //       if (doc.Status === "NOT_REVIEWED" || doc.Status === "TRANSLATED_MT") {
+  //         setStats((prev) => ({ ...prev, notReviewed: prev.notReviewed + 1 }));
+  //       } else if (doc.Status === "REJECTED") {
+  //         setStats((prev) => ({ ...prev, rejected: prev.rejected + 1 }));
+  //       } else if (doc.Status === "ACCEPTED") {
+  //         setStats((prev) => ({...prev, originalAccepted: prev.originalAccepted + 1 }));
+  //       } else if (doc.Status === "EDITED") {
+  //         setStats((prev) => ({ ...prev, edited: prev.edited + 1 }));
+  //       }
+  //     });
+  //     if (!selectedRow) setSelectedRow(data[0]);
+  //   }
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [requesting, data]);
+
   useEffect(() => {
     if (!requesting && data.length > 0) {
+      const newStats = { notReviewed: 0, rejected: 0, originalAccepted: 0, edited: 0 };
+  
       data.forEach((doc) => {
         if (doc.Status === "NOT_REVIEWED" || doc.Status === "TRANSLATED_MT") {
-          setStats((prev) => ({ ...prev, notReviewed: prev.notReviewed + 1 }));
+          newStats.notReviewed += 1;
         } else if (doc.Status === "REJECTED") {
-          setStats((prev) => ({ ...prev, rejected: prev.rejected + 1 }));
+          newStats.rejected += 1;
         } else if (doc.Status === "ACCEPTED") {
-          setStats((prev) => ({
-            ...prev,
-            originalAccepted: prev.originalAccepted + 1,
-          }));
+          newStats.originalAccepted += 1;
         } else if (doc.Status === "EDITED") {
-          setStats((prev) => ({ ...prev, edited: prev.edited + 1 }));
+          newStats.edited += 1;
         }
       });
+  
+      setStats(newStats); // Solo un setState
+  
       if (!selectedRow) setSelectedRow(data[0]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [requesting]);
+  }, [requesting, data]); // Dependencias correctas  
 
   const confirm = async ({ tuId, reviewLiteral, action }) => {
     try {

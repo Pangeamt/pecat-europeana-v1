@@ -1,12 +1,11 @@
 import { oxygenBuildFile, segmentText } from "../../../lib/utils";
-
 import { createGzip } from "zlib";
 import fs from "fs";
 import path from "path";
 import { pipeline } from "stream";
 import prisma from "../../../lib/prisma";
 import { promisify } from "util";
-import { uid } from "uid";
+// import { uid } from "uid";
 
 const pipelineAsync = promisify(pipeline);
 const unlinkAsync = promisify(fs.unlink);
@@ -46,41 +45,32 @@ function combineAndRemove(array) {
 
 export const GET = async (req) => {
   try {
-    const url = new URL(req.url);
-    const searchParams = new URLSearchParams(url.searchParams);
-    const uuid = searchParams.get("uuid");
-    const projectId = searchParams.get("projectId");
+    // const url = new URL(req.url);
+    // const searchParams = new URLSearchParams(url.searchParams);
+    // const uuid = searchParams.get("uuid");
+    // const projectId = searchParams.get("projectId");
+    const { uuid, projectId } = Object.fromEntries( new URL( req.url ).searchParams );
+    const now = new Date();
 
+    if ( !uuid || !projectId ) return new Response(JSON.stringify({ message: "uuid or projectId is required" }), { status: 400 });
+  
     const project = await prisma.project.findUnique({
-      where: {
-        uuid: uuid ?? undefined,
-        id: projectId ?? undefined,
-      },
+      where: { id : projectId ?? undefined }
     });
 
-    if (!project) {
-      return new Response(JSON.stringify({ message: "Project not found" }), {
-        status: 404,
-      });
-    }
-
+    if ( !project && project.uuid !== uuid ) return new Response(JSON.stringify({ message: "Project not found" }), { status: 404 });
+    
     const accessDeadline = new Date(project.accessDeadline);
-    const now = new Date();
-    if (accessDeadline < now) {
-      return new Response(JSON.stringify({ message: "The link has expired" }), {
-        status: 401,
-      });
-    }
 
+    if ( accessDeadline < now ) return new Response(JSON.stringify({ message: "The link has expired" }), { status: 401 });
+    
     const tus = await prisma.tu.findMany({
-      where: {
-        projectId: project.id ?? undefined,
-      },
+      where: { projectId: project.id ?? undefined },
     });
 
     const tusCombined = combineAndRemove(tus);
 
-    if (project.extension === "json") {
+    if ( project.extension === "json") {
       const jsonString = JSON.stringify(tusCombined);
 
       const fileNameAux = project.filename.split(".json")[0];
@@ -137,9 +127,7 @@ export const GET = async (req) => {
       });
     }
   } catch (error) {
-    return new Response(JSON.stringify({ message: error.message }), {
-      status: 500,
-    });
+    return new Response(JSON.stringify({ message: error.message }), { status: 500 });
   }
 };
 

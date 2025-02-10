@@ -11,7 +11,7 @@ import zlib from "zlib";
 import { authOptions } from "../../../lib/auth";
 import prisma from "../../../lib/prisma";
 import { checkFile, segmentTexts, translateTexts } from "../../../lib/utils";
-import { oxygenTranslateFile } from "../../../lib/utils";
+import { oxygenTranslateFile, postMTQE } from "../../../lib/utils";
 
 const pump = promisify(pipeline);
 
@@ -259,11 +259,9 @@ export const DELETE = async (req) => {
 export const POST = async (req) => {
   try {
     const authValue = await getServerSession(authOptions);
-    if (!authValue)
-      return Response.json({ message: "Unauthorized" }, { status: 401 });
+    if (!authValue) return Response.json({ message: "Unauthorized" }, { status: 401 });
     const { user } = authValue;
-    if (!user)
-      return Response.json({ message: "Unauthorized" }, { status: 401 });
+    if (!user)  return Response.json({ message: "Unauthorized" }, { status: 401 });
 
     const formData = await req.formData();
     const files = formData.getAll("file");
@@ -271,24 +269,15 @@ export const POST = async (req) => {
     const src = formData.get("src");
     const tgt = formData.get("tgt");
 
-    if (files.length === 0) {
-      return Response.json({ message: "No file uploaded" }, { status: 400 });
-    }
-
+    if (files.length === 0) return Response.json({ message: "No file uploaded" }, { status: 400 });
+    
     for (const file of files) {
       if (file && file.name) {
         const fileName = file.name.trim().replace(/\s+/g, "");
         const fileExtension = fileName.split(".").pop().toLowerCase();
 
-        if (!checkFile(file)) {
-          return Response.json(
-            {
-              message: `The file type is not allowed`,
-            },
-            { status: 400 }
-          );
-        }
-
+        if (!checkFile(file)) return Response.json({message: `The file type is not allowed`},{ status: 400 } );
+        
         const filePath = `./public/files/${uid()}_${file.name}`;
         await pump(file.stream(), fs.createWriteStream(filePath));
         let jsonData = null;
@@ -391,11 +380,19 @@ export const POST = async (req) => {
             mt,
           });
 
-          result = tmp.map((item, index) => ({
+          const objectMTQE = tmp.map((item, index) => ({
+            mt_segment: item.src,
+            source_segment: item.tgt
+          }));
+
+          const responseMTQE = await postMTQE({ pairs: objectMTQE });
+
+          result = responseMTQE.pairs.map((item, index) => ({
             externalId: null,
             count: index,
-            srcLiteral: item.src,
-            translatedLiteral: item.tgt,
+            srcLiteral: item.mt_segment,
+            translatedLiteral: item.source_segment,
+            translationScorePercent: item.mtqe_score,
             sourceLanguage: src,
             targetLanguage: tgt,
             Status: "NOT_REVIEWED",

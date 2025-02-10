@@ -2,6 +2,8 @@ import {
   AuditOutlined,
   CloseCircleTwoTone,
   PieChartOutlined,
+  EditOutlined,
+  DeleteOutlined 
 } from "@ant-design/icons";
 import {
   Button,
@@ -19,13 +21,10 @@ import {
 } from "antd";
 import React, { useEffect, useState } from "react";
 import { tmStore, userStore } from "../../store";
-
-import axios from "axios";
 import locales from "../../lib/locales.json";
+import { addTMRequest, fetchTMRequest, updateTMRequest, deleteTMRequest } from "../TM/request";
 
 const languages = locales;
-
-const TM_HOST = process.env.NEXT_PUBLIC_TM_HOST;
 
 const getLocaleCode = (locale) => {
   const language = Object.keys(languages).find(
@@ -34,54 +33,62 @@ const getLocaleCode = (locale) => {
   return language;
 };
 
-const addTMRequest = async (tm) => {
-  return await axios({
-    method: "post",
-    url: `${TM_HOST}/tm`,
-    data: tm,
-  });
-};
-
 const TM = ({ project, tmRequesting }) => {
   const userSt = userStore();
   const tmSt = tmStore();
   const { user } = userSt;
   const { tm, saveTm, clear, config, setConfig } = tmSt;
-
-  const [form] = Form.useForm();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [tms, setTms] = useState([]);
-  const [view, setView] = useState("list");
-
-  const [requesting, setRequesting] = useState(false);
-  const [fetching, setFetching] = useState(false);
+  const [ form ] = Form.useForm();
+  const [ form2 ] = Form.useForm();
+  const [ isModalOpen, setIsModalOpen ] = useState(false);
+  const [ isModalEditOpen, setIsModalEditOpen ] = useState(false);
+  const [ tms, setTms ] = useState([]);
+  const [ view, setView ] = useState("list");
+  const [ requesting, setRequesting ] = useState(false);
+  const [ fetching, setFetching ] = useState(false);
+  const [ tmEdit, setTmEdit ] = useState(null)
 
   useEffect(() => {
-    if (user) {
-      fetchTm(user.email);
-    }
+    if(user) fetchTm(user.email);
   }, [user]);
 
   useEffect(() => {
-    if (!tmRequesting) {
-      handleCancel();
-    }
+    if(!tmRequesting) handleCancel();
   }, [tmRequesting]);
 
-  const fetchTm = async (user) => {
+  const fetchTm = async (email) => {
     setFetching(true);
-    const { data } = await axios.get(`${TM_HOST}/tm`, {
-      params: {
-        user: user,
-      },
-    });
-    setTms(data.docs);
+    const data  = await fetchTMRequest(email);
+    const processedData = data.docs.map((item, index) => ({
+      ...item,
+      key: item.id || `tm-${index}`, // Usar `id` si está disponible, sino usa el índice con prefijo
+    }));
+    setTms(processedData);
     setFetching(false);
   };
 
-  const add = (tm) => {
-    return addTMRequest(tm);
+  // const add = (tm) => { return addTMRequest(tm) }
+  const showModal = () => { setIsModalOpen(true) };
+  const handleCancel = () => { setIsModalOpen(false); };
+
+  const onChangeRadio = (e) => { setConfig({ ...config, value: e.target.value }) }
+  const onChange = (e) => { setConfig({ ...config, update: e.target.checked }) }
+
+  const openModalEdit = (record) => { 
+    setIsModalOpen(false);
+    setTmEdit(record)
+    setIsModalEditOpen(true); 
   };
+
+  const handleCancelEdit = () => { 
+    setTmEdit(null)
+    setIsModalEditOpen(false) 
+  };
+
+  const backToList = async () => {
+    await fetchTm(user.email);
+    setView('list')
+  }
 
   const addTM = async () => {
     try {
@@ -96,8 +103,9 @@ const TM = ({ project, tmRequesting }) => {
         target: getLocaleCode(values.target),
       };
       message.loading({ content: "Creating TM...", key: "add-tm" });
-      await add(data);
+      await addTMRequest(data);
       await fetchTm(userEmail);
+      handleCancel()
       form.resetFields();
       message.success({ content: "TM created!", key: "add-tm" });
     } catch (errorInfo) {
@@ -106,22 +114,37 @@ const TM = ({ project, tmRequesting }) => {
     }
   };
 
-  const showModal = () => {
-    setIsModalOpen(true);
+  const editTM = async () => {
+    try {
+      const values = await form2.validateFields();
+      const editData = {
+        id: tmEdit.id,
+        name: values.name,
+        project: values.project,
+        domain: values.domain,
+      };
+      message.loading({ content: "Updating TM...", key: "edit-tm" });
+      await updateTMRequest(editData);
+      handleCancelEdit()
+      await fetchTm(user.email);
+      form2.resetFields();
+      message.success({ content: "TM updated!", key: "edit-tm" });
+    } catch (errorInfo) {
+      console.log("Failed:", errorInfo);
+      handleCancelEdit()
+      message.error({ content: "Error updating TM", key: "edit-tm" });
+    }
   };
 
-  const handleCancel = () => {
-    setIsModalOpen(false);
-  };
-
-  const onChange = (e) => {
-    console.log(`checked = ${e.target.checked}`);
-    setConfig({ ...config, update: e.target.checked });
-  };
-
-  const onChangeRadio = (e) => {
-    console.log("radio checked", e.target.value);
-    setConfig({ ...config, value: e.target.value });
+  const handleDelete = async (id) => {
+    try {
+        message.loading({ content: "Updating TM...", key: "del-tm" });
+        await deleteTMRequest(id);
+        await fetchTm(user.email);
+        message.success({ content: "TM deleted successfully!", key: "del-tm" });
+    } catch (error) {
+        message.error("Error deleting TM");
+    }
   };
 
   const columns = [
@@ -129,9 +152,7 @@ const TM = ({ project, tmRequesting }) => {
       title: "No.",
       dataIndex: "index",
       key: "index",
-      render: (_, __, index) => {
-        return <code className="flex justify-center">{index + 1}</code>;
-      },
+      render: (_, __, index) => <code className="flex justify-center">{index + 1}</code>,
     },
     {
       title: "Name",
@@ -141,50 +162,67 @@ const TM = ({ project, tmRequesting }) => {
     {
       title: "Project",
       key: "project",
-      render: (record) => {
-        return <code>{record.context.project}</code>;
-      },
+      render: (record) => <code>{record.context.project}</code>,
     },
     {
       title: "Domain",
       key: "domain",
-      render: (record) => {
-        return <code>{record.context.domain}</code>;
-      },
+      render: (record) => <code>{record.context.domain}</code>,
     },
     {
       title: "Source",
       key: "source",
-      render: (record) => {
-        return <code>{record.context.source}</code>;
-      },
+      render: (record) => <code>{record.context.source}</code>,
     },
     {
       title: "Target",
       key: "target",
-      render: (record) => {
-        return <code>{record.context.target}</code>;
-      },
+      render: (record) => <code>{record.context.target}</code>,
     },
     {
       title: "Actions",
       key: "actions",
-      render: (record) => {
-        // Use it
-        return (
+      render: (record) => (
+        <div className="">
           <Button
             type={tm && tm.id === record.id ? "primary" : "default"}
-            onClick={() => {
-              saveTm(record);
-            }}
+            onClick={() => saveTm(record)}
             size="small"
           >
             {tm && tm.id === record.id ? "Selected" : "Select"}
           </Button>
-        );
-      },
+  
+          <Button
+            className="ml-2"
+            icon={<EditOutlined />}
+            type="default"
+            danger
+            onClick={() => openModalEdit(record)}
+            size="small"
+          >
+          </Button>
+
+          <Button
+            className="ml-2 text-red-500 ant-btn-dangerous"
+            icon={<DeleteOutlined  />}
+            onClick={() => handleDelete(record.id)}
+            size="small"
+          >
+          </Button>
+        </div>
+      ),
     },
   ];
+  
+  useEffect(() => {
+    if (tmEdit) {
+      form2.setFieldsValue({
+        name: tmEdit.name || "",
+        project: tmEdit.context?.project || "",
+        domain: tmEdit.context?.domain || "",
+      });
+    }
+  }, [tmEdit]); // Se ejecuta cada vez que `tmEdit` cambie  
 
   const getStats = async () => {
     setRequesting(true);
@@ -234,6 +272,7 @@ const TM = ({ project, tmRequesting }) => {
     }
     setRequesting(false);
   };
+
   return (
     <>
       <div className="mb-2">
@@ -310,13 +349,11 @@ const TM = ({ project, tmRequesting }) => {
             />
           </>
         )}
+
         {view === "form" && (
           <>
             <Button
-              onClick={async () => {
-                await fetchTm(user.email);
-                setView("list");
-              }}
+              onClick={backToList}
               className="mb-2 float-right"
             >
               Go to List
@@ -393,13 +430,57 @@ const TM = ({ project, tmRequesting }) => {
                 </Select>
               </Form.Item>
               <Form.Item wrapperCol={{ offset: 4, span: 16 }}>
-                <Button type="primary" htmlType="submit">
-                  Create
-                </Button>
+                <Button type="primary" htmlType="submit">Create</Button>
               </Form.Item>
             </Form>
           </>
         )}
+      </Modal>
+  
+      <Modal
+          title="Edit TM"
+          open={ isModalEditOpen }
+          onCancel={() => handleCancelEdit() }
+          footer={[
+            <Button 
+              key="back" 
+              onClick={() => handleCancelEdit() }
+            >
+              Return
+            </Button>,
+            <Button 
+              key="submit" 
+              type="primary" 
+              onClick={() => editTM()}
+            >
+              Submit
+            </Button>,
+          ]}
+        >
+          <Form
+            form={form2}
+            labelCol={{ span: 4 }}
+            wrapperCol={{ span: 20 }}
+            layout="horizontal"
+          >
+            <Form.Item label="Name" name="name"
+              rules={[
+                { required: true, message: "Please introduce a name!" },
+              ]}
+            >
+              <Input />
+            </Form.Item>
+            <Form.Item label="Project" name="project"
+              rules={[
+                { required: true, message: "Please introduce a project!" },
+              ]}
+            >
+              <Input />
+            </Form.Item>
+            <Form.Item label="Domain" name="domain">
+              <Input />
+            </Form.Item>
+          </Form>
       </Modal>
     </>
   );
