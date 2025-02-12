@@ -196,7 +196,6 @@ const TM = ({ project, tmRequesting }) => {
             className="ml-2"
             icon={<EditOutlined />}
             type="default"
-            danger
             onClick={() => openModalEdit(record)}
             size="small"
           >
@@ -222,7 +221,7 @@ const TM = ({ project, tmRequesting }) => {
         domain: tmEdit.context?.domain || "",
       });
     }
-  }, [tmEdit]); // Se ejecuta cada vez que `tmEdit` cambie  
+  }, [tmEdit, form2]); // Se ejecuta cada vez que `tmEdit` cambie  
 
   const getStats = async () => {
     setRequesting(true);

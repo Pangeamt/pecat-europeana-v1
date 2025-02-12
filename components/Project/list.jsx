@@ -95,7 +95,7 @@ const ProjectList = () => {
     // verificarPermisoPortapapeles();
     const navigator = window.navigator;
     const clipboard = navigator.clipboard;
-
+    
     if (!clipboard || !clipboard.writeText) {
       console.error("La API del portapapeles no es compatible con este navegador");
       return;

@@ -66,6 +66,7 @@ const TusList = () => {
     originalAccepted: 0,
     edited: 0,
     translated_mt: 0,
+    porcent: 0,
   });
   const [searchText, setSearchText] = useState("");
   const [searchedColumn, setSearchedColumn] = useState("");
@@ -89,7 +90,7 @@ const TusList = () => {
         }
     };
     if(params.projectId) get();
-  }, []);
+  }, [params.projectId]);
 
   useHotkeys("ctrl+enter", async () => { save(null); });
   useHotkeys("ctrl+shift+enter", () => { reject() });
@@ -406,45 +407,32 @@ const TusList = () => {
     };
   });
 
-  // useEffect(() => {
-  //   if (!requesting && data.length > 0) {
-  //     data.forEach((doc) => {
-  //       if (doc.Status === "NOT_REVIEWED" || doc.Status === "TRANSLATED_MT") {
-  //         setStats((prev) => ({ ...prev, notReviewed: prev.notReviewed + 1 }));
-  //       } else if (doc.Status === "REJECTED") {
-  //         setStats((prev) => ({ ...prev, rejected: prev.rejected + 1 }));
-  //       } else if (doc.Status === "ACCEPTED") {
-  //         setStats((prev) => ({...prev, originalAccepted: prev.originalAccepted + 1 }));
-  //       } else if (doc.Status === "EDITED") {
-  //         setStats((prev) => ({ ...prev, edited: prev.edited + 1 }));
-  //       }
-  //     });
-  //     if (!selectedRow) setSelectedRow(data[0]);
-  //   }
-  //   // eslint-disable-next-line react-hooks/exhaustive-deps
-  // }, [requesting, data]);
-
   useEffect(() => {
     if (!requesting && data.length > 0) {
-      const newStats = { notReviewed: 0, rejected: 0, originalAccepted: 0, edited: 0 };
+      const newStats = { notReviewed: 0, rejected: 0, originalAccepted: 0, edited: 0, porcent: 0 };
+      let totalStats = 0;
   
       data.forEach((doc) => {
         if (doc.Status === "NOT_REVIEWED" || doc.Status === "TRANSLATED_MT") {
           newStats.notReviewed += 1;
         } else if (doc.Status === "REJECTED") {
           newStats.rejected += 1;
+            totalStats += 1;
         } else if (doc.Status === "ACCEPTED") {
           newStats.originalAccepted += 1;
+          totalStats += 1;
         } else if (doc.Status === "EDITED") {
           newStats.edited += 1;
+          totalStats += 1;
         }
       });
-  
-      setStats(newStats); // Solo un setState
+ 
+      newStats.porcent = parseFloat(((100 * totalStats) / data.length).toFixed(2));
+      setStats( newStats); 
   
       if (!selectedRow) setSelectedRow(data[0]);
     }
-  }, [requesting, data]); // Dependencias correctas  
+  }, [requesting, data, selectedRow ]); // Dependencias correctas
 
   const confirm = async ({ tuId, reviewLiteral, action }) => {
     try {
@@ -567,19 +555,6 @@ const TusList = () => {
     }
   };
 
-  const percentage = () => {
-    return parseFloat(
-      (
-        (100 *
-          (stats.edited +
-            stats.originalAccepted +
-            stats.rejected +
-            stats.translated_mt)) /
-        data.length
-      ).toFixed(2)
-    );
-  };
-
   const loadXml = async (record) => {
     try {
       setXmlRequesting({
@@ -640,7 +615,7 @@ const TusList = () => {
       >
         <HeaderTus
           stats={stats}
-          percentage={percentage}
+          percentage={stats.porcent}
           selectedRow={selectedRow}
           selectedText={searchText}
           changeTextInTextarea={changeTextInTextarea}

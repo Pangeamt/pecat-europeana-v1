@@ -22,15 +22,7 @@ import { getTmTus } from "./request";
 
 const { Text } = Typography;
 
-const HeaderTus = ({
-  stats,
-  percentage,
-  selectedRow,
-  selectedText,
-  changeTextInTextarea,
-  setHeight,
-  requesting,
-}) => {
+const HeaderTus = ({ stats, percentage, selectedRow, selectedText,changeTextInTextarea, setHeight, requesting }) => {
   const params = useParams();
   const userSt = userStore();
   const tmSt = tmStore();
@@ -70,7 +62,7 @@ const HeaderTus = ({
           progress: (
             <Progress
               className="px-4"
-              percent={percentage()}
+              percent={percentage}
               size="small"
               status="active"
             />
