@@ -79,23 +79,23 @@ const ProjectList = () => {
     }
   };
 
-  function verificarPermisoPortapapeles() {
-    navigator.permissions.query({ name: "clipboard-write" }).then((result) => {
-      if (result.state === "granted" || result.state === "prompt") {
-        // Permiso concedido o el navegador mostrará un diálogo de solicitud de permiso
-        copiarAlPortapapeles("Texto para copiar");
-      } else {
-        console.log("Permiso para escribir en el portapapeles denegado.");
-        // Notificar al usuario o tomar otra acción
-      }
-    });
-  }
+  // function verificarPermisoPortapapeles() {
+  //   navigator.permissions.query({ name: "clipboard-write" }).then((result) => {
+  //     if (result.state === "granted" || result.state === "prompt") {
+  //       // Permiso concedido o el navegador mostrará un diálogo de solicitud de permiso
+  //       copiarAlPortapapeles("Texto para copiar");
+  //     } else {
+  //       console.log("Permiso para escribir en el portapapeles denegado.");
+  //       // Notificar al usuario o tomar otra acción
+  //     }
+  //   });
+  // }
 
   async function copyTextToClipboard(textToCopy) {
     // verificarPermisoPortapapeles();
     const navigator = window.navigator;
     const clipboard = navigator.clipboard;
-    
+    console.log(textToCopy);
     if (!clipboard || !clipboard.writeText) {
       console.error("La API del portapapeles no es compatible con este navegador");
       return;
