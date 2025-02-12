@@ -22,7 +22,7 @@ import {
 import React, { useEffect, useState } from "react";
 import { tmStore, userStore } from "../../store";
 import locales from "../../lib/locales.json";
-import { addTMRequest, fetchTMRequest, updateTMRequest, deleteTMRequest } from "../TM/request";
+import { addTMRequest, fetchTMRequest, updateTMRequest, deleteTMRequest, getLogsRequest } from "../TM/request";
 
 const languages = locales;
 
@@ -226,13 +226,8 @@ const TM = ({ project, tmRequesting }) => {
   const getStats = async () => {
     setRequesting(true);
     try {
-      const response = await axios.get(`/api/projects/logs`, {
-        params: {
-          projectId: project,
-          tmId: tm.id,
-        },
-      });
-      const stats = response.data.stats;
+      const response = await getLogsRequest(project, tm.id);
+      const stats = response.stats;
 
       Modal.info({
         title: "TM Analysis",

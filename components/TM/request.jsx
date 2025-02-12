@@ -42,4 +42,14 @@ const deleteTMRequest = async (tmId) => {
     }
   };
 
-export { addTMRequest, fetchTMRequest, updateTMRequest, deleteTMRequest };
+const getLogsRequest = async (projectId, tmId) => {
+    try {
+        const response = await axios.get(`/api/projects/logs`, { params: { projectId, tmId } });
+        return response.data;
+    } catch (error) {
+        console.error("Error getting logs:", error.response?.data || error.message);
+        throw error; // Relanzamos el error para que pueda manejarse donde se llame
+    }
+};
+
+export { addTMRequest, fetchTMRequest, updateTMRequest, deleteTMRequest, getLogsRequest };
