@@ -41,5 +41,5 @@ next-env.d.ts
 *.yml
 *.yaml
 .env
-prisma/migrations/20250128122205_initial_migration/migration.sql
-prisma/migrations/migration_lock.toml
+prisma/migrations/*
+

@@ -283,7 +283,8 @@ export const POST = async (req) => {
         let jsonData = null;
         let result = [];
 
-        if (fileExtension === "json") {
+        if (fileExtension === "json") 
+        {
           jsonData = JSON.parse(fs.readFileSync(filePath, "utf8"));
 
           let textsToSegment = {}; // Usaremos un objeto para agrupar los textos por idioma
@@ -372,7 +373,9 @@ export const POST = async (req) => {
               result.push(item); // Si no se segmenta, se añade el objeto original
             }
           });
-        } else {
+        } 
+        else 
+        {
           const tmp = await oxygenTranslateFile({
             filePath,
             src_lang: src || "en",
@@ -380,12 +383,16 @@ export const POST = async (req) => {
             mt,
           });
 
+          if (!tmp) return Response.json({message: `Internal error with Oxigen`},{ status: 500 } );
+
           const objectMTQE = tmp.map((item, index) => ({
             mt_segment: item.src,
             source_segment: item.tgt
           }));
 
           const responseMTQE = await postMTQE({ pairs: objectMTQE });
+
+          if (!responseMTQE) return Response.json({message: `Internal error with MTQE`},{ status: 500 } );
 
           result = responseMTQE.pairs.map((item, index) => ({
             externalId: null,

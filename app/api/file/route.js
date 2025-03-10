@@ -70,7 +70,8 @@ export const GET = async (req) => {
 
     const tusCombined = combineAndRemove(tus);
 
-    if ( project.extension === "json") {
+    if ( project.extension === "json") 
+    {
       const jsonString = JSON.stringify(tusCombined);
 
       const fileNameAux = project.filename.split(".json")[0];
@@ -108,10 +109,13 @@ export const GET = async (req) => {
           "Content-Disposition": `attachment; filename=${fileNameAux}-pecat.json.gz`,
         },
       });
-    } else {
+    } 
+    else 
+    {
       const tgts = tusCombined.map((tu) =>
         tu.reviewLiteral ? tu.reviewLiteral : tu.translatedLiteral || ""
       );
+      
       const data = await oxygenBuildFile({
         tgts,
         src_lang: project.sourceLanguage,

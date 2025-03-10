@@ -4,6 +4,8 @@ This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next
 
 First, run the development server:
 
+Copy the .env.example file to .env and fill in the values.
+
 ```bash
 npm install -g pnpm
 
@@ -11,11 +13,17 @@ pnpm install
 
 mkdir -p public/files && chmod -R 755 public/files
 
-npx prisma generate --schema=./prisma/schema.prisma
+npx prisma migrate dev --name "initial_migration" --schema=./prisma/schema.prisma
+npx prisma migrate deploy --schema=./prisma/schema.prisma
+
 
 pnpm run build
 
+pnpm run start
+
 ```
+npx prisma generate --schema=./prisma/schema.prisma
+
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
