@@ -1,4 +1,4 @@
-import { oxygenBuildFile, segmentText } from "../../../lib/utils";
+import { oxygenBuildFile, segmentTexts } from "../../../lib/utils";
 import { createGzip } from "zlib";
 import fs from "fs";
 import path from "path";
@@ -115,7 +115,7 @@ export const GET = async (req) => {
       const tgts = tusCombined.map((tu) =>
         tu.reviewLiteral ? tu.reviewLiteral : tu.translatedLiteral || ""
       );
-      
+
       const data = await oxygenBuildFile({
         tgts,
         src_lang: project.sourceLanguage,
@@ -137,7 +137,7 @@ export const GET = async (req) => {
 
 export const POST = async (req) => {
   try {
-    const segmentedTexts = await segmentText("en", [
+    const segmentedTexts = await segmentTexts("en", [
       "The video shows the first five minutes of the film. Film content: In the 17th century on Grieshuus Palace in Holstein: The old Burgherr has designated his son Hinrich as heir, while the younger son Detlef is studying law in the city. One day, Bärbe, the daughter of the serf Owe Heiken is attacked by soldiers, Hinrich can save her. He falls in love with her and wants to marry her against the will of the father. But during this dispute the father dies. Now the struggle between the unequal brothers for the inheritance begins. Detlef claims Grieshuus and tries to get Hinrich and Bärbe apart. Bärbe, who is pregnant, gives birth to the child too soon due to the excitement and dies. Hinrich then strikes the brother and flees. The young son is lovingly raised by the servant. However, Gesine, Detlef’s widow, repeatedly tries to tear Grieshuus. Hinrich returns to his homeland unrecognized and succeeds in liberating his child from the hands of Gesine.",
     ]);
     return Response.json({
