@@ -3,6 +3,7 @@ import {
   CloseCircleTwoTone,
   PieChartOutlined,
   EditOutlined,
+  DownloadOutlined,
   DeleteOutlined 
 } from "@ant-design/icons";
 import {
@@ -22,7 +23,7 @@ import {
 import React, { useEffect, useState } from "react";
 import { tmStore, userStore } from "../../store";
 import locales from "../../lib/locales.json";
-import { addTMRequest, fetchTMRequest, updateTMRequest, deleteTMRequest, getLogsRequest } from "../TM/request";
+import { addTMRequest, fetchTMRequest, updateTMRequest, deleteTMRequest, getLogsRequest, exportTMRequest } from "../TM/request";
 
 const languages = locales;
 
@@ -136,6 +137,16 @@ const TM = ({ project, tmRequesting }) => {
     }
   };
 
+  const handleExport = async (id) => {
+    try {
+        message.loading({ content: "Export TM...", key: "export-tm" });
+        await exportTMRequest(id);
+        message.success({ content: "Export TM successfully!", key: "export-tm" });
+    } catch (error) {
+        message.error("Error exporting TM");
+    }
+  };
+
   const handleDelete = async (id) => {
     try {
         message.loading({ content: "Updating TM...", key: "del-tm" });
@@ -197,6 +208,15 @@ const TM = ({ project, tmRequesting }) => {
             icon={<EditOutlined />}
             type="default"
             onClick={() => openModalEdit(record)}
+            size="small"
+          >
+          </Button>
+
+          <Button
+            className="ml-2"
+            type="default"
+            icon={<DownloadOutlined  />}
+            onClick={() => handleExport(record.id)}
             size="small"
           >
           </Button>

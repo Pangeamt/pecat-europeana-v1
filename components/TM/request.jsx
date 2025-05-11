@@ -1,6 +1,6 @@
 import axios from "axios";
-
 const TM_HOST = process.env.NEXT_PUBLIC_TM_HOST;
+
 
 const addTMRequest = async (tm) => {
     try {
@@ -42,6 +42,30 @@ const deleteTMRequest = async (tmId) => {
     }
   };
 
+const exportTMRequest = async (tmId) => {
+  try {
+    // const response = await axios.get(`/api/tm/export`, { params: { tmId, tmId } });
+    // return response.data;
+
+    const response = await axios.get(`/api/tm/export`, {
+      params: { tmId },
+      responseType: 'blob', // 👈 necesario para recibir un archivo
+    });
+
+    // Crea un blob y fuerza la descarga
+    const blob = new Blob([response.data], { type: 'application/xml' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${tmId}.tmx`;
+    a.click();
+    window.URL.revokeObjectURL(url); 
+  } catch (error) {
+    console.error("Error exporting TM:", error.response?.data || error.message);
+    throw error; // Relanzamos el error para que pueda manejarse donde se llame
+  }
+};
+
 const getLogsRequest = async (projectId, tmId) => {
     try {
         const response = await axios.get(`/api/projects/logs`, { params: { projectId, tmId } });
@@ -52,4 +76,4 @@ const getLogsRequest = async (projectId, tmId) => {
     }
 };
 
-export { addTMRequest, fetchTMRequest, updateTMRequest, deleteTMRequest, getLogsRequest };
+export { addTMRequest, fetchTMRequest, updateTMRequest, deleteTMRequest, getLogsRequest, exportTMRequest };
