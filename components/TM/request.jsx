@@ -44,9 +44,6 @@ const deleteTMRequest = async (tmId) => {
 
 const exportTMRequest = async (tmId) => {
   try {
-    // const response = await axios.get(`/api/tm/export`, { params: { tmId, tmId } });
-    // return response.data;
-
     const response = await axios.get(`/api/tm/export`, {
       params: { tmId },
       responseType: 'blob', // 👈 necesario para recibir un archivo

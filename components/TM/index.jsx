@@ -24,6 +24,7 @@ import React, { useEffect, useState } from "react";
 import { tmStore, userStore } from "../../store";
 import locales from "../../lib/locales.json";
 import { addTMRequest, fetchTMRequest, updateTMRequest, deleteTMRequest, getLogsRequest, exportTMRequest } from "../TM/request";
+import TMAdd from "./add";
 
 const languages = locales;
 
@@ -298,7 +299,7 @@ const TM = ({ project, tmRequesting }) => {
         >
           Translation Memories
         </Button>
-
+        
         {tm && (
           <div className="flex justify-center">
             <Button
@@ -345,14 +346,18 @@ const TM = ({ project, tmRequesting }) => {
                   </div>
                 )}
               </div>
-              <Button
-                onClick={() => {
-                  setView("form");
-                }}
-                className="mb-2 float-right"
-              >
-                Create New TM
-              </Button>
+              <div>
+                <Button
+                  onClick={() => {
+                    setView("form");
+                  }}
+                  className="mb-2 mr-2"
+                >
+                  Create New TM
+                </Button>
+                <TMAdd refetch={() => fetchTm(user.email)} user={user} />
+              </div>
+
             </div>
 
             <Table
