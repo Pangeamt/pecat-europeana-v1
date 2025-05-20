@@ -5,7 +5,6 @@ const TM_HOST = process.env.NEXT_PUBLIC_TM_HOST;
 
 function generateTMX(data) {
     const { translation_memory, units } = data;
-  
     const srcLang = translation_memory.context.source || 'en';
     const trgLang = translation_memory.context.target || 'es';
     const creationDate = new Date().toISOString().replace(/[-:]/g, '').split('.')[0];
@@ -18,7 +17,7 @@ function generateTMX(data) {
       segtype="sentence"
       creationtool="Custom TM Exporter"
       creationtoolversion="1.0"
-      adminlang="${srcLang}"
+      adminlang="${trgLang}"
       creationdate="${creationDate}"
       creationid="${translation_memory.context.user || 'System'}"
     />
