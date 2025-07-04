@@ -1,23 +1,7 @@
 "use client";
 
-import {
-  Avatar,
-  Button,
-  Card,
-  List,
-  Popconfirm,
-  Progress,
-  Space,
-  Table,
-  Tooltip,
-  Typography,
-  message,
-} from "antd";
-import {
-  DeleteOutlined,
-  DownloadOutlined,
-  UserOutlined,
-} from "@ant-design/icons";
+import { Avatar, Button, Card, List, Popconfirm, Progress, Space, Table, Tooltip, Typography, message } from "antd";
+import { DeleteOutlined, DownloadOutlined, UserOutlined } from "@ant-design/icons";
 import React, { useState } from "react";
 import { capitalize, formatDate } from "../../lib/utils";
 
@@ -27,6 +11,7 @@ import ProjectEdit from "../Project/edit";
 import axios from "axios";
 import { useEffect } from "react";
 import { saveProject, removeProject, addProject, getProjects } from "./request";
+import { tmStore } from "../../store";
 
 const { Title } = Typography;
 
@@ -35,6 +20,8 @@ const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL;
 const ProjectList = () => {
   const [requesting, setRequesting] = useState(true);
   const [data, setData] = useState([]);
+  const tmSt = tmStore();
+  const { clear } = tmSt;
 
   useEffect(() => {
     fetchData();
@@ -46,6 +33,7 @@ const ProjectList = () => {
       const { data } = await getProjects();
       setData(data.docs);
       setRequesting(false);
+      clear()
     } catch (error) {
       console.error(error);
       setRequesting(false);

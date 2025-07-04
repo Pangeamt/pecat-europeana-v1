@@ -1,25 +1,5 @@
-import {
-  AuditOutlined,
-  CloseCircleTwoTone,
-  PieChartOutlined,
-  EditOutlined,
-  DownloadOutlined,
-  DeleteOutlined 
-} from "@ant-design/icons";
-import {
-  Button,
-  Checkbox,
-  Col,
-  Divider,
-  Form,
-  Input,
-  Modal,
-  Radio,
-  Row,
-  Select,
-  Table,
-  message,
-} from "antd";
+import { AuditOutlined, CloseCircleTwoTone, PieChartOutlined, EditOutlined, DownloadOutlined, DeleteOutlined } from "@ant-design/icons";
+import { Button, Checkbox, Col, Divider, Form, Input, Modal, Radio, Row, Select, Table, message } from "antd";
 import React, { useEffect, useState } from "react";
 import { tmStore, userStore } from "../../store";
 import locales from "../../lib/locales.json";

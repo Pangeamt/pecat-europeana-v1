@@ -1,16 +1,5 @@
 import React, { useEffect, useState } from "react";
-import {
-  Badge,
-  Button,
-  Col,
-  Modal,
-  Progress,
-  Radio,
-  Row,
-  Space,
-  Table,
-  Typography,
-} from "antd";
+import { Badge, Button, Col, Modal, Progress, Radio, Row, Space, Table, Typography } from "antd";
 import { useParams } from "next/navigation";
 import PropTypes from "prop-types";
 import { InfoCircleOutlined, LoadingOutlined } from "@ant-design/icons";
