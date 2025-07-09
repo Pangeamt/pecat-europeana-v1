@@ -1,15 +1,7 @@
-import {
-  Button,
-  Divider,
-  Form,
-  Modal,
-  Upload,
-  message,
-} from "antd";
+import { Button, Divider, Form, Modal, Upload, message } from "antd";
 import { PlusOutlined, UploadOutlined } from "@ant-design/icons";
 import React, { useState } from "react";
-
-import { EUROPEAN_LANGUAGES } from "../../lib/utils";
+import { tmStore } from "../../store";
 
 const checkFile = (file) => {
     const fileName = file.name.trim().replace(/\s+/g, "");
@@ -20,6 +12,8 @@ const checkFile = (file) => {
 };
 
 const TMAdd = ({refetch, user}) => {
+  const tmSt = tmStore();
+  const { tm } = tmSt;
   const [ form] = Form.useForm();
   const [ isModalOpen, setIsModalOpen] = useState(false);
   const [ adding, setAdding] = useState(false);
@@ -40,7 +34,6 @@ const TMAdd = ({refetch, user}) => {
     }
   };
 
-
   const props = {
     multiple: true,
     name: "file",
@@ -48,7 +41,9 @@ const TMAdd = ({refetch, user}) => {
     headers: {
       authorization: "authorization-text",
     },
-    data: { },
+    data: (file) => ({
+      tm: tm?.id,  // aquí se pasa dinámicamente
+    }),
     onChange: async (info) => {
       if (info.file.status === "done") {
         message.success(`${info.file.name} file uploaded successfully`);
@@ -78,10 +73,10 @@ const TMAdd = ({refetch, user}) => {
   return (
     <>
       <Button icon={<PlusOutlined />} type="default" onClick={showModal}>
-        Import TM
+        {tm ? "Update TM" : "Import TM"}
       </Button>
       <Modal
-        title="Import TM"
+        title={tm ? "Update TM" : "Import TM"}
         open={isModalOpen}
         onOk={handleOk}
         onCancel={handleCancel}
