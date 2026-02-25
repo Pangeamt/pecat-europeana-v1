@@ -15,6 +15,8 @@ import React, { useState } from "react";
 
 import { EUROPEAN_LANGUAGES } from "../../lib/utils";
 
+export const EUROPEAN_LANGUAGES_TRG = { en: "English"}
+
 const ProjectAdd = ({ add, refetch }) => {
   const [ form] = Form.useForm();
   const [ isModalOpen, setIsModalOpen] = useState(false);
@@ -42,7 +44,6 @@ const ProjectAdd = ({ add, refetch }) => {
       setAdding(false);
     }
   };
-
 
   const props = {
     multiple: true,
@@ -173,8 +174,12 @@ const ProjectAdd = ({ add, refetch }) => {
                       optionFilterProp="label"
                       onChange={onChangeTgt}
                       // onSearch={onSearch}
-                      options={getTgtOptions(src)}
+                      // options={getTgtOptions(src)}
                       disabled={!src}
+                      options={Object.keys(EUROPEAN_LANGUAGES_TRG).map((key) => ({
+                        value: key,
+                        label: EUROPEAN_LANGUAGES_TRG[key],
+                      }))}
                     />
                   </Form.Item>
                 </>

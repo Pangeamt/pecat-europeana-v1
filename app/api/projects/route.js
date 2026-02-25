@@ -376,12 +376,17 @@ export const POST = async (req) => {
         } 
         else 
         {
-          const tmp = await oxygenTranslateFile({
+          const objectOxigen = {
             filePath,
             src_lang: src || "en",
             tgt_lang: tgt || null,
             mt,
-          });
+          }
+          console.log(objectOxigen)
+          
+          const tmp = await oxygenTranslateFile(objectOxigen);
+
+          console.log("Respuesta de Oxigen",tmp)
 
           if (!tmp) return Response.json({message: `Internal error with Oxigen`},{ status: 500 } );
 

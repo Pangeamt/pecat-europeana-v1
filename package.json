@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "@ant-design/icons": "5.4.0",
+    "@ant-design/icons": "6.1.0",
     "@ant-design/nextjs-registry": "1.0.1",
     "@prisma/client": "5.18.0",
     "antd": "5.20.2",
@@ -43,7 +43,7 @@
   },
   "docs-version": "https://www.conventionalcommits.org/en/v1.0.0/#summary",
   "name": "pecat-europeana-fix",
-  "packageManager": "pnpm@8.11.0+sha1.01bf39424f1008f29012bbae851d2acb8a20a0d0",
+  "packageManager": "pnpm@10.20.0",
   "private": true,
   "release": {
     "branches": [

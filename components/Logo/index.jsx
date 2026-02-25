@@ -9,7 +9,7 @@ const Logo = () => {
     <div className="flex justify-between">
       <Link href="/">
         <Image
-          src="/images/logo_PECAT_horizontal.png"
+          src="/images/logo-para-web-cabecera.svg"
           alt="logo"
           width={150}
           height={51}

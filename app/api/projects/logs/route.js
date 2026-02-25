@@ -72,7 +72,7 @@ export const GET = async (req) => {
         const tuTM = docs[j];
         const similarity = levenshteinSimilarity(
           tuElement.srcLiteral,
-          tuTM.text
+          tuTM.source_text
         );
         if (similarity > maxSimilarity) {
           maxSimilarity = similarity;
