@@ -42,7 +42,7 @@ const TMAdd = ({refetch, user}) => {
       authorization: "authorization-text",
     },
     data: (file) => ({
-      tm: tm?.id,  // aquí se pasa dinámicamente
+      tm: "000000000000000000000000",  // aquí se pasa dinámicamente
     }),
     onChange: async (info) => {
       if (info.file.status === "done") {

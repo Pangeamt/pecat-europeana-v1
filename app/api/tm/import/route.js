@@ -12,10 +12,9 @@ const parseTmxFile = async (file, user, tmId) => {
 
   return new Promise((resolve, reject) => {
     parser.parseString(xmlData, (err, result) => {
-      if (err) reject(err);
+      if (err) reject("Error parsing the file: " + err);
 
       const translationMemory = result.tmx.header[0].$;
-
 
       const units = result.tmx.body[0].tu.map((tu) => {
         return {
@@ -63,7 +62,7 @@ export const POST = async (req) => {
     const formData = await req.formData();
     const files = formData.getAll("file");
     const tm = formData.get("tm");
-    console.log(tm);
+    console.log("tm: ", tm);
     const tmId = tm ? tm : 0;
     
     for (const file of files) {
@@ -71,12 +70,15 @@ export const POST = async (req) => {
         const fileName = file.name.trim().replace(/\s+/g, "");
         const fileExtension = fileName.split(".").pop().toLowerCase();
 
-        console.log(fileExtension);
+        console.log("fileExtension: ", fileExtension);
         if (fileExtension !== "tmx") {
             console.log("The file type is not allowed", fileExtension);
           return Response.json({ message: `The file type is not allowed` }, { status: 400 });
         }
 
+        console.log("file: ", file);
+        console.log("user: ", user.email);
+        console.log("tmId: ", tmId);
         // Parsear el archivo TMX
         const tmxData = await parseTmxFile(file, user.email, tmId);
 
@@ -86,6 +88,8 @@ export const POST = async (req) => {
             "Content-Type": "application/json",
           },
         });
+
+        console.log("response: ", response.data);
 
         return Response.json({ status: "success", data: response.data });
       }
