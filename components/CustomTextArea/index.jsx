@@ -11,6 +11,8 @@ const ReactQuill = dynamic(() => import("react-quill-new"), { ssr: false });
 const modules = {
   toolbar: false,
   languageTool: {
+    // LanguageTool public endpoint moved to api.languagetool.org
+    server: "https://api.languagetool.org",
     cooldownTime: 1000,
     language: "auto",
     apiOptions: {
