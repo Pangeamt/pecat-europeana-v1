@@ -54,7 +54,7 @@ return str
     .replace(/>/g, '&gt;');
 }
 
-export const GET = async (req, { params }) => {
+export const GET = async (req) => {
   try {
     const authValue = await getServerSession(authOptions);
     if (!authValue)

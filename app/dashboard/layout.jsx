@@ -24,6 +24,7 @@ const validateRoute = (route) => {
 const App = ({ children }) => {
   const store = userStore();
   const { user } = store;
+  const [mounted, setMounted] = useState(false);
   const [collapsed, setCollapsed] = useState(true);
   const [page, setPage] = useState(["1"]);
   const [menusItems, setMenusItems] = useState([
@@ -40,6 +41,10 @@ const App = ({ children }) => {
 
   const pathname = usePathname();
   const isValidRoute = validateRoute(pathname);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (isValidRoute) {
@@ -72,6 +77,8 @@ const App = ({ children }) => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  if (!mounted) return null;
 
   return (
     <Layout

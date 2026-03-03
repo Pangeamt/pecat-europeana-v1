@@ -8,7 +8,7 @@ export const GET = async (_, { params }) => {
   try {
     const authValue = await getServerSession(authOptions);
 
-    const userId = params.userId;
+    const { userId } = await params;
 
     if (!authValue)
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });

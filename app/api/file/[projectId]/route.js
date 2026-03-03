@@ -12,7 +12,7 @@ export const GET = async (req, { params }) => {
     if (!user)
       return Response.json({ message: "Unauthorized" }, { status: 401 });
 
-    const projectId = params.projectId;
+    const { projectId } = await params;
 
     const project = await prisma.project.findUnique({
       where: {
