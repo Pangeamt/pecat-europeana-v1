@@ -1,43 +1,12 @@
 "use client";
-
 import { Avatar, Button, Card, Popconfirm, Space, Table, Tooltip } from "antd";
-import React, { useState } from "react";
-
+import { useState } from "react";
+import { addUser, getUsers, removeUser, saveUser } from "@/services/user.services";
 import { DeleteOutlined } from "@ant-design/icons";
+import { useEffect } from "react";
 import UserAdd from "./add";
 import UserEdit from "./edit";
-import axios from "axios";
-import { useEffect } from "react";
 
-const saveUser = async (newUser) => {
-  return await axios({
-    method: "patch",
-    url: "/api/users",
-    data: newUser,
-  });
-};
-const removeUser = async (userId) => {
-  return await axios({
-    method: "delete",
-    url: `/api/users`,
-    data: { userId },
-  });
-};
-
-const addUser = async (newUser) => {
-  return await axios({
-    method: "post",
-    url: "/api/users",
-    data: newUser,
-  });
-};
-
-const getUsers = async () => {
-  return await axios({
-    method: "get",
-    url: "/api/users",
-  });
-};
 
 const UserList = () => {
   const [requesting, setRequesting] = useState(true);
@@ -58,17 +27,26 @@ const UserList = () => {
       setRequesting(false);
     }
   };
+
   const save = async ({ ...values }) => {
-    await saveUser(values);
-    await fetchData();
+    try {
+      const response = await saveUser(values);
+      await fetchData();
+      return response;
+    } catch (error) {
+      console.error(error);
+      throw error;
+    }
   };
 
   const add = async ({ ...values }) => {
     try {
-      await addUser(values);
+      const response = await addUser(values);
       await fetchData();
+      return response;
     } catch (error) {
       console.error(error);
+      throw error;
     }
   };
 
@@ -108,6 +86,11 @@ const UserList = () => {
       title: "Role",
       dataIndex: "role",
       key: "role",
+    },
+    {
+      title: "Provider",
+      dataIndex: "provider",
+      key: "provider",
     },
     {
       title: "",

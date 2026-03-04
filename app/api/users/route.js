@@ -1,10 +1,9 @@
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import Joi from "joi";
+import { getServerSession } from "next-auth";
+import { NextResponse } from "next/server";
 import { generateSaltAndHash } from "../../../lib/utils";
-
-import prisma from "../../../lib/prisma";
 import { authOptions } from "../../../lib/auth";
+import prisma from "../../../lib/prisma";
 
 const roleEnum = ["USER", "ADMIN"];
 
@@ -15,6 +14,16 @@ const schemaPATCH = Joi.object({
   role: Joi.string().valid(...roleEnum),
   image: Joi.string(),
   password: Joi.string(),
+});
+
+const schemaPOST = Joi.object({
+  name: Joi.string().required(),
+  email: Joi.string().email().required(),
+  role: Joi.string()
+    .valid(...roleEnum)
+    .required(),
+  password: Joi.string().required(),
+  image: Joi.string().allow(null, ""),
 });
 
 export const GET = async () => {
@@ -34,6 +43,7 @@ export const GET = async () => {
         email: true,
         image: true,
         role: true,
+        provider: true,
         emailVerified: true,
       },
     });
@@ -46,7 +56,10 @@ export const GET = async () => {
     });
     return NextResponse.json({ users: newUsers }, { status: 200 });
   } catch (error) {
-    return NextResponse.error({ message: error.message }, { status: 401 });
+    return NextResponse.json(
+      { message: error.message || "Failed to get users" },
+      { status: 500 }
+    );
   }
 };
 
@@ -60,7 +73,9 @@ export const POST = async (req) => {
     if (!user)
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
-    const { name, email, role, password, image = null } = await req.json();
+    const body = await req.json();
+    const { name, email, role, password, image = null } =
+      await schemaPOST.validateAsync(body);
     const { salt, hash } = generateSaltAndHash({ password });
 
     const values = { name, email, role, salt, hash };
@@ -75,7 +90,21 @@ export const POST = async (req) => {
     });
     return NextResponse.json({ user: newUser }, { status: 201 });
   } catch (error) {
-    return NextResponse.error({ message: error.message }, { status: 401 });
+    if (error.isJoi) {
+      return NextResponse.json({ message: error.message }, { status: 400 });
+    }
+
+    if (error.code === "P2002") {
+      return NextResponse.json(
+        { message: "Email already exists" },
+        { status: 409 }
+      );
+    }
+
+    return NextResponse.json(
+      { message: error.message || "Failed to create user" },
+      { status: 500 }
+    );
   }
 };
 

@@ -1,22 +1,33 @@
-import React, { useState } from "react";
-
-import { Modal, Button, Form, Input, Divider, Upload, Select } from "antd";
+"use client";
+import { useState } from "react";
 import { PlusOutlined } from "@ant-design/icons";
-
+import { Button, Divider, Form, Input, Modal, Select, Upload, message } from "antd";
 import ImgCrop from "antd-img-crop";
 
-const getSrcFromFile = (file) => {
+const getCompressedDataUrlFromFile = (file) => {
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.readAsDataURL(file.originFileObj);
-    reader.onload = () => resolve(reader.result);
+    reader.onload = () => {
+      const image = new Image();
+      image.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxSize = 256;
+        const ratio = Math.min(maxSize / image.width, maxSize / image.height, 1);
+        canvas.width = Math.round(image.width * ratio);
+        canvas.height = Math.round(image.height * ratio);
+        const context = canvas.getContext("2d");
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.75));
+      };
+      image.src = reader.result;
+    };
   });
 };
 
 const UserAdd = ({ add }) => {
   const [form] = Form.useForm();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [by, setBy] = useState("url");
   const [adding, setAdding] = useState(false);
   const [fileList, setFileList] = useState([]);
 
@@ -26,8 +37,6 @@ const UserAdd = ({ add }) => {
     } else {
       setFileList([]);
     }
-
-    return false;
   };
 
   const showModal = () => {
@@ -38,13 +47,26 @@ const UserAdd = ({ add }) => {
     try {
       setAdding(true);
       const values = await form.validateFields();
-      values.image = await getSrcFromFile(fileList[0]);
-      await add(values);
+      delete values.confirm;
+
+      if (fileList[0]?.originFileObj) {
+        values.image = await getCompressedDataUrlFromFile(fileList[0]);
+      }
+
+      const response = await add(values);
+      if (response?.status === 201) {
+        message.success("User added successfully");
+      } else {
+        message.error("Failed to add user");
+      }
       setAdding(false);
       form.resetFields();
       setIsModalOpen(false);
       clear();
     } catch (errorInfo) {
+      const errorMessage =
+        errorInfo?.response?.data?.message || "Failed to add user";
+      message.error(errorMessage);
       console.log("Failed:", errorInfo);
       setAdding(false);
     }
@@ -77,7 +99,12 @@ const UserAdd = ({ add }) => {
     if (!isLt2M) {
       message.error("Image must smaller than 2MB!");
     }
-    return isJpgOrPng && isLt2M;
+    if (!isJpgOrPng || !isLt2M) {
+      return Upload.LIST_IGNORE;
+    }
+
+    // Prevent auto upload; file is sent only on form submit.
+    return false;
   };
 
   return (
@@ -91,7 +118,6 @@ const UserAdd = ({ add }) => {
         onOk={handleOk}
         onCancel={handleCancel}
         confirmLoading={adding}
-        footer={by === "file" ? null : undefined}
       >
         <Divider />
         <Form form={form} layout="horizontal" {...layout}>
@@ -120,6 +146,7 @@ const UserAdd = ({ add }) => {
           >
             <Input />
           </Form.Item>
+
           <Form.Item
             name="email"
             label="Email"
@@ -132,6 +159,7 @@ const UserAdd = ({ add }) => {
           >
             <Input />
           </Form.Item>
+
           <Form.Item
             label="Role"
             name="role"
