@@ -8,8 +8,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
-  title: "PECAT EUROPEANA",
-  description: "Linguistic Tools for Europeana",
+  title: "PECAT-E",
+  description: "Linguistic Tools for PECAT-E",
   icons: {
     icon: "/favicon.ico",
     shortcut: "/favicon-16x16.png",
