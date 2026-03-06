@@ -20,14 +20,14 @@ const Logo = () => {
           }}
         />
       </Link>
-      <code
+      {/* <code
         className="text-xs text-gray-500 ml-2"
         style={{
           marginTop: 35,
         }}
       >
         v{version}
-      </code>
+      </code> */}
     </div>
   );
 };

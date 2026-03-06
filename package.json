@@ -46,7 +46,7 @@
     "typescript": "5.9.3"
   },
   "docs-version": "https://www.conventionalcommits.org/en/v1.0.0/#summary",
-  "name": "pecat-europeana-fix",
+  "name": "PECAT-E",
   "packageManager": "pnpm@10.20.0",
   "private": true,
   "release": {

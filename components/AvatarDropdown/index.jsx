@@ -13,17 +13,17 @@ import { userStore } from "../../store";
 import { useSession, signOut } from "next-auth/react";
 
 const items = [
-  {
-    key: "1",
-    label: "Profile",
-    icon: (
-      <ProfileOutlined
-        style={{
-          fontSize: 16,
-        }}
-      />
-    ),
-  },
+  // {
+  //   key: "1",
+  //   label: "Profile",
+  //   icon: (
+  //     <ProfileOutlined
+  //       style={{
+  //         fontSize: 16,
+  //       }}
+  //     />
+  //   ),
+  // },
   {
     key: "4",
     danger: true,
