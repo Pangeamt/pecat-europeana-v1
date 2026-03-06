@@ -9633,7 +9633,12 @@ function createSuggestionBlotForQuillInstance(Quill) {
     (_a = /** @class */ (function (_super) {
       __extends(SuggestionBlot, _super);
       function SuggestionBlot() {
-        return (_super !== null && _super.apply(this, arguments)) || this;
+        if (_super === null) {
+          return this;
+        }
+        return (
+          Reflect.construct(_super, arguments, this.constructor) || this
+        );
       }
       SuggestionBlot.create = function (match) {
         var node = _super.create.call(this);

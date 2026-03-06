@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { Alert, Button, Card, Form, Input, Typography, Image } from "antd";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 
-const LoginPage = () => {
+const LoginContent = () => {
   const [loading, setLoading] = useState(false);
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
@@ -75,6 +75,14 @@ const LoginPage = () => {
         </Form>
       </Card>
     </main>
+  );
+};
+
+const LoginPage = () => {
+  return (
+    <Suspense fallback={null}>
+      <LoginContent />
+    </Suspense>
   );
 };
 

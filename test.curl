@@ -1,0 +1,3 @@
+curl -v --max-time 300 -X POST "http://127.0.0.1:83/module/mtqe_score/process_list" \
+  -H "Content-Type: application/json" \
+  -d '{"pairs":[{"mt_segment":"hola","source_segment":"hello"}]}'
