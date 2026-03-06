@@ -20,8 +20,8 @@ export const EUROPEAN_LANGUAGES_TRG = { en: "English"}
 const ProjectAdd = ({ add, refetch }) => {
   const [ form] = Form.useForm();
   const [ isModalOpen, setIsModalOpen] = useState(false);
-  const [ by, setBy] = useState("url");
-  const [ mt, setMt] = useState(false);
+  const [ by, setBy] = useState("file");
+  const [ mt, setMt] = useState(true);
   const [ src, setSrc] = useState(null);
   const [ tgt, setTgt] = useState(null);
   const [ adding, setAdding] = useState(false);
@@ -116,7 +116,7 @@ const ProjectAdd = ({ add, refetch }) => {
             offset: 2,
           }}
         >
-          <Form.Item label="By">
+          {/* <Form.Item label="By">
             <Radio.Group
               defaultValue={by}
               onChange={(event) => setBy(event.target.value)}
@@ -125,13 +125,14 @@ const ProjectAdd = ({ add, refetch }) => {
 
               <Radio value="file">File/s</Radio>
             </Radio.Group>
-          </Form.Item>
+          </Form.Item> */}
+
           {by === "file" && (
             <>
               <Form.Item name="mt" label="Add MT" initialValue={mt}>
                 <Radio.Group onChange={(e) => setMt(e.target.value)}>
-                  <Radio value={false}> No </Radio>
                   <Radio value={true}> Yes </Radio>
+                  <Radio value={false}> No </Radio>
                 </Radio.Group>
               </Form.Item>
               {mt && (

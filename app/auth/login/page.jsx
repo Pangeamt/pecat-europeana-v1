@@ -28,20 +28,20 @@ const LoginPage = () => {
             <Image
               src="/images/pglogo-light.svg"
               alt="logo"
-              width={150}
-              height={51}
+              width={100}
+              height={34}
               preview={false}
               style={{
-                height: 51,
-                width: 150,
+                height: 34,
+                width: 100,
                 marginTop: 7,
               }}
             />
         </div>
-         <div className="flex items-center justify-center mb-4">
-          <Typography.Text level={3} style={{ marginBottom: 20 }} className="text-center font-bold">PECAT-E</Typography.Text>
-         </div>
 
+        <div className="flex items-center justify-center mb-4">
+          <Typography.Title level={2} style={{ marginBottom: 20 }} className="text-center font-bold">PECAT-E</Typography.Title>
+         </div>
 
         {error && (
           <Alert
