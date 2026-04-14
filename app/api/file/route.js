@@ -49,38 +49,49 @@ export const GET = async (req) => {
     // const searchParams = new URLSearchParams(url.searchParams);
     // const uuid = searchParams.get("uuid");
     // const projectId = searchParams.get("projectId");
-    const { uuid, projectId } = Object.fromEntries( new URL( req.url ).searchParams );
+    const { uuid, projectId } = Object.fromEntries(
+      new URL(req.url).searchParams,
+    );
     const now = new Date();
 
-    if ( !uuid || !projectId ) return new Response(JSON.stringify({ message: "uuid or projectId is required" }), { status: 400 });
-  
+    if (!uuid || !projectId)
+      return new Response(
+        JSON.stringify({ message: "uuid or projectId is required" }),
+        { status: 400 },
+      );
+
     const project = await prisma.project.findUnique({
-      where: { id : projectId ?? undefined }
+      where: { id: projectId ?? undefined },
     });
 
-    if ( !project && project.uuid !== uuid ) return new Response(JSON.stringify({ message: "Project not found" }), { status: 404 });
-    
+    if (!project && project.uuid !== uuid)
+      return new Response(JSON.stringify({ message: "Project not found" }), {
+        status: 404,
+      });
+
     const accessDeadline = new Date(project.accessDeadline);
 
-    if ( accessDeadline < now ) return new Response(JSON.stringify({ message: "The link has expired" }), { status: 401 });
-    
+    if (accessDeadline < now)
+      return new Response(JSON.stringify({ message: "The link has expired" }), {
+        status: 401,
+      });
+
     const tus = await prisma.tu.findMany({
       where: { projectId: project.id ?? undefined },
     });
 
     const tusCombined = combineAndRemove(tus);
 
-    if ( project.extension === "json") 
-    {
+    if (project.extension === "json") {
       const jsonString = JSON.stringify(tusCombined);
 
       const fileNameAux = project.filename.split(".json")[0];
       const aux = new Date().getTime();
       const jsonFilePath = path.resolve(
-        `./public/files/downloads/${fileNameAux}-${aux}-pecat.json`
+        `./public/files/downloads/${fileNameAux}-${aux}-pecat.json`,
       );
       const gzFilePath = path.resolve(
-        `./public/files/downloads/${fileNameAux}-${aux}-pecat.json.gz`
+        `./public/files/downloads/${fileNameAux}-${aux}-pecat.json.gz`,
       );
 
       await fs.promises.writeFile(jsonFilePath, jsonString);
@@ -88,7 +99,7 @@ export const GET = async (req) => {
       await pipelineAsync(
         fs.createReadStream(jsonFilePath),
         createGzip(),
-        fs.createWriteStream(gzFilePath)
+        fs.createWriteStream(gzFilePath),
       );
 
       const fileBuffer = await fs.promises.readFile(gzFilePath);
@@ -109,11 +120,9 @@ export const GET = async (req) => {
           "Content-Disposition": `attachment; filename=${fileNameAux}-pecat.json.gz`,
         },
       });
-    } 
-    else 
-    {
+    } else {
       const tgts = tusCombined.map((tu) =>
-        tu.reviewLiteral ? tu.reviewLiteral : tu.translatedLiteral || ""
+        tu.reviewLiteral ? tu.reviewLiteral : tu.translatedLiteral || "",
       );
 
       const data = await oxygenBuildFile({
@@ -131,7 +140,9 @@ export const GET = async (req) => {
       });
     }
   } catch (error) {
-    return new Response(JSON.stringify({ message: error.message }), { status: 500 });
+    return new Response(JSON.stringify({ message: error.message }), {
+      status: 500,
+    });
   }
 };
 
