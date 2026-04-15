@@ -1,8 +1,8 @@
-import axios from "axios";
+import { httpClient } from "./http-client";
 
 
 export const saveUser = async (newUser) => {
-  return await axios({
+  return await httpClient({
     method: "patch",
     url: "/api/users",
     data: newUser,
@@ -10,7 +10,7 @@ export const saveUser = async (newUser) => {
 };
 
 export const removeUser = async (userId) => {
-  return await axios({
+  return await httpClient({
     method: "delete",
     url: `/api/users`,
     data: { userId },
@@ -18,7 +18,7 @@ export const removeUser = async (userId) => {
 };
 
 export const addUser = async (newUser) => {
-  return await axios({
+  return await httpClient({
     method: "post",
     url: "/api/users",
     data: newUser,
@@ -26,7 +26,7 @@ export const addUser = async (newUser) => {
 };
 
 export const getUsers = async () => {
-  return await axios({
+  return await httpClient({
     method: "get",
     url: "/api/users",
   });

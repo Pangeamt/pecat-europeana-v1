@@ -1,102 +1,24 @@
-import axios from "axios";
-import xml2js from "xml2js";
-import { getServerSession } from "next-auth";
-import { authOptions } from "../../../../lib/auth";
-const TM_HOST = process.env.NEXT_PUBLIC_TM_HOST;
-
-// Función para parsear el archivo TMX y extraer los datos
-const parseTmxFile = async (file, user, tmId) => {
-  const parser = new xml2js.Parser();
-  const fileBuffer = await file.arrayBuffer();
-  const xmlData = Buffer.from(fileBuffer).toString("utf-8");
-
-  return new Promise((resolve, reject) => {
-    parser.parseString(xmlData, (err, result) => {
-      if (err) reject("Error parsing the file: " + err);
-
-      const translationMemory = result.tmx.header[0].$;
-
-      const units = result.tmx.body[0].tu.map((tu) => {
-        return {
-            source_language: tu.tuv[0].$['xml:lang'],  // Acceder al atributo xml:lang
-            target_language: tu.tuv[1].$['xml:lang'], 
-            source_text: tu.tuv[0].seg[0],
-            translated_text: tu.tuv[1].seg[0],
-            context: {
-                user: user, // Este sería el usuario real, obtenido de tu sesión
-                project: "Proyecto",
-                domain: "Dominio"
-            }
-        };
-      });
-
-      const nameTMX = result.tmx.header[0].$.name || "Imported TMX";
-
-      const tm = {
-        tmId: tmId,
-        translation_memory: {
-          name: nameTMX,
-          context: {
-            user: user, // Este sería el usuario real, obtenido de tu sesión
-            project: "Proyecto123",
-            domain: "Dominio",
-            source: translationMemory.srclang,
-            target: translationMemory.adminlang
-          }
-        },
-        units: units
-      };
-
-      resolve(tm);
-    });
-  });
-};
+import { requireAuthUser } from "../../../../modules/shared/auth";
+import { toErrorResponse } from "../../../../modules/shared/http";
+import { importTmFromFilesService } from "../../../../modules/tm/service";
+import { tmImportFormSchema } from "../../../../modules/tm/schemas";
 
 export const POST = async (req) => {
   try {
-    const authValue = await getServerSession(authOptions);
-    if (!authValue) return Response.json({ message: "Unauthorized" }, { status: 401 });
-    const { user } = authValue;
-    if (!user) return Response.json({ message: "Unauthorized" }, { status: 401 });
-
+    const user = await requireAuthUser();
     const formData = await req.formData();
     const files = formData.getAll("file");
-    const tm = formData.get("tm");
-    console.log("tm: ", tm);
-    const tmId = tm ? tm : 0;
-    
-    for (const file of files) {
-      if (file && file.name) {
-        const fileName = file.name.trim().replace(/\s+/g, "");
-        const fileExtension = fileName.split(".").pop().toLowerCase();
-
-        console.log("fileExtension: ", fileExtension);
-        if (fileExtension !== "tmx") {
-            console.log("The file type is not allowed", fileExtension);
-          return Response.json({ message: `The file type is not allowed` }, { status: 400 });
-        }
-
-        console.log("file: ", file);
-        console.log("user: ", user.email);
-        console.log("tmId: ", tmId);
-        // Parsear el archivo TMX
-        const tmxData = await parseTmxFile(file, user.email, tmId);
-
-        // Enviar los datos al backend de Fastify
-        const response = await axios.post(`${TM_HOST}/tm/import`, tmxData, {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-
-        console.log("response: ", response.data);
-
-        return Response.json({ status: "success", data: response.data });
-      }
-    }
-
+    const parsedForm = await tmImportFormSchema.validateAsync({
+      tmId: formData.get("tm"),
+    });
+    const tmId = parsedForm.tmId || 0;
+    const data = await importTmFromFilesService({
+      files,
+      tmId,
+      userEmail: user.email,
+    });
+    return Response.json({ status: "success", data });
   } catch (error) {
-    console.log(error);
-    return Response.json({ message: error.message }, { status: 500 });
+    return toErrorResponse(error);
   }
 };

@@ -3,7 +3,14 @@ import { Button, Checkbox, Col, Divider, Form, Input, Modal, Radio, Row, Select,
 import React, { useEffect, useState } from "react";
 import { tmStore, userStore } from "../../store";
 import locales from "../../lib/locales.json";
-import { addTMRequest, fetchTMRequest, updateTMRequest, deleteTMRequest, getLogsRequest, exportTMRequest } from "../TM/request";
+import {
+  addTMRequest,
+  fetchTMRequest,
+  updateTMRequest,
+  deleteTMRequest,
+  getLogsRequest,
+  exportTMRequest,
+} from "@/services/tm.services";
 import TMAdd from "./add";
 
 const languages = locales;
@@ -91,7 +98,7 @@ const TM = ({ project, tmRequesting }) => {
       form.resetFields();
       message.success({ content: "TM created!", key: "add-tm" });
     } catch (errorInfo) {
-      console.log("Failed:", errorInfo);
+      console.error("Failed:", errorInfo);
       message.error({ content: "Error creating TM", key: "add-tm" });
     }
   };
@@ -112,7 +119,7 @@ const TM = ({ project, tmRequesting }) => {
       form2.resetFields();
       message.success({ content: "TM updated!", key: "edit-tm" });
     } catch (errorInfo) {
-      console.log("Failed:", errorInfo);
+      console.error("Failed:", errorInfo);
       handleCancelEdit()
       message.error({ content: "Error updating TM", key: "edit-tm" });
     }

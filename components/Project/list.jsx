@@ -8,9 +8,14 @@ import { capitalize, formatDate } from "../../lib/utils";
 import Link from "next/link";
 import ProjectAdd from "../Project/add";
 import ProjectEdit from "../Project/edit";
-import axios from "axios";
 import { useEffect } from "react";
-import { saveProject, removeProject, addProject, getProjects } from "./request";
+import {
+  saveProject,
+  removeProject,
+  addProject,
+  getProjects,
+  getProjectShareLink,
+} from "@/services/project.services";
 import { tmStore } from "../../store";
 
 const { Title } = Typography;
@@ -33,7 +38,7 @@ const ProjectList = () => {
       const { data } = await getProjects();
       setData(data.docs);
       setRequesting(false);
-      clear()
+      clear();
     } catch (error) {
       console.error(error);
       setRequesting(false);
@@ -83,7 +88,6 @@ const ProjectList = () => {
     // verificarPermisoPortapapeles();
     const navigator = window.navigator;
     const clipboard = navigator.clipboard;
-    console.log(textToCopy);
     if (!clipboard || !clipboard.writeText) {
       console.error("La API del portapapeles no es compatible con este navegador");
       return;
@@ -95,9 +99,8 @@ const ProjectList = () => {
   const getDownloadLink = async (projectId) => {
     try {
       setRequesting(projectId);
-      const link = `${baseURL}/api/file/${projectId}`;
-      const { data } = await axios.get(link);
-      await copyTextToClipboard(`${baseURL}/api/file?uuid=${data.uuid}&projectId=${projectId}`);
+      const shareLink = await getProjectShareLink(projectId, baseURL);
+      await copyTextToClipboard(shareLink);
 
       // await copyTextToClipboard(
       //   `${baseURL}/api/file?uuid=${1}&projectId=${projectId}`

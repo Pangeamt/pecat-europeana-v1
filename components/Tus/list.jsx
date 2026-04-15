@@ -32,7 +32,7 @@ import {
 import CustomTextArea from "../../components/CustomTextArea";
 import HeaderTus from "../../components/Tus/header";
 import { tmStore, userStore } from "../../store";
-import { confirmTu, confirmTuTm, updateTuTm, getTus } from "./request";
+import { confirmTu, confirmTuTm, updateTuTm, getTus } from "@/services/tus.services";
 
 const style = {
   border: "solid 2px #ddd",
