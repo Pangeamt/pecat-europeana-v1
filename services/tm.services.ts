@@ -1,24 +1,22 @@
 import { httpClient } from "./http-client";
 
-const TM_HOST = process.env.NEXT_PUBLIC_TM_HOST;
-
 export const addTMRequest = async (tm) => {
-  const response = await httpClient.post(`${TM_HOST}/tm`, tm);
+  const response = await httpClient.post("/api/tm", tm);
   return response.data;
 };
 
 export const fetchTMRequest = async (user) => {
-  const response = await httpClient.get(`${TM_HOST}/tm`, { params: { user } });
+  const response = await httpClient.get("/api/tm", { params: { user } });
   return response.data;
 };
 
 export const updateTMRequest = async (tm) => {
-  const response = await httpClient.patch(`${TM_HOST}/tm`, tm);
+  const response = await httpClient.patch("/api/tm", tm);
   return response.data;
 };
 
 export const deleteTMRequest = async (tmId) => {
-  const response = await httpClient.delete(`${TM_HOST}/tm/${tmId}`);
+  const response = await httpClient.delete(`/api/tm/${tmId}`);
   return response.data;
 };
 

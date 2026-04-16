@@ -32,7 +32,23 @@ Este proyecto usa una arquitectura modular por dominio para escalar sin concentr
 
 ## Siguiente expansión sugerida
 
-- Modularizar `tus` y `tm` en `modules/tus` y `modules/tm`.
+- Consolidar rutas y validaciones de TM/TU en `modules/tm` y `modules/tu`.
 - Extraer procesos pesados de importacion/traduccion a jobs en background.
 - Agregar tests de integración por modulo (`users`, `projects`, `tus`).
+
+## TM/TU internalizado
+
+La logica de Translation Memory y Translation Units ya se ejecuta dentro de esta app:
+
+- API interna TM:
+  - `GET|POST|PATCH /api/tm`
+  - `DELETE /api/tm/:id`
+  - `POST /api/tm/import`
+  - `GET /api/tm/export`
+- API interna TU:
+  - `GET|POST|PATCH /api/tu`
+  - `GET /api/tu/all`
+- Backend OpenSearch centralizado en `lib/opensearch.js` usando:
+  - `HOST_OPENSEARCH`
+  - `HOST_OPENSEARCH_AUTH`
 

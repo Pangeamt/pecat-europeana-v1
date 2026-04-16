@@ -1,7 +1,5 @@
 import { httpClient } from "./http-client";
 
-const TM_HOST = process.env.NEXT_PUBLIC_TM_HOST;
-
 export const confirmTu = async (payload) => {
   return await httpClient({
     method: "post",
@@ -13,7 +11,7 @@ export const confirmTu = async (payload) => {
 export const confirmTuTm = async (payload) => {
   return await httpClient({
     method: "post",
-    url: `${TM_HOST}/tu`,
+    url: "/api/tu",
     data: payload,
   });
 };
@@ -21,7 +19,7 @@ export const confirmTuTm = async (payload) => {
 export const updateTuTm = async (payload) => {
   return await httpClient({
     method: "patch",
-    url: `${TM_HOST}/tu`,
+    url: "/api/tu",
     data: payload,
   });
 };
@@ -35,6 +33,6 @@ export const getTus = async (projectId) => {
 };
 
 export const getTmTus = async (params) => {
-  return await httpClient.get(`${TM_HOST}/tu`, { params });
+  return await httpClient.get("/api/tu", { params });
 };
 

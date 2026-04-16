@@ -1,8 +1,12 @@
-import axios from "axios";
 import xml2js from "xml2js";
+import {
+  bulkIndexDocuments,
+  deleteDocument,
+  indexDocument,
+  searchDocuments,
+  updateDocument,
+} from "../../lib/opensearch";
 import { HttpError } from "../shared/http-error";
-
-const TM_HOST = process.env.NEXT_PUBLIC_TM_HOST;
 
 async function parseTmxFile(file, userEmail, tmId) {
   const parser = new xml2js.Parser();
@@ -100,6 +104,197 @@ function generateTMX(data) {
   return `${header}\n${tuEntries}\n${footer}`;
 }
 
+function mapSearchHitsToDocs(hits) {
+  return hits.map((hit) => ({
+    id: hit._id,
+    ...hit._source,
+  }));
+}
+
+function getTotalHits(searchResult, fallbackLength) {
+  if (typeof searchResult?.hits?.total === "number") {
+    return searchResult.hits.total;
+  }
+
+  return searchResult?.hits?.total?.value ?? fallbackLength;
+}
+
+function asOptionalTerm(field, value) {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  return {
+    term: {
+      [field]: {
+        value,
+      },
+    },
+  };
+}
+
+export async function createTranslationMemoryService(payload) {
+  const { name, user, project, domain, source, target } = payload;
+  const doc = {
+    name,
+    context: { user, project, domain, source, target },
+  };
+
+  return indexDocument("translation_memory", doc);
+}
+
+export async function listTranslationMemoriesService(queryParams) {
+  const { name, user, project, domain, source, target, size = 100 } = queryParams;
+
+  const must = [
+    asOptionalTerm("name", name),
+    asOptionalTerm("context.user", user),
+    asOptionalTerm("context.project", project),
+    asOptionalTerm("context.domain", domain),
+    asOptionalTerm("context.source", source),
+    asOptionalTerm("context.target", target),
+  ].filter(Boolean);
+
+  const query = { bool: { must } };
+  const parsedSize = Number.parseInt(size, 10) || 100;
+  const response = await searchDocuments("translation_memory", { query }, parsedSize);
+  const hits = response?.hits?.hits || [];
+  const docs = mapSearchHitsToDocs(hits);
+
+  return {
+    total: getTotalHits(response, docs.length),
+    docs,
+  };
+}
+
+export async function updateTranslationMemoryService(payload) {
+  const { id, name, project, domain } = payload;
+  const doc = {};
+  const context = {};
+
+  if (name) {
+    doc.name = name;
+  }
+
+  if (project) {
+    context.project = project;
+  }
+
+  if (domain) {
+    context.domain = domain;
+  }
+
+  if (Object.keys(context).length > 0) {
+    doc.context = context;
+  }
+
+  if (Object.keys(doc).length === 0) {
+    throw new HttpError(400, "No fields to update");
+  }
+
+  const result = await updateDocument("translation_memory", id, doc);
+  return { message: "Updated successfully", result };
+}
+
+export async function deleteTranslationMemoryService(id) {
+  const result = await deleteDocument("translation_memory", id);
+  return { message: "Deleted successfully", result };
+}
+
+export async function getTranslationMemoryWithTusService(id) {
+  const tmResponse = await searchDocuments(
+    "translation_memory",
+    {
+      query: {
+        ids: {
+          values: [id],
+        },
+      },
+    },
+    1,
+  );
+
+  const tmHits = tmResponse?.hits?.hits || [];
+  if (tmHits.length === 0) {
+    throw new HttpError(404, "Translation memory not found");
+  }
+
+  const tm = {
+    id,
+    ...tmHits[0]._source,
+  };
+
+  const tusResponse = await searchDocuments(
+    "translation_units",
+    {
+      query: {
+        term: {
+          translation_memory_id: {
+            value: id,
+          },
+        },
+      },
+    },
+    10000,
+  );
+
+  const tusHits = tusResponse?.hits?.hits || [];
+  const tus = mapSearchHitsToDocs(tusHits);
+
+  return {
+    translation_memory: tm,
+    units: tus,
+  };
+}
+
+function hasValidTmId(tmId) {
+  return tmId !== undefined && tmId !== null && String(tmId).trim() !== "" && String(tmId) !== "0";
+}
+
+export async function importTranslationMemoryService({ translation_memory, units, tmId }) {
+  if (!translation_memory || !Array.isArray(units)) {
+    throw new HttpError(400, "Invalid import structure");
+  }
+
+  let finalTmId = null;
+  if (hasValidTmId(tmId)) {
+    finalTmId = String(tmId);
+  } else {
+    const imported = await indexDocument(
+      "translation_memory",
+      {
+        name: translation_memory.name,
+        context: translation_memory.context,
+      },
+      translation_memory.id || undefined,
+    );
+
+    finalTmId = imported._id;
+  }
+
+  const now = new Date().toISOString();
+  const bulkBody = units.flatMap((unit) => [
+    { index: { _index: "translation_units" } },
+    {
+      ...unit,
+      translation_memory_id: finalTmId,
+      create_date: unit.create_date || now,
+      update_date: unit.update_date || now,
+    },
+  ]);
+
+  const bulkResponse = await bulkIndexDocuments(bulkBody);
+  if (bulkResponse?.errors) {
+    throw new HttpError(500, "Some translation units failed to import");
+  }
+
+  return {
+    message: "TM and units imported successfully",
+    translation_memory_id: finalTmId,
+    units_imported: units.length,
+  };
+}
+
 export async function importTmFromFilesService({ files, tmId, userEmail }) {
   for (const file of files) {
     if (!file || !file.name) continue;
@@ -111,18 +306,18 @@ export async function importTmFromFilesService({ files, tmId, userEmail }) {
     }
 
     const tmxData = await parseTmxFile(file, userEmail, tmId);
-    const response = await axios.post(`${TM_HOST}/tm/import`, tmxData, {
-      headers: { "Content-Type": "application/json" },
+    return importTranslationMemoryService({
+      tmId: tmxData.tmId,
+      translation_memory: tmxData.translation_memory,
+      units: tmxData.units,
     });
-
-    return response.data;
   }
 
   throw new HttpError(400, "No file uploaded");
 }
 
 export async function exportTmAsXmlService(tmId) {
-  const response = await axios.get(`${TM_HOST}/tm/${tmId}/export`);
-  return generateTMX(response.data);
+  const data = await getTranslationMemoryWithTusService(tmId);
+  return generateTMX(data);
 }
 

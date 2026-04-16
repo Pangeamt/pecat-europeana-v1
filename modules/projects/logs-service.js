@@ -1,7 +1,7 @@
-import axios from "axios";
 import levenshtein from "fast-levenshtein";
 import { HttpError } from "../shared/http-error";
 import { findProjectForActor, findTusByProjectId } from "./repository";
+import { listAllTranslationUnitsService } from "../tu/service";
 
 const levenshteinSimilarity = (s1, s2) => {
   const distance = levenshtein.get(s1.toLowerCase(), s2.toLowerCase());
@@ -16,10 +16,8 @@ export async function getProjectLogsStatsService({ projectId, tmId, actorUser })
   }
 
   const tus = await findTusByProjectId(project.id);
-  const response = await axios.get(
-    `${process.env.NEXT_PUBLIC_TM_HOST}/tu/all?translation_memory_id=${tmId}`
-  );
-  const docs = response.data.docs;
+  const tmTus = await listAllTranslationUnitsService(tmId);
+  const docs = tmTus.docs;
 
   const stats = {
     noMatch: 0,
