@@ -9,10 +9,14 @@ import {
 
 function clearText(txt) {
   return txt
-    .trim()
-    .replace(/<[^>]*>|\n/g, "")
-    .replace(/\s{2,}/g, " ")
-    .replace(". ", ".");
+    .normalize("NFKC")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/\s([.,;:!?])/g, "$1")
+    .trim();
 }
 
 export async function listTusByProjectService(projectId, actorUser) {
@@ -43,7 +47,7 @@ export async function updateTuStatusService(payload) {
   const tusWithSameSrcLiteral = await findTusWithSameSource(
     tu.projectId,
     tu.srcLiteral,
-    tuId
+    tuId,
   );
 
   const data = {};
@@ -52,6 +56,7 @@ export async function updateTuStatusService(payload) {
     const reviewClear = clearText(reviewLiteral || "");
     data.Status =
       translatedClear === reviewClear || !reviewClear ? "ACCEPTED" : "EDITED";
+
     data.reviewLiteral = reviewLiteral;
   } else if (action === "reject") {
     data.Status = "REJECTED";
@@ -64,9 +69,10 @@ export async function updateTuStatusService(payload) {
   const tuUpdated = await updateTuById(tuId, data);
 
   if (tusWithSameSrcLiteral.length > 0) {
-    await Promise.all(tusWithSameSrcLiteral.map((item) => updateTuById(item.id, data)));
+    await Promise.all(
+      tusWithSameSrcLiteral.map((item) => updateTuById(item.id, data)),
+    );
   }
 
   return tuUpdated;
 }
-

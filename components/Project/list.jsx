@@ -1,7 +1,23 @@
 "use client";
 
-import { Avatar, Button, Card, List, Popconfirm, Progress, Space, Table, Tooltip, Typography, message } from "antd";
-import { DeleteOutlined, DownloadOutlined, UserOutlined } from "@ant-design/icons";
+import {
+  Avatar,
+  Button,
+  Card,
+  List,
+  Popconfirm,
+  Progress,
+  Space,
+  Table,
+  Tooltip,
+  Typography,
+  message,
+} from "antd";
+import {
+  DeleteOutlined,
+  DownloadOutlined,
+  UserOutlined,
+} from "@ant-design/icons";
 import React, { useState } from "react";
 import { capitalize, formatDate } from "../../lib/utils";
 
@@ -28,10 +44,6 @@ const ProjectList = () => {
   const tmSt = tmStore();
   const { clear } = tmSt;
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
   const fetchData = async () => {
     try {
       setRequesting(true);
@@ -44,6 +56,10 @@ const ProjectList = () => {
       setRequesting(false);
     }
   };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const save = async ({ ...values }) => {
     try {
@@ -89,7 +105,9 @@ const ProjectList = () => {
     const navigator = window.navigator;
     const clipboard = navigator.clipboard;
     if (!clipboard || !clipboard.writeText) {
-      console.error("La API del portapapeles no es compatible con este navegador");
+      console.error(
+        "La API del portapapeles no es compatible con este navegador",
+      );
       return;
     }
 
@@ -161,7 +179,7 @@ const ProjectList = () => {
 
         const aux = NOT_REVIEWED ? NOT_REVIEWED._count : 0;
         const percentage = parseFloat(
-          (((record.totalCount - aux) * 100) / record.totalCount).toFixed(2)
+          (((record.totalCount - aux) * 100) / record.totalCount).toFixed(2),
         );
 
         return <Progress percent={percentage} size="small" />;

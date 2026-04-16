@@ -1,7 +1,11 @@
-import { requireAuthUser } from "../../../modules/shared/auth";
-import { toErrorResponse } from "../../../modules/shared/http";
-import { updateTuSchema } from "../../../modules/tus/schemas";
-import { listTusByProjectService, updateTuStatusService } from "../../../modules/tus/service";
+"use server";
+import { requireAuthUser } from "@/modules/shared/auth";
+import { toErrorResponse } from "@/modules/shared/http";
+import { updateTuSchema } from "@/modules/tus/schemas";
+import {
+  listTusByProjectService,
+  updateTuStatusService,
+} from "@/modules/tus/service";
 
 export const GET = async (req) => {
   try {

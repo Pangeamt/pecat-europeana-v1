@@ -1,4 +1,3 @@
-"use client";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Button,
@@ -32,7 +31,12 @@ import {
 import CustomTextArea from "../../components/CustomTextArea";
 import HeaderTus from "../../components/Tus/header";
 import { tmStore, userStore } from "../../store";
-import { confirmTu, confirmTuTm, updateTuTm, getTus } from "@/services/tus.services";
+import {
+  confirmTu,
+  confirmTuTm,
+  updateTuTm,
+  getTus,
+} from "@/services/tus.services";
 
 const style = {
   border: "solid 2px #ddd",
@@ -44,6 +48,15 @@ const stripHTML = (html) => {
   let temporalDiv = document.createElement("div");
   temporalDiv.innerHTML = html;
   return temporalDiv.textContent || temporalDiv.innerText || "";
+};
+
+const EMPTY_STATS = {
+  notReviewed: 0,
+  rejected: 0,
+  originalAccepted: 0,
+  edited: 0,
+  translated_mt: 0,
+  porcent: 0,
 };
 
 const TusList = () => {
@@ -60,14 +73,6 @@ const TusList = () => {
   const [data, setData] = useState([]);
   const [xmlData, setXmlData] = useState(null);
 
-  const [stats, setStats] = React.useState({
-    notReviewed: 0,
-    rejected: 0,
-    originalAccepted: 0,
-    edited: 0,
-    translated_mt: 0,
-    porcent: 0,
-  });
   const [searchText, setSearchText] = useState("");
   const [searchedColumn, setSearchedColumn] = useState("");
   const searchInput = useRef(null);
@@ -79,23 +84,47 @@ const TusList = () => {
 
   useEffect(() => {
     const get = async () => {
-        try {
-          setRequesting(true);
-          const { data } = await getTus(params.projectId);
-          setData(data.docs);
-          setRequesting(false);
-        } catch (error) {
-          console.error(error);
-          setRequesting(false);
-        }
+      try {
+        setRequesting(true);
+        const response = await getTus(params.projectId);
+        const docs = response.data.docs || [];
+        setData(docs);
+        setSelectedRow((prev) => prev || docs[0] || null);
+        setRequesting(false);
+      } catch (error) {
+        console.error(error);
+        setRequesting(false);
+      }
     };
-    if(params.projectId) get();
+    if (params.projectId) get();
   }, [params.projectId]);
 
-  useHotkeys("ctrl+enter", async () => { save(null); });
-  useHotkeys("ctrl+shift+enter", () => { reject() });
-  useHotkeys("ctrl+shift+down", () => { moveNext() });
-  useHotkeys("ctrl+shift+up", () => { movePrevious() });
+  const stats = (() => {
+    if (requesting || data.length === 0) return EMPTY_STATS;
+
+    const newStats = { ...EMPTY_STATS };
+    let totalStats = 0;
+
+    data.forEach((doc) => {
+      if (doc.Status === "NOT_REVIEWED" || doc.Status === "TRANSLATED_MT") {
+        newStats.notReviewed += 1;
+      } else if (doc.Status === "REJECTED") {
+        newStats.rejected += 1;
+        totalStats += 1;
+      } else if (doc.Status === "ACCEPTED") {
+        newStats.originalAccepted += 1;
+        totalStats += 1;
+      } else if (doc.Status === "EDITED") {
+        newStats.edited += 1;
+        totalStats += 1;
+      }
+    });
+
+    newStats.porcent = parseFloat(
+      ((100 * totalStats) / data.length).toFixed(2),
+    );
+    return newStats;
+  })();
 
   const handleSearch = (selectedKeys, confirm, dataIndex) => {
     confirm();
@@ -273,7 +302,7 @@ const TusList = () => {
       },
     },
     {
-      title: "S P",
+      title: "QE",
       width: 70,
       dataIndex: "translationScorePercent",
       key: "translationScorePercent",
@@ -319,10 +348,7 @@ const TusList = () => {
         );
         if (text === "REJECTED") {
           cpm = (
-            <StopTwoTone
-              style={{ fontSize: "25px" }}
-              twoToneColor="#f5222d"
-            />
+            <StopTwoTone style={{ fontSize: "25px" }} twoToneColor="#f5222d" />
           );
         }
         if (text === "ACCEPTED") {
@@ -335,10 +361,7 @@ const TusList = () => {
         }
         if (text === "EDITED") {
           cpm = (
-            <EditTwoTone
-              twoToneColor="#4096ff"
-              style={{ fontSize: "25px" }}
-            />
+            <EditTwoTone twoToneColor="#4096ff" style={{ fontSize: "25px" }} />
           );
         }
         return <div className="absolute top-2 left-2">{cpm}</div>;
@@ -352,7 +375,6 @@ const TusList = () => {
         if (selectedRow && selectedRow.id !== record.id) return null;
         return (
           <div className="absolute top-2 left-2">
-
             {selectedRow?.exampleXml && (
               <Button
                 onClick={() => {
@@ -392,58 +414,20 @@ const TusList = () => {
                 size="small"
               ></Button>
             </Tooltip>
-
           </div>
         );
       },
     },
   ];
 
-  const newColumns = columns.map((item) => {
-    if (item.key === "action") {
-      return item;
-    }
-
-    return {
-      ...item,
-    };
-  });
-
-  useEffect(() => {
-    if (!requesting && data.length > 0) {
-      const newStats = { notReviewed: 0, rejected: 0, originalAccepted: 0, edited: 0, porcent: 0 };
-      let totalStats = 0;
-  
-      data.forEach((doc) => {
-        if (doc.Status === "NOT_REVIEWED" || doc.Status === "TRANSLATED_MT") {
-          newStats.notReviewed += 1;
-        } else if (doc.Status === "REJECTED") {
-          newStats.rejected += 1;
-            totalStats += 1;
-        } else if (doc.Status === "ACCEPTED") {
-          newStats.originalAccepted += 1;
-          totalStats += 1;
-        } else if (doc.Status === "EDITED") {
-          newStats.edited += 1;
-          totalStats += 1;
-        }
-      });
- 
-      newStats.porcent = parseFloat(((100 * totalStats) / data.length).toFixed(2));
-      setStats( newStats); 
-  
-      if (!selectedRow) setSelectedRow(data[0]);
-    }
-  }, [requesting, data, selectedRow ]); // Dependencias correctas
-
   const confirm = async ({ tuId, reviewLiteral, action }) => {
     try {
       const response = await confirmTu({ tuId, reviewLiteral, action });
-      const tu =  response.data.tu;
-      setData((prev) => 
-        prev.map((doc) => 
-          doc.id === tu.id ? {...doc, Status : tu.Status} : doc
-        )
+      const tu = response.data.tu;
+      setData((prev) =>
+        prev.map((doc) =>
+          doc.id === tu.id ? { ...doc, Status: tu.Status } : doc,
+        ),
       );
     } catch (error) {
       console.error(error);
@@ -485,7 +469,14 @@ const TusList = () => {
     });
 
     if (tm && config.update) {
+      console.log("config.value", config.value);
+      console.log("tmTu", tmTu);
+      console.log("--------------------------------");
+      console.log("--------------------------------");
       if (config.value === 1 && tmTu) {
+        console.log("updateTuTm");
+        console.log("--------------------------------");
+        console.log("--------------------------------");
         try {
           await updateTuTm({
             translation_unit_id: tmTu.id,
@@ -518,6 +509,7 @@ const TusList = () => {
         }
       }
     }
+
     moveNext();
     messageApi.open({
       key: "loading",
@@ -549,11 +541,12 @@ const TusList = () => {
   };
 
   const changeTextInTextarea = (text) => {
-    const aux = selectedRow;
     const html = stripHTML(text);
-    if (aux.reviewLiteral !== html) {
-      aux.reviewLiteral = html;
-      setSelectedRow(aux);
+    if (selectedRow && selectedRow.reviewLiteral !== html) {
+      setSelectedRow((prev) => ({
+        ...prev,
+        reviewLiteral: html,
+      }));
     }
   };
 
@@ -576,6 +569,19 @@ const TusList = () => {
       console.error(error);
     }
   };
+
+  useHotkeys("ctrl+enter", async () => {
+    save(null);
+  });
+  useHotkeys("ctrl+shift+enter", () => {
+    reject();
+  });
+  useHotkeys("ctrl+shift+down", () => {
+    moveNext();
+  });
+  useHotkeys("ctrl+shift+up", () => {
+    movePrevious();
+  });
 
   return (
     <div>
@@ -646,7 +652,7 @@ const TusList = () => {
         </Modal>
         <Table
           loading={requesting}
-          columns={newColumns}
+          columns={columns}
           dataSource={data}
           rowKey={(record) => {
             return record?.id;
