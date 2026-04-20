@@ -1,6 +1,5 @@
-import { requireAuthUser } from "@/modules/shared/auth";
-import { toErrorResponse } from "@/modules/shared/http";
-import { deleteTranslationMemoryService } from "@/modules/tm/service";
+import { requireAuthUser, toErrorResponse } from "@/modules/shared";
+import { deleteTranslationMemoryService } from "@/modules/memory/tm";
 
 export const DELETE = async (_, { params }) => {
   try {

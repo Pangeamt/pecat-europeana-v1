@@ -1,26 +1,68 @@
 # Arquitectura del Proyecto
 
 ## Objetivo
+
 Este proyecto usa una arquitectura modular por dominio para escalar sin concentrar toda la logica en `app/api/*` y en componentes de UI.
 
 ## Estructura base
 
-- `modules/shared/`: autenticacion, errores HTTP, utilidades compartidas de backend.
-- `modules/<domain>/`: logica de negocio por dominio (`users`, `projects`, etc.).
-  - `schemas.js`: validaciones de entrada.
-  - `repository.js`: acceso a Prisma/DB.
-  - `service.js`: casos de uso de negocio.
-  - `import-service.js` o `<feature>-service.js`: flujos especializados.
-- `app/api/*/route.js`: handlers HTTP delgados (parseo, auth, invocacion de servicios, respuesta).
-- `services/*.services.ts`: clientes HTTP del frontend para desacoplar componentes de `axios`.
+```
+app/
+  api/                  handlers HTTP delgados (parseo, auth, invocacion de servicios, respuesta)
+components/             UI React (Ant Design)
+hooks/                  hooks compartidos
+services/               clientes HTTP del frontend (axios) con tipos en types/
+store/                  estado global (zustand)
+types/                  DTOs compartidos
+lib/
+  env.js                validacion de variables de entorno con Joi
+  opensearch.js         cliente oficial @opensearch-project/opensearch
+  prisma.js             cliente Prisma
+  utils.js              utilidades generales
+modules/
+  shared/               auth, HttpError, toErrorResponse, similarity
+    index.js            barrel export
+  memory/               dominio de memorias de traduccion (OpenSearch)
+    tm/
+      repository.js     acceso a OpenSearch (indices translation_memory y translation_units)
+      service.js        casos de uso CRUD de TM
+      tmx.js            parser/generador TMX (XML) puro
+      import.service.js casos de uso de importacion (TMX -> OpenSearch)
+      export.service.js casos de uso de exportacion (OpenSearch -> TMX)
+      schemas.js        schemas Joi
+      index.js          barrel export
+    tu/
+      repository.js     acceso a OpenSearch (TUs dentro de una TM)
+      service.js        CRUD + similitud (usa modules/shared/similarity)
+      schemas.js
+      index.js          barrel export
+  projects/             dominio de proyectos (Prisma + MySQL)
+    repository.js / service.js / import-service.js / logs-service.js
+    schemas.js
+    index.js
+  tus/                  dominio de Translation Units del proyecto (Prisma)
+    repository.js / service.js / schemas.js / index.js
+  users/                dominio de usuarios
+  files/                dominio de descargas/compartir archivos
+```
+
+## Dos dominios con nombre parecido
+
+- `modules/memory/tu`: Translation Unit **dentro de una memoria de traduccion**, persistida en OpenSearch. Asociada a una TM.
+- `modules/tus`: Translation Unit **dentro de un proyecto**, persistida en MySQL via Prisma (`model Tu`, tabla `tus`). Asociada a un Project.
+
+Son conceptos distintos aunque tengan nombre similar.
 
 ## Reglas de diseño
 
 1. No agregar logica de negocio nueva en `route.js`.
-2. Validar entrada con schemas del modulo.
-3. Centralizar errores con `HttpError` + `toErrorResponse`.
+2. Validar entrada con schemas del modulo (`schemas.js`).
+3. Centralizar errores con `HttpError` + `toErrorResponse` (ambos con `code` estable).
 4. Reusar `requireAuthUser` para auth en APIs.
 5. Evitar llamadas HTTP directas desde componentes; usar `services/*`.
+6. Importar siempre con el alias `@/`.
+7. Cada modulo expone su API publica por `index.js` (barrel).
+8. No acceder directamente a clientes de infraestructura (`prisma`, `opensearchClient`) desde `service.js`; pasar por `repository.js`.
 
 ## Patrón recomendado en API Route
 
@@ -30,15 +72,28 @@ Este proyecto usa una arquitectura modular por dominio para escalar sin concentr
 4. Responder con `Response.json(...)`.
 5. En catch: `return toErrorResponse(error)`.
 
-## Siguiente expansión sugerida
+## Validacion de entorno
 
-- Consolidar rutas y validaciones de TM/TU en `modules/tm` y `modules/tu`.
-- Extraer procesos pesados de importacion/traduccion a jobs en background.
-- Agregar tests de integración por modulo (`users`, `projects`, `tus`).
+`lib/env.js` valida con Joi todas las variables necesarias al arrancar y expone un objeto `env` tipado. Si faltan o estan mal formadas, la app no arranca. Actualmente exigidas:
+
+- `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `NEXT_PUBLIC_API_BASE_URL`
+- `HOST_OPENSEARCH`, `HOST_OPENSEARCH_AUTH` (formato `user:password`)
+
+Opcionales: `SEGMENTED_TEXTS_HOST`, `MT_TEXTS_HOST`, `OXIGEN_API_HOST`, `MINT_CLIENT_ID`, `MINT_CLIENT_SECRET`, `MTQE`.
+
+## Errores
+
+`HttpError(status, message, code?)` y `toErrorResponse(error)` devuelven siempre:
+
+```json
+{ "code": "NOT_FOUND", "message": "Translation memory not found" }
+```
+
+Para errores Joi incluye `details: [{ path, message }]`.
 
 ## TM/TU internalizado
 
-La logica de Translation Memory y Translation Units ya se ejecuta dentro de esta app:
+La logica de Translation Memory y Translation Units esta en esta app (antes en `pecat-tm`).
 
 - API interna TM:
   - `GET|POST|PATCH /api/tm`
@@ -48,7 +103,11 @@ La logica de Translation Memory y Translation Units ya se ejecuta dentro de esta
 - API interna TU:
   - `GET|POST|PATCH /api/tu`
   - `GET /api/tu/all`
-- Backend OpenSearch centralizado en `lib/opensearch.js` usando:
-  - `HOST_OPENSEARCH`
-  - `HOST_OPENSEARCH_AUTH`
+- Backend OpenSearch centralizado en `lib/opensearch.js` con el cliente oficial.
 
+## Siguiente expansión sugerida
+
+- Migrar `services/*` restantes (`project.services.ts`, `user.services.ts`) a DTOs tipados.
+- Reemplazar `console.error` por un logger estructurado (p. ej. `pino`).
+- Adoptar TanStack Query para cacheo en UI (`useTmList`, listados de proyectos).
+- Tests de integracion por modulo con Vitest + `supertest` sobre handlers.

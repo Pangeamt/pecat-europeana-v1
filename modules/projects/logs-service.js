@@ -1,15 +1,13 @@
-import levenshtein from "fast-levenshtein";
-import { HttpError } from "../shared/http-error";
+import { HttpError } from "@/modules/shared/http-error";
+import { levenshteinSimilarity } from "@/modules/shared/similarity";
+import { listAllTranslationUnitsService } from "@/modules/memory/tu";
 import { findProjectForActor, findTusByProjectId } from "./repository";
-import { listAllTranslationUnitsService } from "../tu/service";
 
-const levenshteinSimilarity = (s1, s2) => {
-  const distance = levenshtein.get(s1.toLowerCase(), s2.toLowerCase());
-  const maxLength = Math.max(s1.length, s2.length);
-  return (maxLength - distance) / maxLength;
-};
-
-export async function getProjectLogsStatsService({ projectId, tmId, actorUser }) {
+export async function getProjectLogsStatsService({
+  projectId,
+  tmId,
+  actorUser,
+}) {
   const project = await findProjectForActor(projectId, actorUser);
   if (!project) {
     throw new HttpError(404, "Project not found");
@@ -35,7 +33,7 @@ export async function getProjectLogsStatsService({ projectId, tmId, actorUser })
       const tuTM = docs[j];
       const similarity = levenshteinSimilarity(
         tuElement.srcLiteral,
-        tuTM.source_text
+        tuTM.source_text,
       );
       if (similarity > maxSimilarity) {
         maxSimilarity = similarity;
@@ -58,10 +56,5 @@ export async function getProjectLogsStatsService({ projectId, tmId, actorUser })
     }
   }
 
-  return {
-    projectId,
-    tmId,
-    stats,
-  };
+  return { projectId, tmId, stats };
 }
-

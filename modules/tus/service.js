@@ -68,11 +68,12 @@ export async function updateTuStatusService(payload) {
 
   const tuUpdated = await updateTuById(tuId, data);
 
+  let alsoUpdated = [];
   if (tusWithSameSrcLiteral.length > 0) {
-    await Promise.all(
+    alsoUpdated = await Promise.all(
       tusWithSameSrcLiteral.map((item) => updateTuById(item.id, data)),
     );
   }
 
-  return tuUpdated;
+  return { tu: tuUpdated, alsoUpdated };
 }

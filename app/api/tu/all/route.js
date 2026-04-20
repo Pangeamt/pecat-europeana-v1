@@ -1,7 +1,8 @@
-import { requireAuthUser } from "@/modules/shared/auth";
-import { toErrorResponse } from "@/modules/shared/http";
-import { tuAllQuerySchema } from "@/modules/tu/schemas";
-import { listAllTranslationUnitsService } from "@/modules/tu/service";
+import { requireAuthUser, toErrorResponse } from "@/modules/shared";
+import {
+  listAllTranslationUnitsService,
+  tuAllQuerySchema,
+} from "@/modules/memory/tu";
 
 export const GET = async (req) => {
   try {
@@ -10,7 +11,9 @@ export const GET = async (req) => {
     const query = await tuAllQuerySchema.validateAsync({
       translation_memory_id: searchParams.get("translation_memory_id"),
     });
-    const data = await listAllTranslationUnitsService(query.translation_memory_id);
+    const data = await listAllTranslationUnitsService(
+      query.translation_memory_id,
+    );
     return Response.json(data);
   } catch (error) {
     return toErrorResponse(error);

@@ -1,21 +1,14 @@
-import { requireAuthUser } from "../../../modules/shared/auth";
-import { toErrorResponse } from "../../../modules/shared/http";
+import { requireAuthUser, toErrorResponse } from "@/modules/shared";
 import {
   deleteProjectSchema,
   importByUrlSchema,
-  updateProjectSchema,
-} from "../../../modules/projects/schemas";
-import {
+  importProjectFromUrlService,
+  importProjectsFromUploadService,
   listProjectsService,
   softDeleteProjectService,
   updateProjectLabelService,
-} from "../../../modules/projects/service";
-import {
-  importProjectFromUrlService,
-  importProjectsFromUploadService,
-} from "../../../modules/projects/import-service";
-
-const schemaPUT = importByUrlSchema;
+  updateProjectSchema,
+} from "@/modules/projects";
 
 export const GET = async () => {
   try {
@@ -30,8 +23,7 @@ export const GET = async () => {
 export const PUT = async (req) => {
   try {
     const body = await req.json();
-    const value = await schemaPUT.validateAsync(body);
-    const { url } = value;
+    const { url } = await importByUrlSchema.validateAsync(body);
 
     const user = await requireAuthUser();
     await importProjectFromUrlService(url, user.id);
@@ -44,8 +36,7 @@ export const PUT = async (req) => {
 export const PATCH = async (req) => {
   try {
     const body = await req.json();
-    const value = await updateProjectSchema.validateAsync(body);
-    const { label, projectId } = value;
+    const { label, projectId } = await updateProjectSchema.validateAsync(body);
     await requireAuthUser();
     await updateProjectLabelService(projectId, label);
 
@@ -58,8 +49,7 @@ export const PATCH = async (req) => {
 export const DELETE = async (req) => {
   try {
     const body = await req.json();
-    const value = await deleteProjectSchema.validateAsync(body);
-    const { projectId } = value;
+    const { projectId } = await deleteProjectSchema.validateAsync(body);
     await requireAuthUser();
     await softDeleteProjectService(projectId);
 

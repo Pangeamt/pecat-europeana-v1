@@ -15,6 +15,7 @@ export const tuSearchQuerySchema = Joi.object({
   project: Joi.string().optional().allow(null, ""),
   domain: Joi.string().optional().allow(null, ""),
   perTerm: boolString.optional().default(false),
+  minSimilarity: Joi.number().min(0).max(1).optional(),
 });
 
 export const tuAllQuerySchema = Joi.object({

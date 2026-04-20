@@ -1,11 +1,10 @@
 "use server";
-import { requireAuthUser } from "@/modules/shared/auth";
-import { toErrorResponse } from "@/modules/shared/http";
-import { updateTuSchema } from "@/modules/tus/schemas";
+import { requireAuthUser, toErrorResponse } from "@/modules/shared";
 import {
   listTusByProjectService,
+  updateTuSchema,
   updateTuStatusService,
-} from "@/modules/tus/service";
+} from "@/modules/tus";
 
 export const GET = async (req) => {
   try {
@@ -25,8 +24,8 @@ export const POST = async (req) => {
     await requireAuthUser();
     const body = await req.json();
     const payload = await updateTuSchema.validateAsync(body);
-    const tuUpdated = await updateTuStatusService(payload);
-    return Response.json({ tu: tuUpdated }, { status: 200 });
+    const { tu, alsoUpdated } = await updateTuStatusService(payload);
+    return Response.json({ tu, alsoUpdated }, { status: 200 });
   } catch (error) {
     return toErrorResponse(error);
   }

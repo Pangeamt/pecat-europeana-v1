@@ -1,61 +1,22 @@
-import levenshtein from "fast-levenshtein";
 import {
-  getDocument,
-  indexDocument,
-  searchDocuments,
-  updateDocument,
-} from "../../lib/opensearch";
-import { HttpError } from "../shared/http-error";
-
-const MIN_SIMILARITY = 0.5;
-
-const levenshteinSimilarity = (s1, s2) => {
-  const source = String(s1 || "");
-  const target = String(s2 || "");
-  if (!source && !target) {
-    return 1;
-  }
-
-  const distance = levenshtein.get(source.toLowerCase(), target.toLowerCase());
-  const maxLength = Math.max(source.length, target.length);
-  return maxLength === 0 ? 0 : (maxLength - distance) / maxLength;
-};
-
-const jaccardSimilarity = (s1, s2) => {
-  const wordsA = new Set(String(s1 || "").toLowerCase().split(" ").filter(Boolean));
-  const wordsB = new Set(String(s2 || "").toLowerCase().split(" ").filter(Boolean));
-  const union = new Set([...wordsA, ...wordsB]);
-  if (union.size === 0) {
-    return 0;
-  }
-
-  const intersection = new Set([...wordsA].filter((word) => wordsB.has(word)));
-  return intersection.size / union.size;
-};
+  DEFAULT_MIN_SIMILARITY,
+  levenshteinSimilarity,
+  jaccardSimilarity,
+} from "@/modules/shared/similarity";
+import { HttpError } from "@/modules/shared/http-error";
+import { createTu, getTmById, getTuById, searchTus, updateTu } from "./repository";
 
 function asRequiredTerm(field, value) {
-  return {
-    term: {
-      [field]: {
-        value,
-      },
-    },
-  };
+  return { term: { [field]: { value } } };
 }
 
 function asOptionalTerm(field, value) {
-  if (value === undefined || value === null || value === "") {
-    return null;
-  }
-
+  if (value === undefined || value === null || value === "") return null;
   return asRequiredTerm(field, value);
 }
 
 function mapTuHit(hit) {
-  return {
-    id: hit._id,
-    ...hit._source,
-  };
+  return { id: hit._id, ...hit._source };
 }
 
 function mapTuHitForAll(hit) {
@@ -71,7 +32,7 @@ function mapTuHitForAll(hit) {
 
 async function assertTranslationMemoryExists(translationMemoryId) {
   try {
-    await getDocument("translation_memory", translationMemoryId);
+    await getTmById(translationMemoryId);
   } catch (error) {
     if (error instanceof HttpError && error.status === 404) {
       throw new HttpError(
@@ -85,7 +46,7 @@ async function assertTranslationMemoryExists(translationMemoryId) {
 
 async function assertTranslationUnitExists(translationUnitId) {
   try {
-    await getDocument("translation_units", translationUnitId);
+    await getTuById(translationUnitId);
   } catch (error) {
     if (error instanceof HttpError && error.status === 404) {
       throw new HttpError(
@@ -103,10 +64,11 @@ export async function searchTranslationUnitsService(queryParams) {
     source_language,
     target_language,
     source_text,
-    user = undefined,
-    project = undefined,
-    domain = undefined,
+    user,
+    project,
+    domain,
     perTerm = false,
+    minSimilarity = DEFAULT_MIN_SIMILARITY,
   } = queryParams;
 
   const must = [
@@ -118,32 +80,13 @@ export async function searchTranslationUnitsService(queryParams) {
     asOptionalTerm("context.domain", domain),
   ].filter(Boolean);
 
-  if (perTerm) {
-    must.push({
-      match_phrase: {
-        source_text,
-      },
-    });
-  } else {
-    must.push({
-      match: {
-        source_text,
-      },
-    });
-  }
-
-  const response = await searchDocuments(
-    "translation_units",
-    {
-      query: {
-        bool: {
-          must,
-        },
-      },
-    },
-    1000,
+  must.push(
+    perTerm
+      ? { match_phrase: { source_text } }
+      : { match: { source_text } },
   );
 
+  const response = await searchTus({ query: { bool: { must } } });
   const hits = response?.hits?.hits || [];
   const docs = [];
 
@@ -154,29 +97,22 @@ export async function searchTranslationUnitsService(queryParams) {
     }
 
     const sourceText = hit?._source?.source_text || "";
-    const levenshteinValue = levenshteinSimilarity(source_text, sourceText);
-    const jaccardValue = jaccardSimilarity(source_text, sourceText);
+    const lev = levenshteinSimilarity(source_text, sourceText);
+    const jac = jaccardSimilarity(source_text, sourceText);
 
-    if (levenshteinValue >= MIN_SIMILARITY && jaccardValue >= MIN_SIMILARITY) {
+    if (lev >= minSimilarity && jac >= minSimilarity) {
       docs.push({
         ...mapTuHit(hit),
-        similarity: {
-          levenshtein: levenshteinValue,
-          jaccard: jaccardValue,
-        },
+        similarity: { levenshtein: lev, jaccard: jac },
       });
     }
   }
 
-  return {
-    total: docs.length,
-    docs,
-  };
+  return { total: docs.length, docs };
 }
 
 export async function listAllTranslationUnitsService(translationMemoryId) {
-  const response = await searchDocuments(
-    "translation_units",
+  const response = await searchTus(
     {
       query: {
         bool: {
@@ -190,10 +126,7 @@ export async function listAllTranslationUnitsService(translationMemoryId) {
   const hits = response?.hits?.hits || [];
   const docs = hits.map(mapTuHitForAll);
 
-  return {
-    total: docs.length,
-    docs,
-  };
+  return { total: docs.length, docs };
 }
 
 export async function createTranslationUnitService(payload) {
@@ -203,22 +136,23 @@ export async function createTranslationUnitService(payload) {
     target_language,
     source_text,
     translated_text,
-    user = undefined,
-    project = undefined,
-    domain = undefined,
+    user,
+    project,
+    domain,
   } = payload;
 
   await assertTranslationMemoryExists(translation_memory_id);
 
-  return indexDocument("translation_units", {
+  const now = new Date().toISOString();
+  return createTu({
     translation_memory_id,
     source_language,
     target_language,
     source_text,
     translated_text,
     context: { user, project, domain },
-    create_date: new Date().toISOString(),
-    update_date: new Date().toISOString(),
+    create_date: now,
+    update_date: now,
   });
 }
 
@@ -230,15 +164,15 @@ export async function updateTranslationUnitService(payload) {
     target_language,
     source_text,
     translated_text,
-    user = undefined,
-    project = undefined,
-    domain = undefined,
+    user,
+    project,
+    domain,
   } = payload;
 
   await assertTranslationMemoryExists(translation_memory_id);
   await assertTranslationUnitExists(translation_unit_id);
 
-  return updateDocument("translation_units", translation_unit_id, {
+  return updateTu(translation_unit_id, {
     translation_memory_id,
     source_language,
     target_language,

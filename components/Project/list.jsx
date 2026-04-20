@@ -1,38 +1,36 @@
 "use client";
 
+import ProjectAdd from "@/components/Project/add";
+import ProjectEdit from "@/components/Project/edit";
+import { capitalize, formatDate } from "@/lib/utils";
+import {
+  addProject,
+  getProjects,
+  getProjectShareLink,
+  removeProject,
+  saveProject,
+} from "@/services/project.services";
+import { tmStore } from "@/store";
+import {
+  DeleteOutlined,
+  DownloadOutlined,
+  UserOutlined,
+} from "@ant-design/icons";
 import {
   Avatar,
   Button,
   Card,
   List,
+  message,
   Popconfirm,
   Progress,
   Space,
   Table,
   Tooltip,
   Typography,
-  message,
 } from "antd";
-import {
-  DeleteOutlined,
-  DownloadOutlined,
-  UserOutlined,
-} from "@ant-design/icons";
-import React, { useState } from "react";
-import { capitalize, formatDate } from "../../lib/utils";
-
 import Link from "next/link";
-import ProjectAdd from "../Project/add";
-import ProjectEdit from "../Project/edit";
-import { useEffect } from "react";
-import {
-  saveProject,
-  removeProject,
-  addProject,
-  getProjects,
-  getProjectShareLink,
-} from "@/services/project.services";
-import { tmStore } from "../../store";
+import { useCallback, useEffect, useState } from "react";
 
 const { Title } = Typography;
 
@@ -41,25 +39,28 @@ const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL;
 const ProjectList = () => {
   const [requesting, setRequesting] = useState(true);
   const [data, setData] = useState([]);
-  const tmSt = tmStore();
-  const { clear } = tmSt;
+  const clear = tmStore((state) => state.clear);
 
-  const fetchData = async () => {
-    try {
-      setRequesting(true);
-      const { data } = await getProjects();
-      setData(data.docs);
-      setRequesting(false);
-      clear();
-    } catch (error) {
-      console.error(error);
-      setRequesting(false);
-    }
-  };
+  const fetchData = useCallback(
+    async (options = {}) => {
+      const { withLoading = true } = options;
+      try {
+        if (withLoading) setRequesting(true);
+        const { data } = await getProjects();
+        setData(data.docs);
+        clear();
+      } catch (error) {
+        console.error(error);
+      } finally {
+        if (withLoading) setRequesting(false);
+      }
+    },
+    [clear],
+  );
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    void fetchData({ withLoading: false });
+  }, [fetchData]);
 
   const save = async ({ ...values }) => {
     try {
@@ -288,6 +289,7 @@ const ProjectList = () => {
       },
     },
   ];
+
   return (
     <Card
       title="Projects"

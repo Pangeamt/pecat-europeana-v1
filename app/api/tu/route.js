@@ -1,15 +1,12 @@
-import { requireAuthUser } from "@/modules/shared/auth";
-import { toErrorResponse } from "@/modules/shared/http";
-import {
-  createTuSchema,
-  tuSearchQuerySchema,
-  updateTuSchema,
-} from "@/modules/tu/schemas";
+import { requireAuthUser, toErrorResponse } from "@/modules/shared";
 import {
   createTranslationUnitService,
+  createTuSchema,
   searchTranslationUnitsService,
+  tuSearchQuerySchema,
   updateTranslationUnitService,
-} from "@/modules/tu/service";
+  updateTuSchema,
+} from "@/modules/memory/tu";
 
 export const GET = async (req) => {
   try {
@@ -24,6 +21,7 @@ export const GET = async (req) => {
       project: searchParams.get("project"),
       domain: searchParams.get("domain"),
       perTerm: searchParams.get("perTerm"),
+      minSimilarity: searchParams.get("minSimilarity") ?? undefined,
     });
     const data = await searchTranslationUnitsService(query);
     return Response.json(data);

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { requireAuthUser } from "../../../../modules/shared/auth";
-import { toErrorResponse } from "../../../../modules/shared/http";
-import { getUserByIdService } from "../../../../modules/users/service";
+import { requireAuthUser, toErrorResponse } from "@/modules/shared";
+import { getUserByIdService } from "@/modules/users/service";
 
 export const GET = async (_, { params }) => {
   try {

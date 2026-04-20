@@ -1,15 +1,12 @@
-import { requireAuthUser } from "@/modules/shared/auth";
-import { toErrorResponse } from "@/modules/shared/http";
-import {
-  createTranslationMemoryService,
-  listTranslationMemoriesService,
-  updateTranslationMemoryService,
-} from "@/modules/tm/service";
+import { requireAuthUser, toErrorResponse } from "@/modules/shared";
 import {
   createTmSchema,
+  createTranslationMemoryService,
   listTmQuerySchema,
+  listTranslationMemoriesService,
   updateTmSchema,
-} from "@/modules/tm/schemas";
+  updateTranslationMemoryService,
+} from "@/modules/memory/tm";
 
 export const GET = async (req) => {
   try {

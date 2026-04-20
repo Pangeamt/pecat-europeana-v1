@@ -1,7 +1,8 @@
-import { requireAuthUser } from "../../../../modules/shared/auth";
-import { toErrorResponse } from "../../../../modules/shared/http";
-import { importTmFromFilesService } from "../../../../modules/tm/service";
-import { tmImportFormSchema } from "../../../../modules/tm/schemas";
+import { requireAuthUser, toErrorResponse } from "@/modules/shared";
+import {
+  importTmFromFilesService,
+  tmImportFormSchema,
+} from "@/modules/memory/tm";
 
 export const POST = async (req) => {
   try {

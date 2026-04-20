@@ -1,6 +1,5 @@
-import { requireAuthUser } from "../../../../modules/shared/auth";
-import { toErrorResponse } from "../../../../modules/shared/http";
-import { getProjectLogsStatsService } from "../../../../modules/projects/logs-service";
+import { requireAuthUser, toErrorResponse } from "@/modules/shared";
+import { getProjectLogsStatsService } from "@/modules/projects";
 
 export const GET = async (req) => {
   try {

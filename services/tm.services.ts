@@ -1,27 +1,44 @@
 import { httpClient } from "./http-client";
+import type {
+  CreateTmPayload,
+  ProjectLogsStats,
+  TmListResponse,
+  TranslationMemory,
+  UpdateTmPayload,
+} from "@/types/tm";
 
-export const addTMRequest = async (tm) => {
-  const response = await httpClient.post("/api/tm", tm);
+export const addTMRequest = async (
+  tm: CreateTmPayload,
+): Promise<TranslationMemory> => {
+  const response = await httpClient.post<TranslationMemory>("/api/tm", tm);
   return response.data;
 };
 
-export const fetchTMRequest = async (user) => {
-  const response = await httpClient.get("/api/tm", { params: { user } });
+export const fetchTMRequest = async (user: string): Promise<TmListResponse> => {
+  const response = await httpClient.get<TmListResponse>("/api/tm", {
+    params: { user },
+  });
   return response.data;
 };
 
-export const updateTMRequest = async (tm) => {
-  const response = await httpClient.patch("/api/tm", tm);
+export const updateTMRequest = async (
+  tm: UpdateTmPayload,
+): Promise<{ message: string }> => {
+  const response = await httpClient.patch<{ message: string }>("/api/tm", tm);
   return response.data;
 };
 
-export const deleteTMRequest = async (tmId) => {
-  const response = await httpClient.delete(`/api/tm/${tmId}`);
+export const deleteTMRequest = async (
+  tmId: string,
+): Promise<{ message: string }> => {
+  const response = await httpClient.delete<{ message: string }>(
+    `/api/tm/${tmId}`,
+  );
   return response.data;
 };
 
-export const exportTMRequest = async (tmId) => {
-  const response = await httpClient.get("/api/tm/export", {
+export const exportTMRequest = async (tmId: string): Promise<void> => {
+  const response = await httpClient.get<Blob>("/api/tm/export", {
     params: { tmId },
     responseType: "blob",
   });
@@ -35,10 +52,12 @@ export const exportTMRequest = async (tmId) => {
   window.URL.revokeObjectURL(url);
 };
 
-export const getLogsRequest = async (projectId, tmId) => {
-  const response = await httpClient.get("/api/projects/logs", {
+export const getLogsRequest = async (
+  projectId: string,
+  tmId: string,
+): Promise<ProjectLogsStats> => {
+  const response = await httpClient.get<ProjectLogsStats>("/api/projects/logs", {
     params: { projectId, tmId },
   });
   return response.data;
 };
-

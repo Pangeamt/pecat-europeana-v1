@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
-import { requireAuthUser } from "../../../modules/shared/auth";
-import { toErrorResponse } from "../../../modules/shared/http";
-import { createUserSchema, updateUserSchema } from "../../../modules/users/schemas";
+import { requireAuthUser, toErrorResponse } from "@/modules/shared";
+import { createUserSchema, updateUserSchema } from "@/modules/users/schemas";
 import {
   createUserService,
   listUsersService,
   updateUserService,
-} from "../../../modules/users/service";
+} from "@/modules/users/service";
 
 export const GET = async () => {
   try {

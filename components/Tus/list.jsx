@@ -1,3 +1,4 @@
+"use client";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Button,
@@ -423,11 +424,22 @@ const TusList = () => {
   const confirm = async ({ tuId, reviewLiteral, action }) => {
     try {
       const response = await confirmTu({ tuId, reviewLiteral, action });
-      const tu = response.data.tu;
+      const { tu, alsoUpdated = [] } = response.data;
+      const updatedById = new Map(
+        [tu, ...alsoUpdated].map((item) => [item.id, item]),
+      );
+
       setData((prev) =>
         prev.map((doc) =>
-          doc.id === tu.id ? { ...doc, Status: tu.Status } : doc,
+          updatedById.has(doc.id)
+            ? { ...doc, ...updatedById.get(doc.id) }
+            : doc,
         ),
+      );
+      setSelectedRow((prev) =>
+        prev && updatedById.has(prev.id)
+          ? { ...prev, ...updatedById.get(prev.id) }
+          : prev,
       );
     } catch (error) {
       console.error(error);
@@ -587,51 +599,6 @@ const TusList = () => {
     <div>
       {contextHolder}
 
-      <Resizable
-        style={style}
-        size={{ height }}
-        onResizeStop={(_, __, ___, d) => {
-          setHeight(height + d.height);
-        }}
-        className="overflow-x-hidden overflow-y-auto"
-        enable={{
-          top: true,
-          right: false,
-          bottom: true,
-          left: false,
-          topRight: false,
-          bottomRight: false,
-          bottomLeft: false,
-          topLeft: false,
-        }}
-        handleComponent={{
-          bottom: (
-            <Button
-              type="primary"
-              shape="circle"
-              icon={<ColumnHeightOutlined />}
-              size="small"
-              className="cursor-row-resize"
-              style={{
-                position: "absolute",
-                bottom: 12,
-                right: 12,
-              }}
-            />
-          ),
-        }}
-      >
-        <HeaderTus
-          stats={stats}
-          percentage={stats.porcent}
-          selectedRow={selectedRow}
-          selectedText={searchText}
-          changeTextInTextarea={changeTextInTextarea}
-          setHeight={setHeight}
-          requesting={requesting}
-        />
-      </Resizable>
-      <Divider className="my-2" />
       <Card id="tus-list">
         <Modal
           title="XML Example"
@@ -707,6 +674,51 @@ const TusList = () => {
           scroll={{ x: "100%", y: "calc(100vh - 360px)" }}
         />
       </Card>
+      <Divider className="my-2" />
+      <Resizable
+        style={style}
+        size={{ height }}
+        onResizeStop={(_, __, ___, d) => {
+          setHeight(height + d.height);
+        }}
+        className="overflow-x-hidden overflow-y-auto"
+        enable={{
+          top: true,
+          right: false,
+          bottom: true,
+          left: false,
+          topRight: false,
+          bottomRight: false,
+          bottomLeft: false,
+          topLeft: false,
+        }}
+        handleComponent={{
+          bottom: (
+            <Button
+              type="primary"
+              shape="circle"
+              icon={<ColumnHeightOutlined />}
+              size="small"
+              className="cursor-row-resize"
+              style={{
+                position: "absolute",
+                bottom: 12,
+                right: 12,
+              }}
+            />
+          ),
+        }}
+      >
+        <HeaderTus
+          stats={stats}
+          percentage={stats.porcent}
+          selectedRow={selectedRow}
+          selectedText={searchText}
+          changeTextInTextarea={changeTextInTextarea}
+          setHeight={setHeight}
+          requesting={requesting}
+        />
+      </Resizable>
     </div>
   );
 };
