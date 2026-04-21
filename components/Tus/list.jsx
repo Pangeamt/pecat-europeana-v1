@@ -598,7 +598,51 @@ const TusList = () => {
   return (
     <div>
       {contextHolder}
-
+      <Resizable
+        style={style}
+        size={{ height }}
+        onResizeStop={(_, __, ___, d) => {
+          setHeight(height + d.height);
+        }}
+        className="overflow-x-hidden overflow-y-auto"
+        enable={{
+          top: true,
+          right: false,
+          bottom: true,
+          left: false,
+          topRight: false,
+          bottomRight: false,
+          bottomLeft: false,
+          topLeft: false,
+        }}
+        handleComponent={{
+          bottom: (
+            <Button
+              type="primary"
+              shape="circle"
+              icon={<ColumnHeightOutlined />}
+              size="small"
+              className="cursor-row-resize"
+              style={{
+                position: "absolute",
+                bottom: 12,
+                right: 12,
+              }}
+            />
+          ),
+        }}
+      >
+        <HeaderTus
+          stats={stats}
+          percentage={stats.porcent}
+          selectedRow={selectedRow}
+          selectedText={searchText}
+          changeTextInTextarea={changeTextInTextarea}
+          setHeight={setHeight}
+          requesting={requesting}
+        />
+      </Resizable>
+      <Divider className="my-2" />
       <Card id="tus-list">
         <Modal
           title="XML Example"
@@ -674,51 +718,6 @@ const TusList = () => {
           scroll={{ x: "100%", y: "calc(100vh - 360px)" }}
         />
       </Card>
-      <Divider className="my-2" />
-      <Resizable
-        style={style}
-        size={{ height }}
-        onResizeStop={(_, __, ___, d) => {
-          setHeight(height + d.height);
-        }}
-        className="overflow-x-hidden overflow-y-auto"
-        enable={{
-          top: true,
-          right: false,
-          bottom: true,
-          left: false,
-          topRight: false,
-          bottomRight: false,
-          bottomLeft: false,
-          topLeft: false,
-        }}
-        handleComponent={{
-          bottom: (
-            <Button
-              type="primary"
-              shape="circle"
-              icon={<ColumnHeightOutlined />}
-              size="small"
-              className="cursor-row-resize"
-              style={{
-                position: "absolute",
-                bottom: 12,
-                right: 12,
-              }}
-            />
-          ),
-        }}
-      >
-        <HeaderTus
-          stats={stats}
-          percentage={stats.porcent}
-          selectedRow={selectedRow}
-          selectedText={searchText}
-          changeTextInTextarea={changeTextInTextarea}
-          setHeight={setHeight}
-          requesting={requesting}
-        />
-      </Resizable>
     </div>
   );
 };
