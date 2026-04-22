@@ -1,5 +1,18 @@
 "use client";
 import {
+  createWorkspace,
+  deleteWorkspace,
+  listWorkspaces,
+  updateWorkspace,
+} from "@/services/workspace.services";
+import { userStore } from "@/store";
+import {
+  DeleteOutlined,
+  EditOutlined,
+  PlusOutlined,
+  TeamOutlined,
+} from "@ant-design/icons";
+import {
   Button,
   Card,
   Form,
@@ -12,21 +25,8 @@ import {
   Tooltip,
   message,
 } from "antd";
-import {
-  DeleteOutlined,
-  EditOutlined,
-  PlusOutlined,
-  TeamOutlined,
-} from "@ant-design/icons";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import {
-  createWorkspace,
-  deleteWorkspace,
-  listWorkspaces,
-  updateWorkspace,
-} from "@/services/workspace.services";
-import { userStore } from "@/store";
 
 const WorkspaceList = () => {
   const store = userStore();
@@ -90,9 +90,7 @@ const WorkspaceList = () => {
     } catch (error) {
       if (error?.errorFields) return;
       console.error(error);
-      message.error(
-        error?.response?.data?.error || "Error saving workspace",
-      );
+      message.error(error?.response?.data?.error || "Error saving workspace");
     }
   };
 
@@ -103,9 +101,7 @@ const WorkspaceList = () => {
       await fetchData();
     } catch (error) {
       console.error(error);
-      message.error(
-        error?.response?.data?.error || "Error deleting workspace",
-      );
+      message.error(error?.response?.data?.error || "Error deleting workspace");
     }
   };
 
@@ -189,11 +185,7 @@ const WorkspaceList = () => {
       title="Workspaces"
       extra={
         canCreate && (
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={openCreate}
-          >
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
             New workspace
           </Button>
         )
