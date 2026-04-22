@@ -33,6 +33,7 @@ const WorkspaceDetail = ({ workspaceId }) => {
   const [workspace, setWorkspace] = useState(null);
   const [loading, setLoading] = useState(true);
   const [allUsers, setAllUsers] = useState([]);
+  const [wsUsers, setWsUsers] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [adding, setAdding] = useState(false);
 
@@ -58,7 +59,13 @@ const WorkspaceDetail = ({ workspaceId }) => {
   const fetchAllUsers = useCallback(async () => {
     try {
       const { data } = await getUsers();
-      setAllUsers(data?.users ?? []);
+      // Filtra los usuarios que pertenecen al mismo workspace y los que no
+      const usersInSameWorkspace =
+        data?.users?.filter((user) => user.workspaceId === workspaceId) ?? [];
+      const usersNotInSameWorkspace =
+        data?.users?.filter((user) => user.workspaceId !== workspaceId) ?? [];
+      setWsUsers(usersInSameWorkspace);
+      setAllUsers(usersNotInSameWorkspace);
     } catch (error) {
       console.error(error);
     }
@@ -155,11 +162,7 @@ const WorkspaceDetail = ({ workspaceId }) => {
       title={
         <Space>
           <Link href="/dashboard/workspaces">
-            <Button
-              type="text"
-              shape="circle"
-              icon={<ArrowLeftOutlined />}
-            />
+            <Button type="text" shape="circle" icon={<ArrowLeftOutlined />} />
           </Link>
           <span>{workspace?.name ?? "Workspace"}</span>
         </Space>
@@ -203,7 +206,13 @@ const WorkspaceDetail = ({ workspaceId }) => {
         dataSource={workspace?.members ?? []}
         rowKey="id"
         size="small"
-        pagination={false}
+        pagination={true}
+        total={wsUsers.length}
+        pageSize={10}
+        current={1}
+        onChange={(page, pageSize) => {
+          console.log(page, pageSize);
+        }}
       />
     </Card>
   );
