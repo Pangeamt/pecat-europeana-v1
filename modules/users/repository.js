@@ -1,7 +1,8 @@
 import prisma from "../../lib/prisma";
 
-export async function findAllUsers() {
+export async function findAllUsers(where = {}) {
   return prisma.user.findMany({
+    where,
     select: {
       id: true,
       name: true,
@@ -10,6 +11,7 @@ export async function findAllUsers() {
       role: true,
       provider: true,
       emailVerified: true,
+      workspaceId: true,
     },
   });
 }
@@ -31,5 +33,9 @@ export async function updateUserById(id, data) {
     where: { id },
     data,
   });
+}
+
+export async function deleteUserById(id) {
+  return prisma.user.delete({ where: { id } });
 }
 

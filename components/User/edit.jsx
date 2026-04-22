@@ -177,6 +177,7 @@ const UserEdit = ({ user, save }) => {
             initialValue={user.role}
           >
             <Select>
+              <Select.Option value="SUPER">Super</Select.Option>
               <Select.Option value="ADMIN">Admin</Select.Option>
               <Select.Option value="USER">User</Select.Option>
             </Select>

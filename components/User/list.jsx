@@ -1,20 +1,34 @@
 "use client";
-import { Avatar, Button, Card, Popconfirm, Space, Table, Tooltip } from "antd";
+import { Avatar, Button, Card, Popconfirm, Space, Table, Tooltip, message } from "antd";
 import { useState } from "react";
 import { addUser, getUsers, removeUser, saveUser } from "@/services/user.services";
 import { DeleteOutlined } from "@ant-design/icons";
 import { useEffect } from "react";
+import { userStore } from "@/store";
 import UserAdd from "./add";
 import UserEdit from "./edit";
 
 
 const UserList = () => {
+  const store = userStore();
+  const { user: currentUser } = store;
   const [requesting, setRequesting] = useState(true);
   const [users, setUsers] = useState([]);
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  const canDelete = (record) => {
+    if (!currentUser) return false;
+    if (record.id === currentUser.id) return false;
+    if (currentUser.role === "SUPER") return true;
+    if (currentUser.role === "ADMIN") {
+      if (record.role === "SUPER") return false;
+      return record.workspaceId === currentUser.workspaceId;
+    }
+    return false;
+  };
 
   const fetchData = async () => {
     try {
@@ -53,9 +67,11 @@ const UserList = () => {
   const remove = async (userId) => {
     try {
       await removeUser(userId);
+      message.success("User deleted");
       await fetchData();
     } catch (error) {
       console.error(error);
+      message.error(error?.response?.data?.error || "Error deleting user");
     }
   };
 
@@ -97,27 +113,30 @@ const UserList = () => {
       key: "action",
       width: 120,
       render: (record) => {
+        const deletable = canDelete(record);
         return (
           <div className="flex justify-end">
             <UserEdit user={record} save={save} />
 
-            <Popconfirm
-              title="Delete the task"
-              description="Are you sure to delete this task?"
-              onConfirm={() => remove(record.id)}
-              okText="Yes"
-              cancelText="No"
-            >
-              <Tooltip title="Remove">
-                <Button
-                  size="small"
-                  type="primary"
-                  shape="circle"
-                  danger
-                  icon={<DeleteOutlined />}
-                />
-              </Tooltip>
-            </Popconfirm>
+            {deletable && (
+              <Popconfirm
+                title="Delete user"
+                description="Are you sure you want to delete this user?"
+                onConfirm={() => remove(record.id)}
+                okText="Yes"
+                cancelText="No"
+              >
+                <Tooltip title="Remove">
+                  <Button
+                    size="small"
+                    type="primary"
+                    shape="circle"
+                    danger
+                    icon={<DeleteOutlined />}
+                  />
+                </Tooltip>
+              </Popconfirm>
+            )}
           </div>
         );
       },

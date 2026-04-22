@@ -1,6 +1,6 @@
 import Joi from "joi";
 
-export const roleEnum = ["USER", "ADMIN"];
+export const roleEnum = ["USER", "ADMIN", "SUPER"];
 
 export const createUserSchema = Joi.object({
   name: Joi.string().required(),
@@ -10,6 +10,7 @@ export const createUserSchema = Joi.object({
     .required(),
   image: Joi.string().allow(null, ""),
   password: Joi.string().required(),
+  workspaceId: Joi.string().allow(null, ""),
 });
 
 export const updateUserSchema = Joi.object({
@@ -19,5 +20,10 @@ export const updateUserSchema = Joi.object({
   role: Joi.string().valid(...roleEnum),
   image: Joi.string().allow(null, ""),
   password: Joi.string(),
+  workspaceId: Joi.string().allow(null, ""),
+});
+
+export const deleteUserSchema = Joi.object({
+  userId: Joi.string().required(),
 });
 

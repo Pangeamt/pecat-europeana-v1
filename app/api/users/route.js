@@ -1,16 +1,21 @@
 import { NextResponse } from "next/server";
 import { requireAuthUser, toErrorResponse } from "@/modules/shared";
-import { createUserSchema, updateUserSchema } from "@/modules/users/schemas";
+import {
+  createUserSchema,
+  deleteUserSchema,
+  updateUserSchema,
+} from "@/modules/users/schemas";
 import {
   createUserService,
+  deleteUserService,
   listUsersService,
   updateUserService,
 } from "@/modules/users/service";
 
 export const GET = async () => {
   try {
-    await requireAuthUser();
-    const users = await listUsersService();
+    const actorUser = await requireAuthUser();
+    const users = await listUsersService(actorUser);
     return NextResponse.json({ users }, { status: 200 });
   } catch (error) {
     return toErrorResponse(error, "Failed to get users");
@@ -19,10 +24,10 @@ export const GET = async () => {
 
 export const POST = async (req) => {
   try {
-    await requireAuthUser();
+    const actorUser = await requireAuthUser();
     const body = await req.json();
     const payload = await createUserSchema.validateAsync(body);
-    const newUser = await createUserService(payload);
+    const newUser = await createUserService(payload, actorUser);
     return NextResponse.json({ user: newUser }, { status: 201 });
   } catch (error) {
     return toErrorResponse(error, "Failed to create user");
@@ -38,5 +43,17 @@ export const PATCH = async (req) => {
     return NextResponse.json({ status: "success" }, { status: 200 });
   } catch (error) {
     return toErrorResponse(error);
+  }
+};
+
+export const DELETE = async (req) => {
+  try {
+    const actorUser = await requireAuthUser();
+    const body = await req.json();
+    const { userId } = await deleteUserSchema.validateAsync(body);
+    await deleteUserService(actorUser, userId);
+    return NextResponse.json({ status: "success" }, { status: 200 });
+  } catch (error) {
+    return toErrorResponse(error, "Failed to delete user");
   }
 };

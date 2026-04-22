@@ -170,6 +170,7 @@ const UserAdd = ({ add }) => {
             ]}
           >
             <Select>
+              <Select.Option value="SUPER">Super</Select.Option>
               <Select.Option value="ADMIN">Admin</Select.Option>
               <Select.Option value="USER">User</Select.Option>
             </Select>

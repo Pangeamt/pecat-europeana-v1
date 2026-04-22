@@ -6,7 +6,7 @@ export const GET = async (_, { params }) => {
   try {
     const { userId } = await params;
     const actorUser = await requireAuthUser();
-    const docUser = await getUserByIdService(userId, actorUser.id);
+    const docUser = await getUserByIdService(userId, actorUser.id, actorUser);
     return NextResponse.json({ user: docUser }, { status: 200 });
   } catch (error) {
     return toErrorResponse(error);

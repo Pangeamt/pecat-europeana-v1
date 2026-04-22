@@ -2,6 +2,7 @@ import { generateSaltAndHash } from "../../lib/utils";
 import { HttpError } from "../shared/http-error";
 import {
   createUser,
+  deleteUserById,
   findAllUsers,
   findUserById,
   updateUserById,
@@ -13,23 +14,86 @@ function mapUserImage(user) {
   return { ...user, image: user.image.toString("utf-8") };
 }
 
-export async function listUsersService() {
-  const users = await findAllUsers();
+function isSelf(actorUser, userId) {
+  return actorUser?.id && actorUser.id === userId;
+}
+
+function buildUserScopeWhere(actorUser) {
+  if (actorUser.role === "SUPER") return {};
+  if (actorUser.role === "ADMIN") {
+    if (!actorUser.workspaceId) return { id: actorUser.id };
+    return { workspaceId: actorUser.workspaceId };
+  }
+  return { id: actorUser.id };
+}
+
+function assertUserReachable(actorUser, targetUser) {
+  if (!targetUser) {
+    throw new HttpError(404, "User not found");
+  }
+
+  if (actorUser.role === "SUPER") return;
+
+  if (isSelf(actorUser, targetUser.id)) return;
+
+  if (actorUser.role === "ADMIN") {
+    if (
+      actorUser.workspaceId &&
+      targetUser.workspaceId === actorUser.workspaceId
+    ) {
+      return;
+    }
+  }
+
+  throw new HttpError(403, "You cannot access this user");
+}
+
+export async function listUsersService(actorUser) {
+  const where = buildUserScopeWhere(actorUser);
+  const users = await findAllUsers(where);
   return users.map(mapUserImage);
 }
 
-export async function getUserByIdService(userId, fallbackUserId) {
-  const docUser = await findUserById(userId || fallbackUserId);
-  if (!docUser) {
-    throw new HttpError(404, "User not found");
-  }
+export async function getUserByIdService(userId, fallbackUserId, actorUser) {
+  const targetId = userId || fallbackUserId;
+  const docUser = await findUserById(targetId);
+  assertUserReachable(actorUser, docUser);
   return mapUserImage(docUser);
 }
 
-export async function createUserService(payload) {
-  const { name, email, role, password, image = null } = payload;
+export async function createUserService(payload, actorUser) {
+  const {
+    name,
+    email,
+    role,
+    password,
+    image = null,
+    workspaceId: payloadWorkspaceId,
+  } = payload;
+
+  if (actorUser.role === "USER") {
+    throw new HttpError(403, "Only admins can create users");
+  }
+
+  let workspaceId;
+  let finalRole = role;
+
+  if (actorUser.role === "SUPER") {
+    workspaceId = payloadWorkspaceId ?? null;
+  } else {
+    // ADMIN: can only create users inside their own workspace, and
+    // cannot promote anyone to SUPER.
+    if (!actorUser.workspaceId) {
+      throw new HttpError(403, "You need a workspace to create users");
+    }
+    workspaceId = actorUser.workspaceId;
+    if (finalRole === "SUPER") {
+      throw new HttpError(403, "You cannot assign the SUPER role");
+    }
+  }
+
   const { salt, hash } = generateSaltAndHash({ password });
-  const data = { name, email, role, salt, hash };
+  const data = { name, email, role: finalRole, salt, hash, workspaceId };
 
   if (image) {
     data.image = Buffer.from(image, "utf-8");
@@ -46,18 +110,45 @@ export async function createUserService(payload) {
 }
 
 export async function updateUserService(actorUser, payload) {
-  if (actorUser.role !== "ADMIN" || actorUser.id !== payload.userId) {
-    throw new HttpError(401, "Unauthorized");
+  const target = await findUserById(payload.userId);
+  if (!target) {
+    throw new HttpError(404, "User not found");
   }
 
-  const data = {
-    name: payload.name,
-    email: payload.email,
-    role: payload.role,
-  };
+  const self = isSelf(actorUser, target.id);
+  const actorRole = actorUser.role;
 
-  if (actorUser.role === "USER") {
-    data.role = "USER";
+  const canEdit =
+    actorRole === "SUPER" ||
+    self ||
+    (actorRole === "ADMIN" &&
+      actorUser.workspaceId &&
+      target.workspaceId === actorUser.workspaceId);
+
+  if (!canEdit) {
+    throw new HttpError(403, "You cannot update this user");
+  }
+
+  const data = {};
+
+  if (payload.name !== undefined) data.name = payload.name;
+  if (payload.email !== undefined) data.email = payload.email;
+
+  if (payload.role !== undefined) {
+    if (self && actorRole !== "SUPER") {
+      // Users cannot escalate or change their own role.
+    } else if (actorRole === "SUPER") {
+      data.role = payload.role;
+    } else if (actorRole === "ADMIN") {
+      if (payload.role === "SUPER") {
+        throw new HttpError(403, "You cannot assign the SUPER role");
+      }
+      data.role = payload.role;
+    }
+  }
+
+  if (actorRole === "SUPER" && payload.workspaceId !== undefined) {
+    data.workspaceId = payload.workspaceId || null;
   }
 
   if (payload.image) {
@@ -70,6 +161,49 @@ export async function updateUserService(actorUser, payload) {
     data.hash = hash;
   }
 
+  if (Object.keys(data).length === 0) {
+    throw new HttpError(400, "No fields to update");
+  }
+
   await updateUserById(payload.userId, data);
 }
 
+export async function deleteUserService(actorUser, userId) {
+  if (!userId) {
+    throw new HttpError(400, "userId is required");
+  }
+
+  if (isSelf(actorUser, userId)) {
+    throw new HttpError(400, "You cannot delete your own account");
+  }
+
+  const target = await findUserById(userId);
+  if (!target) {
+    throw new HttpError(404, "User not found");
+  }
+
+  const actorRole = actorUser.role;
+
+  const canDelete =
+    actorRole === "SUPER" ||
+    (actorRole === "ADMIN" &&
+      actorUser.workspaceId &&
+      target.workspaceId === actorUser.workspaceId &&
+      target.role !== "SUPER");
+
+  if (!canDelete) {
+    throw new HttpError(403, "You cannot delete this user");
+  }
+
+  try {
+    await deleteUserById(userId);
+  } catch (error) {
+    if (error?.code === "P2003") {
+      throw new HttpError(
+        409,
+        "Cannot delete a user with related data (projects, TMs...). Reassign or remove them first.",
+      );
+    }
+    throw error;
+  }
+}
