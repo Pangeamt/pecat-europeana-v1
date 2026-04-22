@@ -2,9 +2,9 @@ import { generateSaltAndHash } from "../../lib/utils";
 import { HttpError } from "../shared/http-error";
 import {
   createUser,
-  deleteUserById,
   findAllUsers,
   findUserById,
+  softDeleteUserById,
   updateUserById,
 } from "./repository";
 
@@ -195,15 +195,5 @@ export async function deleteUserService(actorUser, userId) {
     throw new HttpError(403, "You cannot delete this user");
   }
 
-  try {
-    await deleteUserById(userId);
-  } catch (error) {
-    if (error?.code === "P2003") {
-      throw new HttpError(
-        409,
-        "Cannot delete a user with related data (projects, TMs...). Reassign or remove them first.",
-      );
-    }
-    throw error;
-  }
+  await softDeleteUserById(userId);
 }

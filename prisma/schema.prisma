@@ -49,6 +49,7 @@ model User {
   role          Role       @default(USER)
   provider      String?
   workspaceId   String?
+  deletedAt     DateTime?
   accounts      Account[]
   projects      Project[]
   sessions      Session[]
@@ -56,6 +57,7 @@ model User {
   createdTms    Tm[]       @relation("TmCreatedBy")
 
   @@index([workspaceId], map: "users_workspaceId_fkey")
+  @@index([deletedAt], map: "users_deletedAt_idx")
   @@map("users")
 }
 
@@ -134,11 +136,13 @@ model Tm {
   workspaceId     String
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
   createdBy       User      @relation("TmCreatedBy", fields: [createdByUserId], references: [id])
   workspace       Workspace @relation(fields: [workspaceId], references: [id])
 
   @@index([workspaceId], map: "tms_workspaceId_fkey")
   @@index([createdByUserId], map: "tms_createdByUserId_fkey")
+  @@index([deletedAt], map: "tms_deletedAt_idx")
   @@map("tms")
 }
 

@@ -3,9 +3,15 @@ import prisma from "../../lib/prisma";
 const workspaceInclude = {
   _count: {
     select: {
-      members: true,
-      projects: true,
-      tms: true,
+      members: {
+        where: { deletedAt: null },
+      },
+      projects: {
+        where: { deletedAt: null },
+      },
+      tms: {
+        where: { deletedAt: null },
+      },
     },
   },
 };

@@ -1,8 +1,10 @@
 import prisma from "../../lib/prisma";
 
+const activeFilter = { deletedAt: null };
+
 export async function findAllUsers(where = {}) {
   return prisma.user.findMany({
-    where,
+    where: { ...activeFilter, ...where },
     select: {
       id: true,
       name: true,
@@ -17,8 +19,14 @@ export async function findAllUsers(where = {}) {
 }
 
 export async function findUserById(id) {
-  return prisma.user.findUnique({
-    where: { id },
+  return prisma.user.findFirst({
+    where: { id, ...activeFilter },
+  });
+}
+
+export async function findUserByEmail(email) {
+  return prisma.user.findFirst({
+    where: { email, ...activeFilter },
   });
 }
 
@@ -35,7 +43,23 @@ export async function updateUserById(id, data) {
   });
 }
 
-export async function deleteUserById(id) {
-  return prisma.user.delete({ where: { id } });
-}
+export async function softDeleteUserById(id) {
+  const user = await prisma.user.findUnique({
+    where: { id },
+    select: { email: true, deletedAt: true },
+  });
 
+  if (!user || user.deletedAt) return user;
+
+  // Anonymize the email so the unique constraint does not block future
+  // sign-ups with the same address.
+  const anonymizedEmail = `deleted_${Date.now()}_${user.email}`.slice(0, 191);
+
+  return prisma.user.update({
+    where: { id },
+    data: {
+      deletedAt: new Date(),
+      email: anonymizedEmail,
+    },
+  });
+}

@@ -7,9 +7,10 @@ import {
 } from "./repository";
 import {
   createTmRecord,
-  deleteTmRecord,
   findTmRecordById,
+  hardDeleteTmRecord,
   listTmRecords,
+  softDeleteTmRecord,
   updateTmRecord,
 } from "./prisma-repository";
 
@@ -87,7 +88,7 @@ export async function createTranslationMemoryService(payload, actorUser) {
       },
     });
   } catch (error) {
-    await deleteTmRecord(record.id).catch(() => {});
+    await hardDeleteTmRecord(record.id).catch(() => {});
     throw error;
   }
 
@@ -152,7 +153,7 @@ export async function updateTranslationMemoryService(payload, actorUser) {
 
 export async function deleteTranslationMemoryService(id, actorUser) {
   await assertTmInWorkspace(id, actorUser);
-  await deleteTmRecord(id);
+  await softDeleteTmRecord(id);
   const result = await deleteTm(id).catch(() => null);
   return { message: "Deleted successfully", result };
 }
@@ -211,7 +212,7 @@ export async function prepareTranslationMemoryForImportService({
       },
     });
   } catch (error) {
-    await deleteTmRecord(record.id).catch(() => {});
+    await hardDeleteTmRecord(record.id).catch(() => {});
     throw error;
   }
 

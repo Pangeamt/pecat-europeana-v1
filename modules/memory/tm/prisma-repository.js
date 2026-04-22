@@ -1,5 +1,7 @@
 import prisma from "../../../lib/prisma";
 
+const activeFilter = { deletedAt: null };
+
 export async function createTmRecord(data) {
   return prisma.tm.create({
     data,
@@ -11,8 +13,8 @@ export async function createTmRecord(data) {
 }
 
 export async function findTmRecordById(id) {
-  return prisma.tm.findUnique({
-    where: { id },
+  return prisma.tm.findFirst({
+    where: { id, ...activeFilter },
     include: {
       createdBy: { select: { id: true, name: true, email: true } },
       workspace: { select: { id: true, name: true } },
@@ -29,7 +31,7 @@ export async function listTmRecords({
   createdByUserId,
   size = 100,
 }) {
-  const where = {};
+  const where = { ...activeFilter };
   if (workspaceId) where.workspaceId = workspaceId;
   if (createdByUserId) where.createdByUserId = createdByUserId;
   if (name) where.name = { contains: name };
@@ -59,6 +61,15 @@ export async function updateTmRecord(id, data) {
   return prisma.tm.update({ where: { id }, data });
 }
 
-export async function deleteTmRecord(id) {
+export async function softDeleteTmRecord(id) {
+  return prisma.tm.update({
+    where: { id },
+    data: { deletedAt: new Date() },
+  });
+}
+
+// Permanent delete. Use only for rollback right after a failed create;
+// regular delete flows should go through softDeleteTmRecord.
+export async function hardDeleteTmRecord(id) {
   return prisma.tm.delete({ where: { id } });
 }
