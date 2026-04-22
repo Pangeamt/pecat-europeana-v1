@@ -41,7 +41,6 @@ next-env.d.ts
 *.yml
 *.yaml
 .env
-prisma/migrations/*
 
 
 .agents/*
