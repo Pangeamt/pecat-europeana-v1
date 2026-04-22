@@ -8,11 +8,12 @@ import {
 
 export const POST = async (req, { params }) => {
   try {
+    const { id } = await params;
     const actorUser = await requireAuthUser();
     const body = await req.json();
     const payload = await assignMemberSchema.validateAsync(body);
     const member = await addMemberToWorkspaceService(
-      params.id,
+      id,
       payload.userId,
       actorUser,
     );
@@ -24,11 +25,12 @@ export const POST = async (req, { params }) => {
 
 export const DELETE = async (req, { params }) => {
   try {
+    const { id } = await params;
     const actorUser = await requireAuthUser();
     const body = await req.json();
     const payload = await assignMemberSchema.validateAsync(body);
     const member = await removeMemberFromWorkspaceService(
-      params.id,
+      id,
       payload.userId,
       actorUser,
     );
