@@ -39,20 +39,36 @@ model Session {
 }
 
 model User {
-  id            String    @id @default(cuid())
+  id            String     @id @default(cuid())
   name          String
-  email         String    @unique
+  email         String     @unique
   salt          String?
   hash          String?
   emailVerified DateTime?
   image         Bytes?
-  role          Role      @default(USER)
+  role          Role       @default(USER)
   provider      String?
+  workspaceId   String?
   accounts      Account[]
   projects      Project[]
   sessions      Session[]
+  workspace     Workspace? @relation("WorkspaceMembers", fields: [workspaceId], references: [id])
+  createdTms    Tm[]       @relation("TmCreatedBy")
 
+  @@index([workspaceId], map: "users_workspaceId_fkey")
   @@map("users")
+}
+
+model Workspace {
+  id        String    @id @default(cuid())
+  name      String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  members   User[]    @relation("WorkspaceMembers")
+  projects  Project[]
+  tms       Tm[]
+
+  @@map("workspaces")
 }
 
 model Project {
@@ -65,6 +81,7 @@ model Project {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   userId         String
+  workspaceId    String
   deletedAt      DateTime?
   mt             Boolean   @default(false)
   extension      String    @default("json")
@@ -72,9 +89,11 @@ model Project {
   targetLanguage String?
   exampleXml     String?
   User           User      @relation(fields: [userId], references: [id])
+  workspace      Workspace @relation(fields: [workspaceId], references: [id])
   tus            Tu[]
 
   @@index([userId], map: "projects_userId_fkey")
+  @@index([workspaceId], map: "projects_workspaceId_fkey")
   @@map("projects")
 }
 
@@ -105,6 +124,24 @@ model Tu {
   @@map("tus")
 }
 
+model Tm {
+  id              String    @id @default(cuid())
+  name            String
+  domain          String?
+  sourceLanguage  String
+  targetLanguage  String
+  createdByUserId String
+  workspaceId     String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  createdBy       User      @relation("TmCreatedBy", fields: [createdByUserId], references: [id])
+  workspace       Workspace @relation(fields: [workspaceId], references: [id])
+
+  @@index([workspaceId], map: "tms_workspaceId_fkey")
+  @@index([createdByUserId], map: "tms_createdByUserId_fkey")
+  @@map("tms")
+}
+
 model VerificationToken {
   identifier String
   token      String   @unique
@@ -115,6 +152,7 @@ model VerificationToken {
 }
 
 enum Role {
+  SUPER
   ADMIN
   USER
 }
