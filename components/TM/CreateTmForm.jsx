@@ -58,12 +58,8 @@ export default function CreateTmForm({ user, onBack, onCreated }) {
         >
           <Input />
         </Form.Item>
-        <Form.Item
-          label="Project"
-          name="project"
-          rules={[{ required: true, message: "Please introduce a project!" }]}
-        >
-          <Input />
+        <Form.Item label="Project" name="project">
+          <Input placeholder="Optional" />
         </Form.Item>
         <Form.Item label="Domain" name="domain">
           <Input />

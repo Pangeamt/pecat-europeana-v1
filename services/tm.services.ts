@@ -14,10 +14,8 @@ export const addTMRequest = async (
   return response.data;
 };
 
-export const fetchTMRequest = async (user: string): Promise<TmListResponse> => {
-  const response = await httpClient.get<TmListResponse>("/api/tm", {
-    params: { user },
-  });
+export const fetchTMRequest = async (): Promise<TmListResponse> => {
+  const response = await httpClient.get<TmListResponse>("/api/tm");
   return response.data;
 };
 

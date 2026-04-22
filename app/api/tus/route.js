@@ -21,10 +21,10 @@ export const GET = async (req) => {
 
 export const POST = async (req) => {
   try {
-    await requireAuthUser();
+    const actorUser = await requireAuthUser();
     const body = await req.json();
     const payload = await updateTuSchema.validateAsync(body);
-    const { tu, alsoUpdated } = await updateTuStatusService(payload);
+    const { tu, alsoUpdated } = await updateTuStatusService(payload, actorUser);
     return Response.json({ tu, alsoUpdated }, { status: 200 });
   } catch (error) {
     return toErrorResponse(error);

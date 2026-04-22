@@ -7,6 +7,7 @@ export async function importTranslationMemoryService({
   translation_memory,
   units,
   tmId,
+  actorUser,
 }) {
   if (!translation_memory || !Array.isArray(units)) {
     throw new HttpError(400, "Invalid import structure");
@@ -15,6 +16,7 @@ export async function importTranslationMemoryService({
   const finalTmId = await prepareTranslationMemoryForImportService({
     translation_memory,
     tmId,
+    actorUser,
   });
 
   const now = new Date().toISOString();
@@ -40,7 +42,12 @@ export async function importTranslationMemoryService({
   };
 }
 
-export async function importTmFromFilesService({ files, tmId, userEmail }) {
+export async function importTmFromFilesService({
+  files,
+  tmId,
+  userEmail,
+  actorUser,
+}) {
   for (const file of files) {
     if (!file || !file.name) continue;
 
@@ -55,6 +62,7 @@ export async function importTmFromFilesService({ files, tmId, userEmail }) {
       tmId: tmxData.tmId,
       translation_memory: tmxData.translation_memory,
       units: tmxData.units,
+      actorUser,
     });
   }
 

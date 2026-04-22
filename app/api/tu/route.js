@@ -10,7 +10,7 @@ import {
 
 export const GET = async (req) => {
   try {
-    await requireAuthUser();
+    const actorUser = await requireAuthUser();
     const { searchParams } = new URL(req.url);
     const query = await tuSearchQuerySchema.validateAsync({
       translation_memory_id: searchParams.get("translation_memory_id"),
@@ -23,7 +23,7 @@ export const GET = async (req) => {
       perTerm: searchParams.get("perTerm"),
       minSimilarity: searchParams.get("minSimilarity") ?? undefined,
     });
-    const data = await searchTranslationUnitsService(query);
+    const data = await searchTranslationUnitsService(query, actorUser);
     return Response.json(data);
   } catch (error) {
     return toErrorResponse(error);
@@ -32,10 +32,10 @@ export const GET = async (req) => {
 
 export const POST = async (req) => {
   try {
-    await requireAuthUser();
+    const actorUser = await requireAuthUser();
     const body = await req.json();
     const payload = await createTuSchema.validateAsync(body);
-    const result = await createTranslationUnitService(payload);
+    const result = await createTranslationUnitService(payload, actorUser);
     return Response.json(result);
   } catch (error) {
     return toErrorResponse(error);
@@ -44,10 +44,10 @@ export const POST = async (req) => {
 
 export const PATCH = async (req) => {
   try {
-    await requireAuthUser();
+    const actorUser = await requireAuthUser();
     const body = await req.json();
     const payload = await updateTuSchema.validateAsync(body);
-    const result = await updateTranslationUnitService(payload);
+    const result = await updateTranslationUnitService(payload, actorUser);
     return Response.json(result);
   } catch (error) {
     return toErrorResponse(error);

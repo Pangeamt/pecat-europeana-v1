@@ -17,6 +17,7 @@ export const POST = async (req) => {
       files,
       tmId,
       userEmail: user.email,
+      actorUser: user,
     });
     return Response.json({ status: "success", data });
   } catch (error) {

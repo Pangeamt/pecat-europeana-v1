@@ -1,15 +1,9 @@
 import prisma from "../../lib/prisma";
+import { buildProjectScopeWhere } from "../projects/repository";
 
 export async function findProjectForTus(projectId, actorUser) {
-  const where = {
-    id: projectId,
-    userId: actorUser.id,
-  };
-
-  if (actorUser.role === "ADMIN") {
-    delete where.userId;
-  }
-
+  if (!projectId) return null;
+  const where = buildProjectScopeWhere(actorUser, { id: projectId });
   return prisma.project.findFirst({ where });
 }
 

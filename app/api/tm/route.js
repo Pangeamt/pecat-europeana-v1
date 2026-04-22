@@ -10,7 +10,7 @@ import {
 
 export const GET = async (req) => {
   try {
-    await requireAuthUser();
+    const actorUser = await requireAuthUser();
     const { searchParams } = new URL(req.url);
     const query = await listTmQuerySchema.validateAsync({
       name: searchParams.get("name"),
@@ -19,10 +19,11 @@ export const GET = async (req) => {
       domain: searchParams.get("domain"),
       source: searchParams.get("source"),
       target: searchParams.get("target"),
+      workspaceId: searchParams.get("workspaceId"),
       size: searchParams.get("size"),
     });
 
-    const data = await listTranslationMemoriesService(query);
+    const data = await listTranslationMemoriesService(query, actorUser);
     return Response.json(data);
   } catch (error) {
     return toErrorResponse(error);
@@ -31,10 +32,10 @@ export const GET = async (req) => {
 
 export const POST = async (req) => {
   try {
-    await requireAuthUser();
+    const actorUser = await requireAuthUser();
     const body = await req.json();
     const payload = await createTmSchema.validateAsync(body);
-    const result = await createTranslationMemoryService(payload);
+    const result = await createTranslationMemoryService(payload, actorUser);
     return Response.json(result);
   } catch (error) {
     return toErrorResponse(error);
@@ -43,10 +44,10 @@ export const POST = async (req) => {
 
 export const PATCH = async (req) => {
   try {
-    await requireAuthUser();
+    const actorUser = await requireAuthUser();
     const body = await req.json();
     const payload = await updateTmSchema.validateAsync(body);
-    const result = await updateTranslationMemoryService(payload);
+    const result = await updateTranslationMemoryService(payload, actorUser);
     return Response.json(result);
   } catch (error) {
     return toErrorResponse(error);

@@ -36,11 +36,12 @@ export type TranslationUnit = {
 
 export type CreateTmPayload = {
   name: string;
-  user: string;
+  user?: string | null;
   project?: string | null;
   domain?: string | null;
   source: string;
   target: string;
+  workspaceId?: string | null;
 };
 
 export type UpdateTmPayload = {
@@ -52,11 +53,12 @@ export type UpdateTmPayload = {
 
 export type ListTmQuery = {
   name?: string | null;
-  user: string;
+  user?: string | null;
   project?: string | null;
   domain?: string | null;
   source?: string | null;
   target?: string | null;
+  workspaceId?: string | null;
   size?: number | string | null;
 };
 

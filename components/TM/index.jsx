@@ -14,7 +14,7 @@ const TM = ({ project, tmRequesting }) => {
   const tmSt = tmStore();
   const { user } = userSt;
   const { tm, saveTm, clear } = tmSt;
-  const { tms, fetching, refetch } = useTmList(user?.email);
+  const { tms, fetching, refetch } = useTmList();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isModalEditOpen, setIsModalEditOpen] = useState(false);

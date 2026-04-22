@@ -1,110 +1,170 @@
 import { HttpError } from "@/modules/shared/http-error";
 import {
-  createTm,
   createTmWithId,
   deleteTm,
-  findTmById,
-  searchTms,
   searchTusByMemoryId,
   updateTm,
 } from "./repository";
+import {
+  createTmRecord,
+  deleteTmRecord,
+  findTmRecordById,
+  listTmRecords,
+  updateTmRecord,
+} from "./prisma-repository";
 
-function mapSearchHitsToDocs(hits) {
-  return hits.map((hit) => ({ id: hit._id, ...hit._source }));
+function toTmDoc(record) {
+  if (!record) return null;
+  return {
+    id: record.id,
+    name: record.name,
+    domain: record.domain,
+    sourceLanguage: record.sourceLanguage,
+    targetLanguage: record.targetLanguage,
+    workspaceId: record.workspaceId,
+    createdByUserId: record.createdByUserId,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+    createdBy: record.createdBy,
+    workspace: record.workspace,
+    // Backward-compatible shape expected by the UI.
+    context: {
+      user: record.createdBy?.email ?? null,
+      project: null,
+      domain: record.domain ?? null,
+      source: record.sourceLanguage,
+      target: record.targetLanguage,
+    },
+  };
 }
 
-function getTotalHits(searchResult, fallbackLength) {
-  if (typeof searchResult?.hits?.total === "number") {
-    return searchResult.hits.total;
+async function assertTmInWorkspace(id, actorUser) {
+  const record = await findTmRecordById(id);
+  if (!record) {
+    throw new HttpError(404, "Translation memory not found");
   }
 
-  return searchResult?.hits?.total?.value ?? fallbackLength;
+  if (
+    actorUser.role !== "SUPER" &&
+    record.workspaceId !== actorUser.workspaceId
+  ) {
+    throw new HttpError(403, "Translation memory not in your workspace");
+  }
+
+  return record;
 }
 
-function asOptionalTerm(field, value) {
-  if (value === undefined || value === null || value === "") return null;
-  return { term: { [field]: { value } } };
-}
+export async function createTranslationMemoryService(payload, actorUser) {
+  if (!actorUser?.id) {
+    throw new HttpError(401, "Unauthorized");
+  }
 
-export async function createTranslationMemoryService(payload) {
-  const { name, user, project, domain, source, target } = payload;
-  return createTm({
+  const workspaceId = payload.workspaceId ?? actorUser.workspaceId;
+  if (!workspaceId) {
+    throw new HttpError(400, "A workspace is required to create a TM");
+  }
+
+  const { name, domain, source, target } = payload;
+
+  const record = await createTmRecord({
     name,
-    context: { user, project, domain, source, target },
+    domain: domain || null,
+    sourceLanguage: source,
+    targetLanguage: target,
+    createdByUserId: actorUser.id,
+    workspaceId,
   });
+
+  try {
+    await createTmWithId(record.id, {
+      name: record.name,
+      context: {
+        user: record.createdBy?.email ?? actorUser.email ?? null,
+        project: payload.project ?? null,
+        domain: record.domain ?? null,
+        source: record.sourceLanguage,
+        target: record.targetLanguage,
+      },
+    });
+  } catch (error) {
+    await deleteTmRecord(record.id).catch(() => {});
+    throw error;
+  }
+
+  return toTmDoc(record);
 }
 
-export async function listTranslationMemoriesService(queryParams) {
+export async function listTranslationMemoriesService(queryParams, actorUser) {
   const {
     name,
-    user,
-    project,
     domain,
     source,
     target,
     size = 100,
-  } = queryParams;
+    workspaceId,
+    user: ownerEmail,
+  } = queryParams ?? {};
 
-  const must = [
-    asOptionalTerm("name", name),
-    asOptionalTerm("context.user", user),
-    asOptionalTerm("context.project", project),
-    asOptionalTerm("context.domain", domain),
-    asOptionalTerm("context.source", source),
-    asOptionalTerm("context.target", target),
-  ].filter(Boolean);
+  const filters = { name, domain, source, target, size };
 
-  const query = { bool: { must } };
-  const parsedSize = Number.parseInt(size, 10) || 100;
-  const response = await searchTms(query, parsedSize);
-  const hits = response?.hits?.hits || [];
-  const docs = mapSearchHitsToDocs(hits);
-
-  return {
-    total: getTotalHits(response, docs.length),
-    docs,
-  };
-}
-
-export async function updateTranslationMemoryService(payload) {
-  const { id, name, project, domain } = payload;
-  const doc = {};
-  const context = {};
-
-  if (name) doc.name = name;
-  if (project) context.project = project;
-  if (domain) context.domain = domain;
-
-  if (Object.keys(context).length > 0) {
-    doc.context = context;
+  if (actorUser.role === "SUPER") {
+    if (workspaceId) filters.workspaceId = workspaceId;
+  } else {
+    if (!actorUser.workspaceId) {
+      return { total: 0, docs: [] };
+    }
+    filters.workspaceId = actorUser.workspaceId;
   }
 
-  if (Object.keys(doc).length === 0) {
+  if (ownerEmail && actorUser.email === ownerEmail) {
+    filters.createdByUserId = actorUser.id;
+  }
+
+  const { docs, total } = await listTmRecords(filters);
+  return { total, docs: docs.map(toTmDoc) };
+}
+
+export async function updateTranslationMemoryService(payload, actorUser) {
+  const { id, name, domain } = payload;
+  await assertTmInWorkspace(id, actorUser);
+
+  const data = {};
+  if (name !== undefined && name !== null && name !== "") data.name = name;
+  if (domain !== undefined) data.domain = domain || null;
+
+  if (Object.keys(data).length === 0) {
     throw new HttpError(400, "No fields to update");
   }
 
-  const result = await updateTm(id, doc);
-  return { message: "Updated successfully", result };
+  const updated = await updateTmRecord(id, data);
+
+  await updateTm(id, {
+    name: updated.name,
+    context: {
+      domain: updated.domain ?? null,
+    },
+  }).catch(() => {
+    // OpenSearch may not have the doc yet (legacy); ignore.
+  });
+
+  return { message: "Updated successfully", result: toTmDoc(updated) };
 }
 
-export async function deleteTranslationMemoryService(id) {
-  const result = await deleteTm(id);
+export async function deleteTranslationMemoryService(id, actorUser) {
+  await assertTmInWorkspace(id, actorUser);
+  await deleteTmRecord(id);
+  const result = await deleteTm(id).catch(() => null);
   return { message: "Deleted successfully", result };
 }
 
-export async function getTranslationMemoryWithTusService(id) {
-  const tmResponse = await findTmById(id);
-  const tmHits = tmResponse?.hits?.hits || [];
-  if (tmHits.length === 0) {
-    throw new HttpError(404, "Translation memory not found");
-  }
+export async function getTranslationMemoryWithTusService(id, actorUser) {
+  const record = await assertTmInWorkspace(id, actorUser);
 
-  const tm = { id, ...tmHits[0]._source };
   const tusResponse = await searchTusByMemoryId(id);
   const tusHits = tusResponse?.hits?.hits || [];
-  const tus = mapSearchHitsToDocs(tusHits);
+  const units = tusHits.map((hit) => ({ id: hit._id, ...hit._source }));
 
-  return { translation_memory: tm, units: tus };
+  return { translation_memory: toTmDoc(record), units };
 }
 
 function hasValidTmId(tmId) {
@@ -119,18 +179,41 @@ function hasValidTmId(tmId) {
 export async function prepareTranslationMemoryForImportService({
   translation_memory,
   tmId,
+  actorUser,
 }) {
   if (hasValidTmId(tmId)) return String(tmId);
 
-  const imported = translation_memory.id
-    ? await createTmWithId(translation_memory.id, {
-        name: translation_memory.name,
-        context: translation_memory.context,
-      })
-    : await createTm({
-        name: translation_memory.name,
-        context: translation_memory.context,
-      });
+  if (!actorUser?.id) {
+    throw new HttpError(401, "Unauthorized");
+  }
 
-  return imported._id;
+  const workspaceId = actorUser.workspaceId;
+  if (!workspaceId) {
+    throw new HttpError(400, "A workspace is required to create a TM");
+  }
+
+  const context = translation_memory.context ?? {};
+  const record = await createTmRecord({
+    name: translation_memory.name,
+    domain: context.domain ?? null,
+    sourceLanguage: context.source ?? "",
+    targetLanguage: context.target ?? "",
+    createdByUserId: actorUser.id,
+    workspaceId,
+  });
+
+  try {
+    await createTmWithId(record.id, {
+      name: translation_memory.name,
+      context: {
+        ...context,
+        user: record.createdBy?.email ?? actorUser.email ?? context.user ?? null,
+      },
+    });
+  } catch (error) {
+    await deleteTmRecord(record.id).catch(() => {});
+    throw error;
+  }
+
+  return record.id;
 }

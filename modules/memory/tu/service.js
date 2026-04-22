@@ -4,7 +4,28 @@ import {
   jaccardSimilarity,
 } from "@/modules/shared/similarity";
 import { HttpError } from "@/modules/shared/http-error";
+import { findTmRecordById } from "@/modules/memory/tm/prisma-repository";
 import { createTu, getTmById, getTuById, searchTus, updateTu } from "./repository";
+
+async function assertTmAccessibleByActor(translationMemoryId, actorUser) {
+  if (!translationMemoryId) {
+    throw new HttpError(400, "translation_memory_id is required");
+  }
+
+  const record = await findTmRecordById(translationMemoryId);
+  if (!record) {
+    throw new HttpError(404, "Translation memory not found");
+  }
+
+  if (
+    actorUser.role !== "SUPER" &&
+    record.workspaceId !== actorUser.workspaceId
+  ) {
+    throw new HttpError(403, "Translation memory not in your workspace");
+  }
+
+  return record;
+}
 
 function asRequiredTerm(field, value) {
   return { term: { [field]: { value } } };
@@ -58,7 +79,7 @@ async function assertTranslationUnitExists(translationUnitId) {
   }
 }
 
-export async function searchTranslationUnitsService(queryParams) {
+export async function searchTranslationUnitsService(queryParams, actorUser) {
   const {
     translation_memory_id,
     source_language,
@@ -70,6 +91,8 @@ export async function searchTranslationUnitsService(queryParams) {
     perTerm = false,
     minSimilarity = DEFAULT_MIN_SIMILARITY,
   } = queryParams;
+
+  await assertTmAccessibleByActor(translation_memory_id, actorUser);
 
   const must = [
     asRequiredTerm("translation_memory_id", translation_memory_id),
@@ -111,7 +134,14 @@ export async function searchTranslationUnitsService(queryParams) {
   return { total: docs.length, docs };
 }
 
-export async function listAllTranslationUnitsService(translationMemoryId) {
+export async function listAllTranslationUnitsService(
+  translationMemoryId,
+  actorUser,
+) {
+  if (actorUser) {
+    await assertTmAccessibleByActor(translationMemoryId, actorUser);
+  }
+
   const response = await searchTus(
     {
       query: {
@@ -129,7 +159,7 @@ export async function listAllTranslationUnitsService(translationMemoryId) {
   return { total: docs.length, docs };
 }
 
-export async function createTranslationUnitService(payload) {
+export async function createTranslationUnitService(payload, actorUser) {
   const {
     translation_memory_id,
     source_language,
@@ -141,6 +171,7 @@ export async function createTranslationUnitService(payload) {
     domain,
   } = payload;
 
+  await assertTmAccessibleByActor(translation_memory_id, actorUser);
   await assertTranslationMemoryExists(translation_memory_id);
 
   const now = new Date().toISOString();
@@ -156,7 +187,7 @@ export async function createTranslationUnitService(payload) {
   });
 }
 
-export async function updateTranslationUnitService(payload) {
+export async function updateTranslationUnitService(payload, actorUser) {
   const {
     translation_unit_id,
     translation_memory_id,
@@ -169,6 +200,7 @@ export async function updateTranslationUnitService(payload) {
     domain,
   } = payload;
 
+  await assertTmAccessibleByActor(translation_memory_id, actorUser);
   await assertTranslationMemoryExists(translation_memory_id);
   await assertTranslationUnitExists(translation_unit_id);
 

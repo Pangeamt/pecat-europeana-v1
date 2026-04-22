@@ -6,13 +6,13 @@ import {
 
 export const GET = async (req) => {
   try {
-    await requireAuthUser();
+    const actorUser = await requireAuthUser();
 
     const { searchParams } = new URL(req.url);
     const { tmId } = await tmExportQuerySchema.validateAsync({
       tmId: searchParams.get("tmId"),
     });
-    const tmxContent = await exportTmAsXmlService(tmId);
+    const tmxContent = await exportTmAsXmlService(tmId, actorUser);
 
     return new Response(tmxContent, {
       status: 200,

@@ -2,20 +2,23 @@ import Joi from "joi";
 
 export const createTmSchema = Joi.object({
   name: Joi.string().required(),
-  user: Joi.string().required(),
+  // Accepted but ignored (kept for backward compat with the existing UI).
+  user: Joi.string().optional().allow("", null),
   project: Joi.string().optional().allow("", null),
   domain: Joi.string().optional().allow("", null),
   source: Joi.string().required(),
   target: Joi.string().required(),
+  workspaceId: Joi.string().optional().allow(null),
 });
 
 export const listTmQuerySchema = Joi.object({
   name: Joi.string().optional().allow("", null),
-  user: Joi.string().required(),
+  user: Joi.string().optional().allow("", null),
   project: Joi.string().optional().allow("", null),
   domain: Joi.string().optional().allow("", null),
   source: Joi.string().optional().allow("", null),
   target: Joi.string().optional().allow("", null),
+  workspaceId: Joi.string().optional().allow("", null),
   size: Joi.alternatives()
     .try(Joi.number(), Joi.string(), Joi.valid(null))
     .optional(),

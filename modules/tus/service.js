@@ -7,6 +7,18 @@ import {
   updateTuById,
 } from "./repository";
 
+async function assertTuAccessibleByActor(tu, actorUser) {
+  if (!tu.projectId) {
+    throw new HttpError(403, "Translation unit is not attached to a project");
+  }
+
+  const project = await findProjectForTus(tu.projectId, actorUser);
+  if (!project) {
+    throw new HttpError(404, "Project not found");
+  }
+  return project;
+}
+
 function clearText(txt) {
   return txt
     .normalize("NFKC")
@@ -36,13 +48,15 @@ export async function listTusByProjectService(projectId, actorUser) {
   };
 }
 
-export async function updateTuStatusService(payload) {
+export async function updateTuStatusService(payload, actorUser) {
   const { tuId, reviewLiteral, action, levenshteinDistance = null } = payload;
 
   const tu = await findTuById(tuId);
   if (!tu) {
     throw new HttpError(404, "Tu not found");
   }
+
+  await assertTuAccessibleByActor(tu, actorUser);
 
   const tusWithSameSrcLiteral = await findTusWithSameSource(
     tu.projectId,
