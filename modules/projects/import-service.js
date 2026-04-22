@@ -142,7 +142,10 @@ async function processNonJsonFile({ filePath, src, tgt, mt }) {
   }));
 }
 
-export async function importProjectFromUrlService(url, userId) {
+export async function importProjectFromUrlService(url, userId, workspaceId) {
+  if (!workspaceId) {
+    throw new HttpError(400, "A workspace is required to import a project");
+  }
   let response = null;
   try {
     response = await axios({
@@ -193,6 +196,7 @@ export async function importProjectFromUrlService(url, userId) {
     data: {
       filename: fileName.trim(),
       userId,
+      workspaceId,
       filePath: decompressedFilePath,
       extension: "json",
     },
@@ -207,7 +211,15 @@ export async function importProjectFromUrlService(url, userId) {
   });
 }
 
-export async function importProjectsFromUploadService({ formData, userId }) {
+export async function importProjectsFromUploadService({
+  formData,
+  userId,
+  workspaceId,
+}) {
+  if (!workspaceId) {
+    throw new HttpError(400, "A workspace is required to import a project");
+  }
+
   const files = formData.getAll("file");
   const mt = formData.get("mt") === "true";
   const src = formData.get("src");
@@ -242,6 +254,7 @@ export async function importProjectsFromUploadService({ formData, userId }) {
       data: {
         filename: file.name.trim(),
         userId,
+        workspaceId,
         filePath,
         mt,
         extension: fileExtension,

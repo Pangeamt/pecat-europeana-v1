@@ -1,5 +1,4 @@
 "use client";
-
 import ProjectAdd from "@/components/Project/add";
 import ProjectEdit from "@/components/Project/edit";
 import { capitalize, formatDate } from "@/lib/utils";
@@ -40,27 +39,23 @@ const ProjectList = () => {
   const [requesting, setRequesting] = useState(true);
   const [data, setData] = useState([]);
   const clear = tmStore((state) => state.clear);
+  const [loading, setLoading] = useState(false);
 
-  const fetchData = useCallback(
-    async (options = {}) => {
-      const { withLoading = true } = options;
-      try {
-        if (withLoading) setRequesting(true);
-        const { data } = await getProjects();
-        setData(data.docs);
-        clear();
-      } catch (error) {
-        console.error(error);
-      } finally {
-        if (withLoading) setRequesting(false);
-      }
-    },
-    [clear],
-  );
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const { data } = await getProjects();
+      setData(data.docs);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    void fetchData({ withLoading: false });
-  }, [fetchData]);
+    fetchData();
+  }, []);
 
   const save = async ({ ...values }) => {
     try {
@@ -301,7 +296,7 @@ const ProjectList = () => {
         <Title level={5}>Projects</Title>
       </div> */}
       <Table
-        loading={requesting}
+        loading={loading}
         columns={columns}
         dataSource={data}
         rowKey={(record) => record.id}

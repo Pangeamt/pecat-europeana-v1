@@ -26,7 +26,7 @@ export const PUT = async (req) => {
     const { url } = await importByUrlSchema.validateAsync(body);
 
     const user = await requireAuthUser();
-    await importProjectFromUrlService(url, user.id);
+    await importProjectFromUrlService(url, user.id, user.workspaceId);
     return Response.json({ status: "success" });
   } catch (error) {
     return toErrorResponse(error);
@@ -63,7 +63,11 @@ export const POST = async (req) => {
   try {
     const user = await requireAuthUser();
     const formData = await req.formData();
-    await importProjectsFromUploadService({ formData, userId: user.id });
+    await importProjectsFromUploadService({
+      formData,
+      userId: user.id,
+      workspaceId: user.workspaceId,
+    });
     return Response.json({ status: "success" });
   } catch (error) {
     return toErrorResponse(error);

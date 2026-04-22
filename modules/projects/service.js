@@ -1,5 +1,6 @@
 import { HttpError } from "../shared/http-error";
 import {
+  buildProjectScopeWhere,
   findProjectById,
   findProjects,
   getProjectStatusCounts,
@@ -7,15 +8,7 @@ import {
 } from "./repository";
 
 export async function listProjectsService(actorUser) {
-  const where = {
-    userId: actorUser.id,
-    deletedAt: null,
-  };
-
-  if (actorUser.role === "ADMIN") {
-    delete where.userId;
-  }
-
+  const where = buildProjectScopeWhere(actorUser);
   const projects = await findProjects(where);
 
   const projectsWithStats = await Promise.all(

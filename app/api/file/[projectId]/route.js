@@ -4,12 +4,12 @@ import { generateProjectShareUuidService } from "@/modules/files/service";
 
 export const GET = async (req, { params }) => {
   try {
-    await requireAuthUser();
+    const actorUser = await requireAuthUser();
 
     const { projectId } = await fileShareParamsSchema.validateAsync(
       await params,
     );
-    const uuid = await generateProjectShareUuidService(projectId);
+    const uuid = await generateProjectShareUuidService(projectId, actorUser);
     return Response.json({ uuid }, { status: 200 });
   } catch (error) {
     return toErrorResponse(error);

@@ -6,6 +6,7 @@ import { promisify } from "util";
 import { uid } from "uid";
 import { oxygenBuildFile } from "../../lib/utils";
 import { HttpError } from "../shared/http-error";
+import { findProjectForActor } from "../projects/repository";
 import { findProjectById, findTusByProjectId, updateProjectById } from "./repository";
 
 const pipelineAsync = promisify(pipeline);
@@ -39,8 +40,8 @@ function combineAndRemoveTusSegments(array) {
   return filtered;
 }
 
-export async function generateProjectShareUuidService(projectId) {
-  const project = await findProjectById(projectId);
+export async function generateProjectShareUuidService(projectId, actorUser) {
+  const project = await findProjectForActor(projectId, actorUser);
   if (!project) {
     throw new HttpError(404, "Project not found");
   }

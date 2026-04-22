@@ -14,7 +14,7 @@ export async function getProjectLogsStatsService({
   }
 
   const tus = await findTusByProjectId(project.id);
-  const tmTus = await listAllTranslationUnitsService(tmId);
+  const tmTus = await listAllTranslationUnitsService(tmId, actorUser);
   const docs = tmTus.docs;
 
   const stats = {

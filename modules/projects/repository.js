@@ -27,18 +27,30 @@ export async function findProjectById(id) {
   });
 }
 
-export async function findProjectForActor(projectId, actorUser) {
-  const where = {
-    id: projectId ?? undefined,
-    userId: actorUser.id,
-    deletedAt: null,
-  };
+export function buildProjectScopeWhere(actorUser, extra = {}) {
+  const where = { deletedAt: null, ...extra };
 
-  if (actorUser.role === "ADMIN") {
-    delete where.userId;
+  if (actorUser.role === "SUPER") {
+    return where;
   }
 
-  return prisma.project.findUnique({ where });
+  if (actorUser.workspaceId) {
+    where.workspaceId = actorUser.workspaceId;
+  } else {
+    where.workspaceId = "__no_workspace__";
+  }
+
+  if (actorUser.role === "USER") {
+    where.userId = actorUser.id;
+  }
+
+  return where;
+}
+
+export async function findProjectForActor(projectId, actorUser) {
+  if (!projectId) return null;
+  const where = buildProjectScopeWhere(actorUser, { id: projectId });
+  return prisma.project.findFirst({ where });
 }
 
 export async function findTusByProjectId(projectId) {
