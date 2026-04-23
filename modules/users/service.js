@@ -134,10 +134,11 @@ export async function updateUserService(actorUser, payload) {
   if (payload.name !== undefined) data.name = payload.name;
   if (payload.email !== undefined) data.email = payload.email;
 
-  if (payload.role !== undefined) {
+  if (payload.role !== undefined && payload.role !== target.role) {
     if (self && actorRole !== "SUPER") {
-      // Users cannot escalate or change their own role.
-    } else if (actorRole === "SUPER") {
+      throw new HttpError(403, "You cannot change your own role");
+    }
+    if (actorRole === "SUPER") {
       data.role = payload.role;
     } else if (actorRole === "ADMIN") {
       if (payload.role === "SUPER") {

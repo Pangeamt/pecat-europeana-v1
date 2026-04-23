@@ -1,13 +1,28 @@
 "use client";
-import { Avatar, Button, Card, Popconfirm, Space, Table, Tooltip, message } from "antd";
-import { useState } from "react";
-import { addUser, getUsers, removeUser, saveUser } from "@/services/user.services";
+import {
+  Avatar,
+  Button,
+  Card,
+  Popconfirm,
+  Space,
+  Table,
+  Tooltip,
+  message,
+  Image,
+} from "antd";
+import { useCallback, useState } from "react";
+import {
+  addUser,
+  getUsers,
+  removeUser,
+  saveUser,
+} from "@/services/user.services";
+import { getMembersOfWorkspace } from "@/services/workspace.services";
 import { DeleteOutlined } from "@ant-design/icons";
 import { useEffect } from "react";
 import { userStore } from "@/store";
 import UserAdd from "./add";
 import UserEdit from "./edit";
-
 
 const UserList = () => {
   const store = userStore();
@@ -15,9 +30,40 @@ const UserList = () => {
   const [requesting, setRequesting] = useState(true);
   const [users, setUsers] = useState([]);
 
+  const fetchData = useCallback(async () => {
+    if (!currentUser) {
+      setUsers([]);
+      setRequesting(false);
+      return;
+    }
+
+    try {
+      setRequesting(true);
+
+      if (currentUser.role === "SUPER") {
+        const response = await getUsers();
+        setUsers(response?.data?.users ?? []);
+        return;
+      }
+
+      if (!currentUser.workspaceId) {
+        setUsers([]);
+        return;
+      }
+
+      const data = await getMembersOfWorkspace(currentUser.workspaceId);
+      setUsers(data?.members ?? []);
+    } catch (error) {
+      console.error(error);
+      message.error("Error loading users");
+    } finally {
+      setRequesting(false);
+    }
+  }, [currentUser]);
+
   useEffect(() => {
-    fetchData();
-  }, []);
+    void fetchData();
+  }, [fetchData]);
 
   const canDelete = (record) => {
     if (!currentUser) return false;
@@ -28,18 +74,6 @@ const UserList = () => {
       return record.workspaceId === currentUser.workspaceId;
     }
     return false;
-  };
-
-  const fetchData = async () => {
-    try {
-      setRequesting(true);
-      const { data } = await getUsers();
-      setUsers(data.users);
-      setRequesting(false);
-    } catch (error) {
-      console.error(error);
-      setRequesting(false);
-    }
   };
 
   const save = async ({ ...values }) => {
@@ -83,7 +117,7 @@ const UserList = () => {
       width: 70,
       render: (value) => (
         <Space size="middle">
-          {value && <Avatar src={<img src={value} alt="avatar" />} />}
+          {value && <Avatar src={<Image src={value} alt="avatar" />} />}
           {!value && <Avatar src={"/images/Logo perfil RRSS 1.png"} />}
         </Space>
       ),
@@ -102,11 +136,6 @@ const UserList = () => {
       title: "Role",
       dataIndex: "role",
       key: "role",
-    },
-    {
-      title: "Provider",
-      dataIndex: "provider",
-      key: "provider",
     },
     {
       title: "",
@@ -142,6 +171,7 @@ const UserList = () => {
       },
     },
   ];
+
   return (
     <Card
       title="Users"

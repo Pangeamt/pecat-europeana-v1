@@ -1,6 +1,5 @@
 import { httpClient } from "./http-client";
 
-
 export const saveUser = async (newUser) => {
   return await httpClient({
     method: "patch",

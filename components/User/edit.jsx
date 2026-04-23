@@ -1,16 +1,16 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 import {
-  Modal,
   Button,
+  Divider,
   Form,
   Input,
-  Divider,
-  Tooltip,
-  message,
+  Modal,
   Select,
-  Upload,
   Tabs,
+  Tooltip,
+  Upload,
+  message,
 } from "antd";
 import { EditOutlined } from "@ant-design/icons";
 
@@ -37,69 +37,74 @@ const getCompressedDataUrlFromFile = (file) => {
   });
 };
 
+const INFO_TAB = "info";
+const PASSWORD_TAB = "password";
+
 const UserEdit = ({ user, save }) => {
-  const [form] = Form.useForm();
+  const [infoForm] = Form.useForm();
+  const [passwordForm] = Form.useForm();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [sending, setSending] = useState(false);
-  const [passView, setPassView] = useState("1");
-
+  const [activeTab, setActiveTab] = useState(INFO_TAB);
   const [fileList, setFileList] = useState([]);
 
-  const onChange = ({ fileList: newFileList }) => {
-    if (newFileList.length > 0) {
-      setFileList([newFileList[0]]);
-    } else {
-      setFileList([]);
-    }
+  useEffect(() => {
+    if (!isModalOpen) return;
+    infoForm.setFieldsValue({
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    });
+    passwordForm.resetFields();
+    setFileList([]);
+    setActiveTab(INFO_TAB);
+  }, [isModalOpen, user, infoForm, passwordForm]);
 
+  const onChange = ({ fileList: newFileList }) => {
+    setFileList(newFileList.length > 0 ? [newFileList[0]] : []);
     return false;
   };
 
-  const showModal = () => {
-    setIsModalOpen(true);
+  const showModal = () => setIsModalOpen(true);
+
+  const handleCancel = () => setIsModalOpen(false);
+
+  const submitInfo = async () => {
+    const values = await infoForm.validateFields();
+    const payload = { userId: user.id, ...values };
+    if (fileList[0]?.originFileObj) {
+      payload.image = await getCompressedDataUrlFromFile(fileList[0]);
+    }
+    await save(payload);
+  };
+
+  const submitPassword = async () => {
+    const values = await passwordForm.validateFields();
+    await save({ userId: user.id, password: values.password });
   };
 
   const handleOk = async () => {
     try {
       setSending(true);
-      const values = await form.validateFields();
-      if (passView === "1") {
-        if (fileList[0]?.originFileObj) {
-          values.image = await getCompressedDataUrlFromFile(fileList[0]);
-        }
+      if (activeTab === INFO_TAB) {
+        await submitInfo();
       } else {
-        delete values.confirm;
+        await submitPassword();
       }
-
-      await save({ userId: user.id, ...values });
-      setSending(false);
-      form.resetFields();
       setIsModalOpen(false);
-      clear();
       message.success("User updated successfully");
-    } catch (errorInfo) {
-      message.error("Failed to update user");
+    } catch (error) {
+      if (error?.errorFields) {
+        // Validation error — antd already highlights it.
+        return;
+      }
+      console.error(error);
+      message.error(
+        error?.response?.data?.error || "Failed to update user",
+      );
+    } finally {
       setSending(false);
     }
-  };
-
-  const clear = () => {
-    form.resetFields();
-    setFileList([]);
-    setPassView("1");
-  };
-
-  const handleCancel = () => {
-    setIsModalOpen(false);
-  };
-
-  const layout = {
-    labelCol: {
-      span: 8,
-    },
-    wrapperCol: {
-      span: 16,
-    },
   };
 
   const beforeUpload = (file) => {
@@ -109,26 +114,24 @@ const UserEdit = ({ user, save }) => {
     }
     const isLt2M = file.size / 1024 / 1024 < 2;
     if (!isLt2M) {
-      message.error("Image must smaller than 2MB!");
+      message.error("Image must be smaller than 2MB!");
     }
-    if (!isJpgOrPng || !isLt2M) {
-      return Upload.LIST_IGNORE;
-    }
-
-    // Prevent auto upload; file is sent only on form submit.
+    if (!isJpgOrPng || !isLt2M) return Upload.LIST_IGNORE;
     return false;
   };
 
-  const onChangeTab = (key) => {
-    setPassView(key);
+  const layout = {
+    labelCol: { span: 8 },
+    wrapperCol: { span: 16 },
   };
+
   const items = [
     {
-      key: "1",
+      key: INFO_TAB,
       label: "Change Info",
       children: (
-        <Form form={form} layout="horizontal" {...layout}>
-          <Form.Item label="Avatar" key={"empty" || fileList[0].uid}>
+        <Form form={infoForm} layout="horizontal" {...layout} preserve={false}>
+          <Form.Item label="Avatar">
             <ImgCrop showGrid rotationSlider aspectSlider showReset>
               <Upload
                 listType="picture-card"
@@ -144,37 +147,21 @@ const UserEdit = ({ user, save }) => {
           <Form.Item
             name="name"
             label="Name"
-            rules={[
-              {
-                required: true,
-              },
-            ]}
-            initialValue={user.name}
+            rules={[{ required: true }]}
           >
             <Input />
           </Form.Item>
           <Form.Item
             name="email"
             label="Email"
-            rules={[
-              {
-                type: "email",
-                required: true,
-              },
-            ]}
-            initialValue={user.email}
+            rules={[{ type: "email", required: true }]}
           >
             <Input />
           </Form.Item>
           <Form.Item
             label="Role"
             name="role"
-            rules={[
-              {
-                required: true,
-              },
-            ]}
-            initialValue={user.role}
+            rules={[{ required: true }]}
           >
             <Select>
               <Select.Option value="SUPER">Super</Select.Option>
@@ -186,19 +173,14 @@ const UserEdit = ({ user, save }) => {
       ),
     },
     {
-      key: "2",
+      key: PASSWORD_TAB,
       label: "Change Password",
       children: (
-        <Form form={form} layout="horizontal" {...layout}>
+        <Form form={passwordForm} layout="horizontal" {...layout} preserve={false}>
           <Form.Item
             name="password"
             label="Password"
-            rules={[
-              {
-                required: true,
-                message: "Please input your password!",
-              },
-            ]}
+            rules={[{ required: true, message: "Please input your password!" }]}
             hasFeedback
           >
             <Input.Password />
@@ -210,17 +192,14 @@ const UserEdit = ({ user, save }) => {
             dependencies={["password"]}
             hasFeedback
             rules={[
-              {
-                required: true,
-                message: "Please confirm your password!",
-              },
+              { required: true, message: "Please confirm your password!" },
               ({ getFieldValue }) => ({
                 validator(_, value) {
                   if (!value || getFieldValue("password") === value) {
                     return Promise.resolve();
                   }
                   return Promise.reject(
-                    new Error("The new password that you entered do not match!")
+                    new Error("The passwords you entered do not match!"),
                   );
                 },
               }),
@@ -251,13 +230,10 @@ const UserEdit = ({ user, save }) => {
         onOk={handleOk}
         onCancel={handleCancel}
         confirmLoading={sending}
+        destroyOnClose
       >
         <Divider />
-        <Tabs
-          defaultActiveKey={passView}
-          items={items}
-          onChange={onChangeTab}
-        />
+        <Tabs activeKey={activeTab} items={items} onChange={setActiveTab} />
       </Modal>
     </>
   );

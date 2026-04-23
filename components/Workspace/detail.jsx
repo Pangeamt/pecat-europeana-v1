@@ -23,8 +23,69 @@ import {
   getWorkspace,
   removeWorkspaceMember,
 } from "@/services/workspace.services";
-import { getUsers } from "@/services/user.services";
+import { getUsers, saveUser } from "@/services/user.services";
 import { userStore } from "@/store";
+
+const ROLE_OPTIONS = [
+  { label: "SUPER", value: "SUPER" },
+  { label: "ADMIN", value: "ADMIN" },
+  { label: "USER", value: "USER" },
+];
+
+const roleColor = (role) =>
+  role === "SUPER" ? "red" : role === "ADMIN" ? "blue" : "default";
+
+const RoleCell = ({ role, onChange }) => {
+  const [popVisible, setPopVisible] = useState(false);
+  const [selectedRole, setSelectedRole] = useState(role);
+  const [changing, setChanging] = useState(false);
+
+  useEffect(() => {
+    if (!popVisible) setSelectedRole(role);
+  }, [role, popVisible]);
+
+  const handleConfirm = async () => {
+    if (selectedRole === role) {
+      setPopVisible(false);
+      return;
+    }
+    try {
+      setChanging(true);
+      await onChange(selectedRole);
+      setPopVisible(false);
+    } catch (error) {
+      console.error(error);
+      message.error(error?.response?.data?.error || "Error updating role");
+    } finally {
+      setChanging(false);
+    }
+  };
+
+  return (
+    <Popconfirm
+      title="Change user role"
+      description={
+        <Select
+          value={selectedRole}
+          onChange={setSelectedRole}
+          options={ROLE_OPTIONS}
+          style={{ minWidth: 120 }}
+          disabled={changing}
+        />
+      }
+      open={popVisible}
+      onOpenChange={setPopVisible}
+      onConfirm={handleConfirm}
+      okButtonProps={{ loading: changing }}
+      okText="Change"
+      cancelText="Cancel"
+    >
+      <Tag color={roleColor(role)} style={{ cursor: "pointer" }}>
+        {role}
+      </Tag>
+    </Popconfirm>
+  );
+};
 
 const WorkspaceDetail = ({ workspaceId }) => {
   const store = userStore();
@@ -36,12 +97,6 @@ const WorkspaceDetail = ({ workspaceId }) => {
   const [wsUsers, setWsUsers] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [adding, setAdding] = useState(false);
-
-  const canManage = useMemo(() => {
-    if (!user) return false;
-    if (user.role === "SUPER") return true;
-    return user.role === "ADMIN" && user.workspaceId === workspaceId;
-  }, [user, workspaceId]);
 
   const fetchWorkspace = useCallback(async () => {
     try {
@@ -59,7 +114,6 @@ const WorkspaceDetail = ({ workspaceId }) => {
   const fetchAllUsers = useCallback(async () => {
     try {
       const { data } = await getUsers();
-      // Filtra los usuarios que pertenecen al mismo workspace y los que no
       const usersInSameWorkspace =
         data?.users?.filter((user) => user.workspaceId === workspaceId) ?? [];
       const usersNotInSameWorkspace =
@@ -102,6 +156,25 @@ const WorkspaceDetail = ({ workspaceId }) => {
     }
   };
 
+  const handleChangeRole = async (userId, nextRole) => {
+    if (!userId) {
+      message.error("User ID is required");
+      return;
+    }
+    if (!nextRole) {
+      message.error("Role is required");
+      return;
+    }
+    try {
+      await saveUser({ userId, role: nextRole });
+      message.success("Role updated");
+      await fetchWorkspace();
+    } catch (error) {
+      console.error(error);
+      message.error(error?.response?.data?.error || "Error changing role");
+    }
+  };
+
   const handleRemove = async (userId) => {
     try {
       await removeWorkspaceMember(workspaceId, userId);
@@ -126,13 +199,14 @@ const WorkspaceDetail = ({ workspaceId }) => {
       title: "Role",
       dataIndex: "role",
       key: "role",
-      render: (role) => {
-        const color =
-          role === "SUPER" ? "red" : role === "ADMIN" ? "blue" : "default";
-        return <Tag color={color}>{role}</Tag>;
-      },
+      render: (role, record) => (
+        <RoleCell
+          role={role}
+          onChange={(nextRole) => handleChangeRole(record.id, nextRole)}
+        />
+      ),
     },
-    canManage && {
+    {
       title: "",
       key: "actions",
       width: 80,
@@ -170,31 +244,29 @@ const WorkspaceDetail = ({ workspaceId }) => {
       loading={loading}
       style={{ marginLeft: 20 }}
       extra={
-        canManage && (
-          <Space>
-            <Select
-              showSearch
-              placeholder="Select a user to add"
-              value={selectedUserId}
-              onChange={setSelectedUserId}
-              style={{ minWidth: 260 }}
-              optionFilterProp="label"
-              options={assignableUsers.map((u) => ({
-                label: `${u.name} · ${u.email}`,
-                value: u.id,
-              }))}
-            />
-            <Button
-              type="primary"
-              icon={<UserAddOutlined />}
-              disabled={!selectedUserId}
-              loading={adding}
-              onClick={handleAdd}
-            >
-              Add member
-            </Button>
-          </Space>
-        )
+        <Space>
+          <Select
+            showSearch
+            placeholder="Select a user to add"
+            value={selectedUserId}
+            onChange={setSelectedUserId}
+            style={{ minWidth: 260 }}
+            optionFilterProp="label"
+            options={assignableUsers.map((u) => ({
+              label: `${u.name} · ${u.email}`,
+              value: u.id,
+            }))}
+          />
+          <Button
+            type="primary"
+            icon={<UserAddOutlined />}
+            disabled={!selectedUserId}
+            loading={adding}
+            onClick={handleAdd}
+          >
+            Add member
+          </Button>
+        </Space>
       }
     >
       <Space direction="vertical" size="small" style={{ marginBottom: 12 }}>
