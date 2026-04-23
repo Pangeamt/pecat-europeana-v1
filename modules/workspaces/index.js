@@ -6,6 +6,7 @@ export {
   deleteWorkspaceService,
   addMemberToWorkspaceService,
   removeMemberFromWorkspaceService,
+  getMembersOfWorkspaceService,
 } from "./service";
 
 export {

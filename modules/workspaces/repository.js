@@ -71,3 +71,15 @@ export async function setUserWorkspace(userId, workspaceId) {
     },
   });
 }
+
+export async function findMembersOfWorkspaceByWorkspaceId(workspaceId) {
+  return prisma.user.findMany({
+    where: { workspaceId, deletedAt: null },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+    },
+  });
+}

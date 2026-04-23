@@ -7,6 +7,7 @@ import {
   findWorkspaceByIdBasic,
   setUserWorkspace,
   updateWorkspace,
+  findMembersOfWorkspaceByWorkspaceId,
 } from "./repository";
 
 function assertSuper(actorUser) {
@@ -118,4 +119,17 @@ export async function removeMemberFromWorkspaceService(
   }
 
   return setUserWorkspace(userId, null);
+}
+
+export async function getMembersOfWorkspaceService(workspaceId, actorUser) {
+  const existing = await findWorkspaceByIdBasic(workspaceId);
+  if (!existing) {
+    throw new HttpError(404, "Workspace not found");
+  }
+
+  if (!canReadWorkspace(actorUser, workspaceId)) {
+    throw new HttpError(403, "You cannot access this workspace");
+  }
+
+  return findMembersOfWorkspaceByWorkspaceId(workspaceId);
 }

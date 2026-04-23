@@ -71,3 +71,10 @@ export const removeWorkspaceMember = async (id: string, userId: string) => {
   }>(`/api/workspaces/${id}/members`, { data: { userId } });
   return response.data;
 };
+
+export const getMembersOfWorkspace = async (id: string) => {
+  const response = await httpClient.get<{
+    members: { id: string; workspaceId: string }[];
+  }>(`/api/workspaces/${id}/members`);
+  return response.data;
+};
