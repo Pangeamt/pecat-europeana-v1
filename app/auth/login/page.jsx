@@ -6,13 +6,13 @@ import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 const AUTH_ERROR_MESSAGES = {
-  CredentialsSignin: "Credenciales inválidas",
-  "Password is required.": "La contraseña es obligatoria.",
-  "User not found.": "No existe ninguna cuenta con ese email.",
+  CredentialsSignin: "Invalid credentials.",
+  "Password is required.": "Password is required.",
+  "User not found.": "No account found with that email.",
   "User data is incomplete for authentication.":
-    "La cuenta no tiene credenciales configuradas. Contacta con un administrador.",
+    "This account has no credentials set up. Please contact an administrator.",
   "Invalid email and password combination":
-    "Email o contraseña incorrectos.",
+    "Incorrect email or password.",
 };
 
 const resolveAuthErrorMessage = (error) => {
@@ -49,11 +49,11 @@ const LoginContent = () => {
 
       setErrorMessage(
         resolveAuthErrorMessage(result?.error) ||
-          "No hemos podido iniciar sesión. Inténtalo de nuevo.",
+          "We couldn't sign you in. Please try again.",
       );
     } catch (error) {
       console.error(error);
-      setErrorMessage("Error de conexión. Comprueba tu red e inténtalo de nuevo.");
+      setErrorMessage("Connection error. Check your network and try again.");
     } finally {
       setLoading(false);
     }
@@ -108,8 +108,8 @@ const LoginContent = () => {
             name="email"
             label="Email"
             rules={[
-              { required: true, message: "Introduce tu email" },
-              { type: "email", message: "Introduce un email válido" },
+              { required: true, message: "Please enter your email" },
+              { type: "email", message: "Please enter a valid email" },
             ]}
           >
             <Input autoComplete="email" autoFocus />
@@ -118,7 +118,7 @@ const LoginContent = () => {
           <Form.Item
             name="password"
             label="Password"
-            rules={[{ required: true, message: "Introduce tu contraseña" }]}
+            rules={[{ required: true, message: "Please enter your password" }]}
           >
             <Input.Password autoComplete="current-password" />
           </Form.Item>
