@@ -10,6 +10,7 @@ import {
   LeftOutlined,
   RightOutlined,
   UserOutlined,
+  DatabaseOutlined,
 } from "@ant-design/icons";
 
 import AvatarDropdown from "@/components/AvatarDropdown";
@@ -38,6 +39,11 @@ const buildMenuItems = (role) => {
       key: MENU_KEYS.projects,
       icon: <FileTextOutlined />,
       label: <Link href="/dashboard">Projects</Link>,
+    },
+    {
+      key: MENU_KEYS.tm,
+      icon: <DatabaseOutlined />,
+      label: <Link href="/dashboard">TMs</Link>,
     },
   ];
 
