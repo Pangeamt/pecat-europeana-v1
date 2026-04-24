@@ -31,7 +31,7 @@ import {
 
 import CustomTextArea from "../../components/CustomTextArea";
 import HeaderTus from "../../components/Tus/header";
-import { tmStore, userStore } from "../../store";
+import { tmStore, userStore } from "@/store";
 import {
   confirmTu,
   confirmTuTm,

@@ -6,7 +6,7 @@ import { InfoCircleOutlined, LoadingOutlined } from "@ant-design/icons";
 
 import TM from "../../components/TM";
 import TusTm from "../../components/TM/tus";
-import { tmStore, userStore } from "../../store";
+import { tmStore, userStore } from "@/store";
 import { getTmTus } from "@/services/tus.services";
 
 const { Text } = Typography;

@@ -9,7 +9,7 @@ import {
 import { Dropdown, Space, Avatar } from "antd";
 import axios from "axios";
 
-import { userStore } from "../../store";
+import { userStore } from "@/store";
 import { useSession, signOut } from "next-auth/react";
 
 const items = [

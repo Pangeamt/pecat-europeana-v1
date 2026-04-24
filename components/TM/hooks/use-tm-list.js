@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchTMRequest } from "@/services/tm.services";
 
-export function useTmList() {
+export function useTmList(query = undefined) {
   const [tms, setTms] = useState([]);
   const [fetching, setFetching] = useState(false);
 
@@ -9,7 +9,7 @@ export function useTmList() {
     const { withLoading = true } = options;
     try {
       if (withLoading) setFetching(true);
-      const data = await fetchTMRequest();
+      const data = await fetchTMRequest(query);
       const processedData = (data.docs || []).map((item, index) => ({
         ...item,
         key: item.id || `tm-${index}`,
@@ -18,7 +18,7 @@ export function useTmList() {
     } finally {
       if (withLoading) setFetching(false);
     }
-  }, []);
+  }, [query]);
 
   useEffect(() => {
     void fetchTm({ withLoading: false });

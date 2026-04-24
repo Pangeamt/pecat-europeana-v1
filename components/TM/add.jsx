@@ -1,7 +1,7 @@
 import { Button, Divider, Form, Modal, Upload, message } from "antd";
 import { PlusOutlined, UploadOutlined } from "@ant-design/icons";
 import React, { useState } from "react";
-import { tmStore } from "../../store";
+import { tmStore } from "@/store";
 
 const checkFile = (file) => {
     const fileName = file.name.trim().replace(/\s+/g, "");
@@ -42,7 +42,7 @@ const TMAdd = ({refetch, user}) => {
       authorization: "authorization-text",
     },
     data: (file) => ({
-      tm: "000000000000000000000000",  // aquí se pasa dinámicamente
+      tm: tm?.id || 0,
     }),
     onChange: async (info) => {
       if (info.file.status === "done") {

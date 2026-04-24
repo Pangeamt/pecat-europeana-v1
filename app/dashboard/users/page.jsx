@@ -3,7 +3,7 @@
 import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import UserList from "../../../components/User/list";
-import { userStore } from "../../../store";
+import { userStore } from "@/store";
 
 const Users = () => {
   const router = useRouter();

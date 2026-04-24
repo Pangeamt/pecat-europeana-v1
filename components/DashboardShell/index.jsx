@@ -21,6 +21,7 @@ const { Header, Sider, Content } = Layout;
 
 const MENU_KEYS = {
   projects: "projects",
+  tms: "tms",
   users: "users",
   workspaces: "workspaces",
 };
@@ -30,6 +31,7 @@ const isTusRoute = (pathname) => /^\/dashboard\/[^/]+\/tus$/.test(pathname);
 const getSelectedKey = (pathname) => {
   if (pathname.startsWith("/dashboard/users")) return MENU_KEYS.users;
   if (pathname.startsWith("/dashboard/workspaces")) return MENU_KEYS.workspaces;
+  if (pathname.startsWith("/dashboard/tms")) return MENU_KEYS.tms;
   return MENU_KEYS.projects;
 };
 
@@ -41,9 +43,9 @@ const buildMenuItems = (role) => {
       label: <Link href="/dashboard">Projects</Link>,
     },
     {
-      key: MENU_KEYS.tm,
+      key: MENU_KEYS.tms,
       icon: <DatabaseOutlined />,
-      label: <Link href="/dashboard">TMs</Link>,
+      label: <Link href="/dashboard/tms">TMs</Link>,
     },
   ];
 

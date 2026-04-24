@@ -14,6 +14,7 @@ const getLocaleCode = (locale) => {
 
 export default function CreateTmForm({ user, onBack, onCreated }) {
   const [form] = Form.useForm();
+  const [messageApi, contextHolder] = message.useMessage();
 
   const onFinish = async () => {
     try {
@@ -27,23 +28,20 @@ export default function CreateTmForm({ user, onBack, onCreated }) {
         source: getLocaleCode(values.source),
         target: getLocaleCode(values.target),
       };
-      message.loading({ content: "Creating TM...", key: "add-tm" });
+      messageApi.loading({ content: "Creating TM...", key: "add-tm" });
       await addTMRequest(data);
       await onCreated?.();
       form.resetFields();
-      message.success({ content: "TM created!", key: "add-tm" });
+      messageApi.success({ content: "TM created!", key: "add-tm" });
     } catch (errorInfo) {
       console.error("Failed:", errorInfo);
-      message.error({ content: "Error creating TM", key: "add-tm" });
+      messageApi.error({ content: "Error creating TM", key: "add-tm" });
     }
   };
 
   return (
     <>
-      <Button onClick={onBack} className="mb-2 float-right">
-        Go to List
-      </Button>
-      <Divider />
+      {contextHolder}
       <Form
         form={form}
         labelCol={{ span: 4 }}

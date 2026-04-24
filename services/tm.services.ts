@@ -1,6 +1,7 @@
 import { httpClient } from "./http-client";
 import type {
   CreateTmPayload,
+  ListTmQuery,
   ProjectLogsStats,
   TmListResponse,
   TranslationMemory,
@@ -14,8 +15,12 @@ export const addTMRequest = async (
   return response.data;
 };
 
-export const fetchTMRequest = async (): Promise<TmListResponse> => {
-  const response = await httpClient.get<TmListResponse>("/api/tm");
+export const fetchTMRequest = async (
+  query?: ListTmQuery,
+): Promise<TmListResponse> => {
+  const response = await httpClient.get<TmListResponse>("/api/tm", {
+    params: query,
+  });
   return response.data;
 };
 
