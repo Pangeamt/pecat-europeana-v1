@@ -16,23 +16,23 @@ store/                  estado global (zustand)
 types/                  DTOs compartidos
 lib/
   env.js                validacion de variables de entorno con Joi
-  opensearch.js         cliente oficial @opensearch-project/opensearch
+  daait.js              cliente HTTP para API DAAIT
   prisma.js             cliente Prisma
   utils.js              utilidades generales
 modules/
   shared/               auth, HttpError, toErrorResponse, similarity
     index.js            barrel export
-  memory/               dominio de memorias de traduccion (OpenSearch)
+  memory/               dominio de memorias de traduccion (Prisma + DAAIT)
     tm/
-      repository.js     acceso a OpenSearch (indices translation_memory y translation_units)
+      repository.js     adaptador de API DAAIT para memorias
       service.js        casos de uso CRUD de TM
-      tmx.js            parser/generador TMX (XML) puro
-      import.service.js casos de uso de importacion (TMX -> OpenSearch)
-      export.service.js casos de uso de exportacion (OpenSearch -> TMX)
+      tmx.js            parser TMX para extraer metadatos
+      import.service.js casos de uso de importacion (TMX -> DAAIT)
+      export.service.js casos de uso de exportacion (DAAIT -> TMX)
       schemas.js        schemas Joi
       index.js          barrel export
     tu/
-      repository.js     acceso a OpenSearch (TUs dentro de una TM)
+      repository.js     adaptador de API DAAIT para TUs dentro de una TM
       service.js        CRUD + similitud (usa modules/shared/similarity)
       schemas.js
       index.js          barrel export
@@ -48,7 +48,7 @@ modules/
 
 ## Dos dominios con nombre parecido
 
-- `modules/memory/tu`: Translation Unit **dentro de una memoria de traduccion**, persistida en OpenSearch. Asociada a una TM.
+- `modules/memory/tu`: Translation Unit **dentro de una memoria de traduccion**, persistida en DAAIT. Asociada a una TM.
 - `modules/tus`: Translation Unit **dentro de un proyecto**, persistida en MySQL via Prisma (`model Tu`, tabla `tus`). Asociada a un Project.
 
 Son conceptos distintos aunque tengan nombre similar.
@@ -62,7 +62,7 @@ Son conceptos distintos aunque tengan nombre similar.
 5. Evitar llamadas HTTP directas desde componentes; usar `services/*`.
 6. Importar siempre con el alias `@/`.
 7. Cada modulo expone su API publica por `index.js` (barrel).
-8. No acceder directamente a clientes de infraestructura (`prisma`, `opensearchClient`) desde `service.js`; pasar por `repository.js`.
+8. No acceder directamente a clientes de infraestructura (`prisma`, `daaitClient`) desde `service.js`; pasar por `repository.js`.
 
 ## Patrón recomendado en API Route
 
@@ -77,9 +77,9 @@ Son conceptos distintos aunque tengan nombre similar.
 `lib/env.js` valida con Joi todas las variables necesarias al arrancar y expone un objeto `env` tipado. Si faltan o estan mal formadas, la app no arranca. Actualmente exigidas:
 
 - `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `NEXT_PUBLIC_API_BASE_URL`
-- `HOST_OPENSEARCH`, `HOST_OPENSEARCH_AUTH` (formato `user:password`)
+- La integracion de memorias usa `DAAIT_API_HOST` cuando se quiere sobreescribir el host por defecto.
 
-Opcionales: `SEGMENTED_TEXTS_HOST`, `MT_TEXTS_HOST`, `OXIGEN_API_HOST`, `MINT_CLIENT_ID`, `MINT_CLIENT_SECRET`, `MTQE`.
+Opcionales: `SEGMENTED_TEXTS_HOST`, `MT_TEXTS_HOST`, `OXIGEN_API_HOST`, `DAAIT_API_HOST`, `MINT_CLIENT_ID`, `MINT_CLIENT_SECRET`, `MTQE`.
 
 ## Errores
 
@@ -101,9 +101,9 @@ La logica de Translation Memory y Translation Units esta en esta app (antes en `
   - `POST /api/tm/import`
   - `GET /api/tm/export`
 - API interna TU:
-  - `GET|POST|PATCH /api/tu`
+  - `GET|POST|PATCH|DELETE /api/tu`
   - `GET /api/tu/all`
-- Backend OpenSearch centralizado en `lib/opensearch.js` con el cliente oficial.
+- Backend DAAIT centralizado en `lib/daait.js`.
 
 ## Siguiente expansión sugerida
 
