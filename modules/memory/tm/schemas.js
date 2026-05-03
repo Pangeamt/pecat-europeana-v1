@@ -33,6 +33,7 @@ export const updateTmSchema = Joi.object({
 
 export const tmExportQuerySchema = Joi.object({
   tmId: Joi.string().required(),
+  format: Joi.string().optional().default("tmx"),
 });
 
 export const tmImportFormSchema = Joi.object({

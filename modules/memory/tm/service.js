@@ -1,9 +1,8 @@
 import { HttpError } from "@/modules/shared/http-error";
 import {
-  createTmWithIdOpenSearch,
-  deleteTmOpenSearch,
-  searchTusByMemoryIdOpenSearch,
-  updateTmOpenSearch,
+  createTmWithIdDaait,
+  deleteTmDaait,
+  listTmsDaait,
 } from "./repository";
 import {
   createTmRecord,
@@ -14,7 +13,7 @@ import {
   updateTmRecord,
 } from "./prisma-repository";
 
-function toTmDoc(record) {
+function toTmDoc(record, daaitMemory = null) {
   if (!record) return null;
   return {
     id: record.id,
@@ -28,6 +27,9 @@ function toTmDoc(record) {
     updatedAt: record.updatedAt,
     createdBy: record.createdBy,
     workspace: record.workspace,
+    owner: daaitMemory?.owner ?? record.workspaceId,
+    total_entries: daaitMemory?.total_entries ?? null,
+    status: daaitMemory?.status ?? null,
     // Backward-compatible shape expected by the UI.
     context: {
       user: record.createdBy?.email ?? null,
@@ -77,22 +79,17 @@ export async function createTranslationMemoryService(payload, actorUser) {
   });
 
   try {
-    await createTmWithIdOpenSearch(record.id, {
-      name: record.name,
-      context: {
-        user: record.createdBy?.email ?? actorUser.email ?? null,
-        project: payload.project ?? null,
-        domain: record.domain ?? null,
-        source: record.sourceLanguage,
-        target: record.targetLanguage,
-      },
+    const daaitMemory = await createTmWithIdDaait(record.id, {
+      owner: record.workspaceId,
+      source_language: record.sourceLanguage,
+      target_language: record.targetLanguage,
+      tus: [],
     });
+    return toTmDoc(record, daaitMemory);
   } catch (error) {
     await hardDeleteTmRecord(record.id).catch(() => {});
     throw error;
   }
-
-  return toTmDoc(record);
 }
 
 export async function listTranslationMemoriesService(queryParams, actorUser) {
@@ -122,7 +119,22 @@ export async function listTranslationMemoriesService(queryParams, actorUser) {
   }
 
   const { docs, total } = await listTmRecords(filters);
-  return { total, docs: docs.map(toTmDoc) };
+  const daaitById = new Map();
+
+  if (filters.workspaceId) {
+    const daaitResponse = await listTmsDaait({
+      owner: filters.workspaceId,
+      size,
+    });
+    for (const memory of daaitResponse?.items ?? []) {
+      daaitById.set(memory.id, memory);
+    }
+  }
+
+  return {
+    total,
+    docs: docs.map((record) => toTmDoc(record, daaitById.get(record.id))),
+  };
 }
 
 export async function updateTranslationMemoryService(payload, actorUser) {
@@ -139,33 +151,14 @@ export async function updateTranslationMemoryService(payload, actorUser) {
 
   const updated = await updateTmRecord(id, data);
 
-  await updateTmOpenSearch(id, {
-    name: updated.name,
-    context: {
-      domain: updated.domain ?? null,
-    },
-  }).catch(() => {
-    // OpenSearch may not have the doc yet (legacy); ignore.
-  });
-
   return { message: "Updated successfully", result: toTmDoc(updated) };
 }
 
 export async function deleteTranslationMemoryService(id, actorUser) {
   await assertTmInWorkspace(id, actorUser);
   await softDeleteTmRecord(id);
-  const result = await deleteTmOpenSearch(id).catch(() => null);
+  const result = await deleteTmDaait(id).catch(() => null);
   return { message: "Deleted successfully", result };
-}
-
-export async function getTranslationMemoryWithTusService(id, actorUser) {
-  const record = await assertTmInWorkspace(id, actorUser);
-
-  const tusResponse = await searchTusByMemoryIdOpenSearch(id);
-  const tusHits = tusResponse?.hits?.hits || [];
-  const units = tusHits.map((hit) => ({ id: hit._id, ...hit._source }));
-
-  return { translation_memory: toTmDoc(record), units };
 }
 
 function hasValidTmId(tmId) {
@@ -177,12 +170,15 @@ function hasValidTmId(tmId) {
   );
 }
 
-export async function prepareTranslationMemoryForImportService({
+export async function resolveTranslationMemoryForImportService({
   translation_memory,
   tmId,
   actorUser,
 }) {
-  if (hasValidTmId(tmId)) return String(tmId);
+  if (hasValidTmId(tmId)) {
+    const record = await assertTmInWorkspace(String(tmId), actorUser);
+    return { record, created: false };
+  }
 
   if (!actorUser?.id) {
     throw new HttpError(401, "Unauthorized");
@@ -203,19 +199,5 @@ export async function prepareTranslationMemoryForImportService({
     workspaceId,
   });
 
-  try {
-    await createTmWithIdOpenSearch(record.id, {
-      name: translation_memory.name,
-      context: {
-        ...context,
-        user:
-          record.createdBy?.email ?? actorUser.email ?? context.user ?? null,
-      },
-    });
-  } catch (error) {
-    await hardDeleteTmRecord(record.id).catch(() => {});
-    throw error;
-  }
-
-  return record.id;
+  return { record, created: true };
 }

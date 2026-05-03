@@ -5,7 +5,7 @@ import {
 } from "@/modules/shared/similarity";
 import { HttpError } from "@/modules/shared/http-error";
 import { findTmRecordById } from "@/modules/memory/tm/prisma-repository";
-import { createTu, getTmById, getTuById, searchTus, updateTu } from "./repository";
+import { createTu, deleteTu, getTmById, listTus, updateTu } from "./repository";
 
 async function assertTmAccessibleByActor(translationMemoryId, actorUser) {
   if (!translationMemoryId) {
@@ -27,27 +27,19 @@ async function assertTmAccessibleByActor(translationMemoryId, actorUser) {
   return record;
 }
 
-function asRequiredTerm(field, value) {
-  return { term: { [field]: { value } } };
-}
-
-function asOptionalTerm(field, value) {
-  if (value === undefined || value === null || value === "") return null;
-  return asRequiredTerm(field, value);
-}
-
-function mapTuHit(hit) {
-  return { id: hit._id, ...hit._source };
-}
-
-function mapTuHitForAll(hit) {
+function mapDaaitTu(unit, record) {
   return {
-    id: hit._id,
-    source_language: hit._source.source_language,
-    target_language: hit._source.target_language,
-    source_text: hit._source.source_text,
-    translated_text: hit._source.translated_text,
-    context: hit._source.context,
+    id: unit.id,
+    translation_memory_id: record.id,
+    source_language: record.sourceLanguage,
+    target_language: record.targetLanguage,
+    source_text: unit.source,
+    translated_text: unit.target,
+    context: {
+      user: record.createdBy?.email ?? null,
+      project: null,
+      domain: record.domain ?? null,
+    },
   };
 }
 
@@ -65,17 +57,18 @@ async function assertTranslationMemoryExists(translationMemoryId) {
   }
 }
 
-async function assertTranslationUnitExists(translationUnitId) {
-  try {
-    await getTuById(translationUnitId);
-  } catch (error) {
-    if (error instanceof HttpError && error.status === 404) {
-      throw new HttpError(
-        409,
-        `Translation unit with id ${translationUnitId} does not exist.`,
-      );
-    }
-    throw error;
+function hasSameDirection(record, sourceLanguage, targetLanguage) {
+  return (
+    record.sourceLanguage === sourceLanguage && record.targetLanguage === targetLanguage
+  );
+}
+
+function assertPayloadDirection(record, sourceLanguage, targetLanguage) {
+  if (!hasSameDirection(record, sourceLanguage, targetLanguage)) {
+    throw new HttpError(
+      400,
+      "TU language direction does not match the translation memory",
+    );
   }
 }
 
@@ -92,44 +85,45 @@ export async function searchTranslationUnitsService(queryParams, actorUser) {
     minSimilarity = DEFAULT_MIN_SIMILARITY,
   } = queryParams;
 
-  await assertTmAccessibleByActor(translation_memory_id, actorUser);
+  const record = await assertTmAccessibleByActor(translation_memory_id, actorUser);
+  if (!hasSameDirection(record, source_language, target_language)) {
+    return { total: 0, docs: [] };
+  }
 
-  const must = [
-    asRequiredTerm("translation_memory_id", translation_memory_id),
-    asRequiredTerm("source_language", source_language),
-    asRequiredTerm("target_language", target_language),
-    asOptionalTerm("context.user", user),
-    asOptionalTerm("context.project", project),
-    asOptionalTerm("context.domain", domain),
-  ].filter(Boolean);
+  if (user && user !== record.createdBy?.email) return { total: 0, docs: [] };
+  if (domain && domain !== record.domain) return { total: 0, docs: [] };
+  if (project) return { total: 0, docs: [] };
 
-  must.push(
-    perTerm
-      ? { match_phrase: { source_text } }
-      : { match: { source_text } },
-  );
-
-  const response = await searchTus({ query: { bool: { must } } });
-  const hits = response?.hits?.hits || [];
+  const response = await listTus(translation_memory_id);
+  const units = response?.items ?? [];
   const docs = [];
 
-  for (const hit of hits) {
+  for (const unit of units) {
+    const doc = mapDaaitTu(unit, record);
     if (perTerm) {
-      docs.push(mapTuHit(hit));
+      if (doc.source_text.includes(source_text)) {
+        docs.push(doc);
+      }
       continue;
     }
 
-    const sourceText = hit?._source?.source_text || "";
+    const sourceText = doc.source_text || "";
     const lev = levenshteinSimilarity(source_text, sourceText);
     const jac = jaccardSimilarity(source_text, sourceText);
 
     if (lev >= minSimilarity && jac >= minSimilarity) {
       docs.push({
-        ...mapTuHit(hit),
+        ...doc,
         similarity: { levenshtein: lev, jaccard: jac },
       });
     }
   }
+
+  docs.sort((a, b) => {
+    const aScore = a.similarity?.levenshtein ?? 1;
+    const bScore = b.similarity?.levenshtein ?? 1;
+    return bScore - aScore;
+  });
 
   return { total: docs.length, docs };
 }
@@ -138,23 +132,16 @@ export async function listAllTranslationUnitsService(
   translationMemoryId,
   actorUser,
 ) {
-  if (actorUser) {
-    await assertTmAccessibleByActor(translationMemoryId, actorUser);
+  const record = actorUser
+    ? await assertTmAccessibleByActor(translationMemoryId, actorUser)
+    : await findTmRecordById(translationMemoryId);
+
+  if (!record) {
+    throw new HttpError(404, "Translation memory not found");
   }
 
-  const response = await searchTus(
-    {
-      query: {
-        bool: {
-          must: [asRequiredTerm("translation_memory_id", translationMemoryId)],
-        },
-      },
-    },
-    10000,
-  );
-
-  const hits = response?.hits?.hits || [];
-  const docs = hits.map(mapTuHitForAll);
+  const response = await listTus(translationMemoryId);
+  const docs = (response?.items ?? []).map((unit) => mapDaaitTu(unit, record));
 
   return { total: docs.length, docs };
 }
@@ -166,24 +153,15 @@ export async function createTranslationUnitService(payload, actorUser) {
     target_language,
     source_text,
     translated_text,
-    user,
-    project,
-    domain,
   } = payload;
 
-  await assertTmAccessibleByActor(translation_memory_id, actorUser);
+  const record = await assertTmAccessibleByActor(translation_memory_id, actorUser);
+  assertPayloadDirection(record, source_language, target_language);
   await assertTranslationMemoryExists(translation_memory_id);
 
-  const now = new Date().toISOString();
-  return createTu({
-    translation_memory_id,
-    source_language,
-    target_language,
-    source_text,
-    translated_text,
-    context: { user, project, domain },
-    create_date: now,
-    update_date: now,
+  return createTu(translation_memory_id, {
+    source: source_text,
+    target: translated_text,
   });
 }
 
@@ -195,22 +173,24 @@ export async function updateTranslationUnitService(payload, actorUser) {
     target_language,
     source_text,
     translated_text,
-    user,
-    project,
-    domain,
   } = payload;
+
+  const record = await assertTmAccessibleByActor(translation_memory_id, actorUser);
+  assertPayloadDirection(record, source_language, target_language);
+  await assertTranslationMemoryExists(translation_memory_id);
+
+  const result = await updateTu(translation_memory_id, translation_unit_id, {
+    source: source_text,
+    target: translated_text,
+  });
+  return mapDaaitTu(result, record);
+}
+
+export async function deleteTranslationUnitService(payload, actorUser) {
+  const { translation_memory_id, translation_unit_id } = payload;
 
   await assertTmAccessibleByActor(translation_memory_id, actorUser);
   await assertTranslationMemoryExists(translation_memory_id);
-  await assertTranslationUnitExists(translation_unit_id);
 
-  return updateTu(translation_unit_id, {
-    translation_memory_id,
-    source_language,
-    target_language,
-    source_text,
-    translated_text,
-    context: { user, project, domain },
-    update_date: new Date().toISOString(),
-  });
+  return deleteTu(translation_memory_id, translation_unit_id);
 }

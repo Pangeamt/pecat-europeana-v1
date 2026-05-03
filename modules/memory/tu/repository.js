@@ -1,29 +1,27 @@
 import {
-  getDocument,
-  indexDocument,
-  searchDocuments,
-  updateDocument,
-} from "@/lib/opensearch";
+  addMemoryTus,
+  deleteMemoryTu,
+  getMemory,
+  getMemoryTus,
+  updateMemoryTu,
+} from "@/lib/daait";
 
-const TM_INDEX = "translation_memory";
-const TU_INDEX = "translation_units";
-
-export async function searchTus(queryBody, size = 1000) {
-  return searchDocuments(TU_INDEX, queryBody, size);
+export async function listTus(translationMemoryId, size = 10000) {
+  return getMemoryTus(translationMemoryId, { size });
 }
 
-export async function createTu(doc) {
-  return indexDocument(TU_INDEX, doc);
+export async function createTu(translationMemoryId, tu) {
+  return addMemoryTus(translationMemoryId, [tu]);
 }
 
-export async function updateTu(id, partialDoc) {
-  return updateDocument(TU_INDEX, id, partialDoc);
+export async function updateTu(translationMemoryId, translationUnitId, tu) {
+  return updateMemoryTu(translationMemoryId, translationUnitId, tu);
 }
 
-export async function getTuById(id) {
-  return getDocument(TU_INDEX, id);
+export async function deleteTu(translationMemoryId, translationUnitId) {
+  return deleteMemoryTu(translationMemoryId, translationUnitId);
 }
 
 export async function getTmById(id) {
-  return getDocument(TM_INDEX, id);
+  return getMemory(id);
 }

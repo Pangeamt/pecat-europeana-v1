@@ -2,6 +2,8 @@ import { requireAuthUser, toErrorResponse } from "@/modules/shared";
 import {
   createTranslationUnitService,
   createTuSchema,
+  deleteTranslationUnitService,
+  deleteTuSchema,
   searchTranslationUnitsService,
   tuSearchQuerySchema,
   updateTranslationUnitService,
@@ -48,6 +50,18 @@ export const PATCH = async (req) => {
     const body = await req.json();
     const payload = await updateTuSchema.validateAsync(body);
     const result = await updateTranslationUnitService(payload, actorUser);
+    return Response.json(result);
+  } catch (error) {
+    return toErrorResponse(error);
+  }
+};
+
+export const DELETE = async (req) => {
+  try {
+    const actorUser = await requireAuthUser();
+    const body = await req.json();
+    const payload = await deleteTuSchema.validateAsync(body);
+    const result = await deleteTranslationUnitService(payload, actorUser);
     return Response.json(result);
   } catch (error) {
     return toErrorResponse(error);

@@ -2,6 +2,7 @@ import type { AxiosResponse } from "axios";
 import { httpClient } from "./http-client";
 import type {
   CreateTuPayload,
+  DeleteTuPayload,
   ProjectTu,
   SearchTuQuery,
   TuListResponse,
@@ -34,6 +35,16 @@ export const updateTuTm = async (
 ): Promise<AxiosResponse<unknown>> => {
   return await httpClient({
     method: "patch",
+    url: "/api/tu",
+    data: payload,
+  });
+};
+
+export const deleteTuTm = async (
+  payload: DeleteTuPayload,
+): Promise<AxiosResponse<unknown>> => {
+  return await httpClient({
+    method: "delete",
     url: "/api/tu",
     data: payload,
   });

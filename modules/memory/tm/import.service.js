@@ -1,46 +1,8 @@
 import { HttpError } from "@/modules/shared/http-error";
-import { bulkInsertTusOpenSearch } from "./repository";
+import { deleteTmDaait, importTmxDaait } from "./repository";
 import { parseTmxFile } from "./tmx";
-import { prepareTranslationMemoryForImportService } from "./service";
-
-export async function importTranslationMemoryService({
-  translation_memory,
-  units,
-  tmId,
-  actorUser,
-}) {
-  if (!translation_memory || !Array.isArray(units)) {
-    throw new HttpError(400, "Invalid import structure");
-  }
-
-  const finalTmId = await prepareTranslationMemoryForImportService({
-    translation_memory,
-    tmId,
-    actorUser,
-  });
-
-  const now = new Date().toISOString();
-  const bulkBody = units.flatMap((unit) => [
-    { index: { _index: "translation_units" } },
-    {
-      ...unit,
-      translation_memory_id: finalTmId,
-      create_date: unit.create_date || now,
-      update_date: unit.update_date || now,
-    },
-  ]);
-
-  const bulkResponse = await bulkInsertTusOpenSearch(bulkBody);
-  if (bulkResponse?.errors) {
-    throw new HttpError(500, "Some translation units failed to import");
-  }
-
-  return {
-    message: "TM and units imported successfully",
-    translation_memory_id: finalTmId,
-    units_imported: units.length,
-  };
-}
+import { resolveTranslationMemoryForImportService } from "./service";
+import { hardDeleteTmRecord } from "./prisma-repository";
 
 export async function importTmFromFilesService({
   files,
@@ -58,12 +20,35 @@ export async function importTmFromFilesService({
     }
 
     const tmxData = await parseTmxFile(file, userEmail, tmId);
-    return importTranslationMemoryService({
+    const { record, created } = await resolveTranslationMemoryForImportService({
       tmId: tmxData.tmId,
       translation_memory: tmxData.translation_memory,
-      units: tmxData.units,
       actorUser,
     });
+
+    try {
+      const result = await importTmxDaait({
+        file,
+        id: record.id,
+        owner: record.workspaceId,
+        source_language: record.sourceLanguage,
+        target_language: record.targetLanguage,
+      });
+
+      return {
+        message: "TMX import scheduled successfully",
+        translation_memory_id: record.id,
+        result,
+      };
+    } catch (error) {
+      if (created) {
+        await Promise.all([
+          hardDeleteTmRecord(record.id).catch(() => {}),
+          deleteTmDaait(record.id).catch(() => {}),
+        ]);
+      }
+      throw error;
+    }
   }
 
   throw new HttpError(400, "No file uploaded");

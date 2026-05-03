@@ -3,14 +3,9 @@ export {
   listTranslationMemoriesService,
   updateTranslationMemoryService,
   deleteTranslationMemoryService,
-  getTranslationMemoryWithTusService,
-  prepareTranslationMemoryForImportService,
 } from "./service";
 
-export {
-  importTranslationMemoryService,
-  importTmFromFilesService,
-} from "./import.service";
+export { importTmFromFilesService } from "./import.service";
 
 export { exportTmAsXmlService } from "./export.service";
 
@@ -22,4 +17,3 @@ export {
   tmImportFormSchema,
 } from "./schemas";
 
-export { generateTMX, parseTmxFile } from "./tmx";

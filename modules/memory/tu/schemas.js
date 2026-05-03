@@ -44,3 +44,8 @@ export const updateTuSchema = Joi.object({
   project: Joi.string().optional().allow(null, ""),
   domain: Joi.string().optional().allow(null, ""),
 });
+
+export const deleteTuSchema = Joi.object({
+  translation_unit_id: Joi.string().required(),
+  translation_memory_id: Joi.string().required(),
+});

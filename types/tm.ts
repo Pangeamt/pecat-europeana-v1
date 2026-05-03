@@ -85,6 +85,11 @@ export type UpdateTuPayload = CreateTuPayload & {
   translation_unit_id: string;
 };
 
+export type DeleteTuPayload = {
+  translation_memory_id: string;
+  translation_unit_id: string;
+};
+
 export type SearchTuQuery = {
   translation_memory_id: string;
   source_language: string;
