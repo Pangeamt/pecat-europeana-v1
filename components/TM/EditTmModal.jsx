@@ -16,9 +16,8 @@ export default function EditTmModal({ open, tm, onClose, onUpdated }) {
     }
   }, [tm, form]);
 
-  const handleSubmit = async () => {
+  const handleFinish = async (values) => {
     try {
-      const values = await form.validateFields();
       message.loading({ content: "Updating TM...", key: "edit-tm" });
       await updateTMRequest({
         id: tm.id,
@@ -30,9 +29,8 @@ export default function EditTmModal({ open, tm, onClose, onUpdated }) {
       await onUpdated?.();
       form.resetFields();
       message.success({ content: "TM updated!", key: "edit-tm" });
-    } catch (errorInfo) {
-      console.error("Failed:", errorInfo);
-      onClose?.();
+    } catch (error) {
+      console.error("Failed:", error);
       message.error({ content: "Error updating TM", key: "edit-tm" });
     }
   };
@@ -46,7 +44,7 @@ export default function EditTmModal({ open, tm, onClose, onUpdated }) {
         <Button key="back" onClick={onClose}>
           Return
         </Button>,
-        <Button key="submit" type="primary" onClick={handleSubmit}>
+        <Button key="submit" type="primary" onClick={() => form.submit()}>
           Submit
         </Button>,
       ]}
@@ -56,6 +54,7 @@ export default function EditTmModal({ open, tm, onClose, onUpdated }) {
         labelCol={{ span: 4 }}
         wrapperCol={{ span: 20 }}
         layout="horizontal"
+        onFinish={handleFinish}
       >
         <Form.Item
           label="Name"
@@ -64,11 +63,7 @@ export default function EditTmModal({ open, tm, onClose, onUpdated }) {
         >
           <Input />
         </Form.Item>
-        <Form.Item
-          label="Project"
-          name="project"
-          rules={[{ required: true, message: "Please introduce a project!" }]}
-        >
+        <Form.Item label="Project" name="project">
           <Input />
         </Form.Item>
         <Form.Item label="Domain" name="domain">

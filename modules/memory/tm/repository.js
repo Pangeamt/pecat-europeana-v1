@@ -13,27 +13,30 @@ export async function createTm(doc) {
   return indexDocument(TM_INDEX, doc);
 }
 
-export async function searchTms(query, size = 100) {
+export async function searchTmsOpenSearch(query, size = 100) {
   return searchDocuments(TM_INDEX, { query }, size);
 }
 
-export async function updateTm(id, partialDoc) {
+export async function updateTmOpenSearch(id, partialDoc) {
   return updateDocument(TM_INDEX, id, partialDoc);
 }
 
-export async function deleteTm(id) {
+export async function deleteTmOpenSearch(id) {
   return deleteDocument(TM_INDEX, id);
 }
 
-export async function findTmById(id) {
+export async function findTmByIdOpenSearch(id) {
   return searchDocuments(TM_INDEX, { query: { ids: { values: [id] } } }, 1);
 }
 
-export async function createTmWithId(id, doc) {
+export async function createTmWithIdOpenSearch(id, doc) {
   return indexDocument(TM_INDEX, doc, id);
 }
 
-export async function searchTusByMemoryId(translationMemoryId, size = 10000) {
+export async function searchTusByMemoryIdOpenSearch(
+  translationMemoryId,
+  size = 10000,
+) {
   return searchDocuments(
     TU_INDEX,
     {
@@ -45,6 +48,6 @@ export async function searchTusByMemoryId(translationMemoryId, size = 10000) {
   );
 }
 
-export async function bulkInsertTus(bulkBody) {
+export async function bulkInsertTusOpenSearch(bulkBody) {
   return bulkIndexDocuments(bulkBody);
 }

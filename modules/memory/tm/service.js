@@ -1,9 +1,9 @@
 import { HttpError } from "@/modules/shared/http-error";
 import {
-  createTmWithId,
-  deleteTm,
-  searchTusByMemoryId,
-  updateTm,
+  createTmWithIdOpenSearch,
+  deleteTmOpenSearch,
+  searchTusByMemoryIdOpenSearch,
+  updateTmOpenSearch,
 } from "./repository";
 import {
   createTmRecord,
@@ -77,7 +77,7 @@ export async function createTranslationMemoryService(payload, actorUser) {
   });
 
   try {
-    await createTmWithId(record.id, {
+    await createTmWithIdOpenSearch(record.id, {
       name: record.name,
       context: {
         user: record.createdBy?.email ?? actorUser.email ?? null,
@@ -139,7 +139,7 @@ export async function updateTranslationMemoryService(payload, actorUser) {
 
   const updated = await updateTmRecord(id, data);
 
-  await updateTm(id, {
+  await updateTmOpenSearch(id, {
     name: updated.name,
     context: {
       domain: updated.domain ?? null,
@@ -154,14 +154,14 @@ export async function updateTranslationMemoryService(payload, actorUser) {
 export async function deleteTranslationMemoryService(id, actorUser) {
   await assertTmInWorkspace(id, actorUser);
   await softDeleteTmRecord(id);
-  const result = await deleteTm(id).catch(() => null);
+  const result = await deleteTmOpenSearch(id).catch(() => null);
   return { message: "Deleted successfully", result };
 }
 
 export async function getTranslationMemoryWithTusService(id, actorUser) {
   const record = await assertTmInWorkspace(id, actorUser);
 
-  const tusResponse = await searchTusByMemoryId(id);
+  const tusResponse = await searchTusByMemoryIdOpenSearch(id);
   const tusHits = tusResponse?.hits?.hits || [];
   const units = tusHits.map((hit) => ({ id: hit._id, ...hit._source }));
 
@@ -204,11 +204,12 @@ export async function prepareTranslationMemoryForImportService({
   });
 
   try {
-    await createTmWithId(record.id, {
+    await createTmWithIdOpenSearch(record.id, {
       name: translation_memory.name,
       context: {
         ...context,
-        user: record.createdBy?.email ?? actorUser.email ?? context.user ?? null,
+        user:
+          record.createdBy?.email ?? actorUser.email ?? context.user ?? null,
       },
     });
   } catch (error) {

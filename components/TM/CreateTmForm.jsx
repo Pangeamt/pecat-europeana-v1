@@ -16,9 +16,8 @@ export default function CreateTmForm({ user, onBack, onCreated }) {
   const [form] = Form.useForm();
   const [messageApi, contextHolder] = message.useMessage();
 
-  const onFinish = async () => {
+  const onFinish = async (values) => {
     try {
-      const values = await form.validateFields();
       const userEmail = user?.email || "";
       const data = {
         name: values.name,
@@ -33,8 +32,8 @@ export default function CreateTmForm({ user, onBack, onCreated }) {
       await onCreated?.();
       form.resetFields();
       messageApi.success({ content: "TM created!", key: "add-tm" });
-    } catch (errorInfo) {
-      console.error("Failed:", errorInfo);
+    } catch (error) {
+      console.error("Failed:", error);
       messageApi.error({ content: "Error creating TM", key: "add-tm" });
     }
   };

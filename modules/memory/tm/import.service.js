@@ -1,5 +1,5 @@
 import { HttpError } from "@/modules/shared/http-error";
-import { bulkInsertTus } from "./repository";
+import { bulkInsertTusOpenSearch } from "./repository";
 import { parseTmxFile } from "./tmx";
 import { prepareTranslationMemoryForImportService } from "./service";
 
@@ -30,7 +30,7 @@ export async function importTranslationMemoryService({
     },
   ]);
 
-  const bulkResponse = await bulkInsertTus(bulkBody);
+  const bulkResponse = await bulkInsertTusOpenSearch(bulkBody);
   if (bulkResponse?.errors) {
     throw new HttpError(500, "Some translation units failed to import");
   }
