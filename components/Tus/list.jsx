@@ -94,6 +94,11 @@ const TusList = () => {
         setRequesting(false);
       } catch (error) {
         console.error(error);
+        messageApi.error(
+          error?.response?.data?.error?.message || "Project is not ready yet",
+        );
+        setData([]);
+        setSelectedRow(null);
         setRequesting(false);
       }
     };

@@ -24,6 +24,7 @@ import {
   Popconfirm,
   Progress,
   Space,
+  Tag,
   Table,
   Tooltip,
   Typography,
@@ -34,6 +35,17 @@ import { useCallback, useEffect, useState } from "react";
 const { Title } = Typography;
 
 const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const READY_PROJECT_STATUS = "READY";
+
+const PROJECT_STATUS_CONFIG = {
+  UPLOADED: { label: "Uploaded", color: "default" },
+  PROCESSING: { label: "Processing", color: "blue" },
+  OXIGEN_PROCESSING: { label: "Oxigen", color: "geekblue" },
+  MTQE_PROCESSING: { label: "MTQE", color: "cyan" },
+  READY: { label: "Ready", color: "green" },
+  OXIGEN_ERROR: { label: "Oxigen Error", color: "red" },
+  MTQE_ERROR: { label: "MTQE Error", color: "volcano" },
+};
 
 const ProjectList = () => {
   const [requesting, setRequesting] = useState(true);
@@ -41,7 +53,7 @@ const ProjectList = () => {
   const clear = tmStore((state) => state.clear);
   const [loading, setLoading] = useState(false);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const { data } = await getProjects();
@@ -51,11 +63,36 @@ const ProjectList = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
+
+  useEffect(() => {
+    const hasPendingProjects = data.some(
+      (project) =>
+        project.status &&
+        project.status !== READY_PROJECT_STATUS &&
+        !project.status.endsWith("_ERROR"),
+    );
+
+    if (!hasPendingProjects) return;
+
+    const timer = setInterval(() => {
+      fetchData();
+    }, 5000);
+
+    return () => clearInterval(timer);
+  }, [data, fetchData]);
+
+  const getProjectStatusTag = (status) => {
+    const config = PROJECT_STATUS_CONFIG[status] ?? {
+      label: status || "Unknown",
+      color: "default",
+    };
+    return <Tag color={config.color}>{config.label}</Tag>;
+  };
 
   const save = async ({ ...values }) => {
     try {
@@ -132,14 +169,29 @@ const ProjectList = () => {
       title: "Filename",
       dataIndex: "filename",
       key: "name",
-      render: (text, record) => (
-        <Link href={`/dashboard/${record.id}/tus`}>{text}</Link>
-      ),
+      render: (text, record) => {
+        const isReady = record.status === READY_PROJECT_STATUS;
+        if (!isReady) {
+          return (
+            <Tooltip title="Project is still processing">
+              <span className="text-gray-500 cursor-not-allowed">{text}</span>
+            </Tooltip>
+          );
+        }
+        return <Link href={`/dashboard/${record.id}/tus`}>{text}</Link>;
+      },
     },
     {
       title: "Label",
       dataIndex: "label",
       key: "label",
+    },
+    {
+      title: "Status",
+      dataIndex: "status",
+      key: "status",
+      width: 150,
+      render: (status) => getProjectStatusTag(status),
     },
     {
       title: "Created At",
@@ -174,6 +226,9 @@ const ProjectList = () => {
         });
 
         const aux = NOT_REVIEWED ? NOT_REVIEWED._count : 0;
+        if (!record.totalCount) {
+          return <Progress percent={0} size="small" />;
+        }
         const percentage = parseFloat(
           (((record.totalCount - aux) * 100) / record.totalCount).toFixed(2),
         );

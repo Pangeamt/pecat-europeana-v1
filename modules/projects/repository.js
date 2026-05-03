@@ -6,6 +6,7 @@ export async function findProjects(where) {
     select: {
       id: true,
       filename: true,
+      status: true,
       mt: true,
       extension: true,
       createdAt: true,

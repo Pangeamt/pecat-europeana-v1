@@ -1,4 +1,5 @@
-import { ALLOWED_FILE_EXTENSIONS, checkFile } from "../../lib/utils";
+"use client";
+import { PlusOutlined, UploadOutlined } from "@ant-design/icons";
 import {
   Button,
   Divider,
@@ -10,26 +11,31 @@ import {
   Upload,
   message,
 } from "antd";
-import { PlusOutlined, UploadOutlined } from "@ant-design/icons";
-import React, { useState } from "react";
-
-import { EUROPEAN_LANGUAGES } from "../../lib/utils";
-
-export const EUROPEAN_LANGUAGES_TRG = { en: "English"}
+import { useState } from "react";
+import { EUROPEAN_LANGUAGES, checkFile } from "../../lib/utils";
+export const EUROPEAN_LANGUAGES_TRG = { en: "English" };
 
 const ProjectAdd = ({ add, refetch }) => {
-  const [ form] = Form.useForm();
-  const [ isModalOpen, setIsModalOpen] = useState(false);
-  const [ by, setBy] = useState("file");
-  const [ mt, setMt] = useState(true);
-  const [ src, setSrc] = useState(null);
-  const [ tgt, setTgt] = useState(null);
-  const [ adding, setAdding] = useState(false);
+  const [form] = Form.useForm();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [by, setBy] = useState("file");
+  const [mt, setMt] = useState(true);
+  const [src, setSrc] = useState(null);
+  const [tgt, setTgt] = useState(null);
+  const [adding, setAdding] = useState(false);
 
-  const showModal = () => { setIsModalOpen(true) }
-  const handleCancel = () => { setIsModalOpen(false) }
-  const onChangeSrc = (value) => {  setSrc(value) }
-  const onChangeTgt = (value) => {  setTgt(value) }
+  const showModal = () => {
+    setIsModalOpen(true);
+  };
+  const handleCancel = () => {
+    setIsModalOpen(false);
+  };
+  const onChangeSrc = (value) => {
+    setSrc(value);
+  };
+  const onChangeTgt = (value) => {
+    setTgt(value);
+  };
 
   const handleOk = async () => {
     try {
@@ -71,7 +77,7 @@ const ProjectAdd = ({ add, refetch }) => {
       }
       const extension = checkFile(file);
       if (!extension) {
-        message.error("File type not supported"); 
+        message.error("File type not supported");
         return false;
       }
       return true;
@@ -177,10 +183,12 @@ const ProjectAdd = ({ add, refetch }) => {
                       // onSearch={onSearch}
                       // options={getTgtOptions(src)}
                       disabled={!src}
-                      options={Object.keys(EUROPEAN_LANGUAGES_TRG).map((key) => ({
-                        value: key,
-                        label: EUROPEAN_LANGUAGES_TRG[key],
-                      }))}
+                      options={Object.keys(EUROPEAN_LANGUAGES_TRG).map(
+                        (key) => ({
+                          value: key,
+                          label: EUROPEAN_LANGUAGES_TRG[key],
+                        }),
+                      )}
                     />
                   </Form.Item>
                 </>

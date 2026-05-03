@@ -90,6 +90,7 @@ model Project {
   sourceLanguage String?
   targetLanguage String?
   exampleXml     String?
+  status         ProjectStatus @default(UPLOADED)
   User           User      @relation(fields: [userId], references: [id])
   workspace      Workspace @relation(fields: [workspaceId], references: [id])
   tus            Tu[]
@@ -167,4 +168,14 @@ enum Status {
   TRANSLATED_MT
   NOT_REVIEWED
   REJECTED
+}
+
+enum ProjectStatus {
+  UPLOADED
+  PROCESSING
+  OXIGEN_PROCESSING
+  MTQE_PROCESSING
+  READY
+  OXIGEN_ERROR
+  MTQE_ERROR
 }

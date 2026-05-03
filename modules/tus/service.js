@@ -40,6 +40,12 @@ export async function listTusByProjectService(projectId, actorUser) {
   if (!project) {
     throw new HttpError(404, "Project not found");
   }
+  if (project.status !== "READY") {
+    throw new HttpError(
+      409,
+      "Project is not ready yet. Wait until background processing finishes.",
+    );
+  }
 
   const tus = await findTusByProjectId(projectId);
   return {

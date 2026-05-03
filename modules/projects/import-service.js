@@ -17,6 +17,22 @@ import {
 import { HttpError } from "../shared/http-error";
 
 const pump = promisify(pipeline);
+const PROJECT_STATUS = {
+  UPLOADED: "UPLOADED",
+  PROCESSING: "PROCESSING",
+  OXIGEN_PROCESSING: "OXIGEN_PROCESSING",
+  MTQE_PROCESSING: "MTQE_PROCESSING",
+  READY: "READY",
+  OXIGEN_ERROR: "OXIGEN_ERROR",
+  MTQE_ERROR: "MTQE_ERROR",
+};
+
+async function setProjectStatus(projectId, status) {
+  await prisma.project.update({
+    where: { id: projectId },
+    data: { status },
+  });
+}
 
 async function processJsonWithOptionalMt(jsonData, mt) {
   let result = [];
@@ -107,7 +123,7 @@ async function processJsonWithOptionalMt(jsonData, mt) {
   return result;
 }
 
-async function processNonJsonFile({ filePath, src, tgt, mt }) {
+async function processNonJsonFile({ filePath, src, tgt, mt, onBeforeMTQE }) {
   const objectOxigen = {
     filePath,
     src_lang: src || "en",
@@ -117,7 +133,9 @@ async function processNonJsonFile({ filePath, src, tgt, mt }) {
 
   const tmp = await oxygenTranslateFile(objectOxigen);
   if (!tmp) {
-    throw new HttpError(500, "Internal error with Oxigen");
+    const error = new Error("Internal error with Oxigen");
+    error.code = "OXIGEN_ERROR";
+    throw error;
   }
 
   const objectMTQE = tmp.map((item) => ({
@@ -125,9 +143,21 @@ async function processNonJsonFile({ filePath, src, tgt, mt }) {
     source_segment: item.tgt,
   }));
 
-  const responseMTQE = await postMTQE({ pairs: objectMTQE });
+  await onBeforeMTQE?.();
+
+  let responseMTQE = null;
+  try {
+    responseMTQE = await postMTQE({ pairs: objectMTQE });
+  } catch {
+    const error = new Error("Internal error with MTQE");
+    error.code = "MTQE_ERROR";
+    throw error;
+  }
+
   if (!responseMTQE) {
-    throw new HttpError(500, "Internal error with MTQE");
+    const error = new Error("Internal error with MTQE");
+    error.code = "MTQE_ERROR";
+    throw error;
   }
 
   return responseMTQE.pairs.map((item, index) => ({
@@ -140,6 +170,81 @@ async function processNonJsonFile({ filePath, src, tgt, mt }) {
     targetLanguage: tgt,
     Status: "NOT_REVIEWED",
   }));
+}
+
+function toTusData(result, projectId) {
+  return result.map((item) => {
+    const { id, ...rest } = item;
+    return {
+      ...rest,
+      projectId,
+    };
+  });
+}
+
+function resolveProjectErrorStatus(fileExtension, error) {
+  if (error?.code === "MTQE_ERROR") return PROJECT_STATUS.MTQE_ERROR;
+  if (fileExtension === "json") return PROJECT_STATUS.MTQE_ERROR;
+  return PROJECT_STATUS.OXIGEN_ERROR;
+}
+
+async function processUploadedProjectInBackground({
+  projectId,
+  filePath,
+  fileExtension,
+  mt,
+  src,
+  tgt,
+}) {
+  try {
+    let result = [];
+    if (fileExtension === "json") {
+      await setProjectStatus(projectId, PROJECT_STATUS.PROCESSING);
+      const jsonData = JSON.parse(fs.readFileSync(filePath, "utf8"));
+      result = await processJsonWithOptionalMt(jsonData, mt);
+    } else {
+      await setProjectStatus(projectId, PROJECT_STATUS.OXIGEN_PROCESSING);
+      result = await processNonJsonFile({
+        filePath,
+        src,
+        tgt,
+        mt,
+        onBeforeMTQE: async () => {
+          await setProjectStatus(projectId, PROJECT_STATUS.MTQE_PROCESSING);
+        },
+      });
+    }
+
+    await prisma.tu.createMany({
+      data: toTusData(result, projectId),
+    });
+    await setProjectStatus(projectId, PROJECT_STATUS.READY);
+  } catch (error) {
+    console.error("Error processing project in background:", error);
+    const status = resolveProjectErrorStatus(fileExtension, error);
+    await setProjectStatus(projectId, status).catch(() => {});
+  }
+}
+
+async function processUrlProjectInBackground({ projectId, decompressedFilePath }) {
+  try {
+    await setProjectStatus(projectId, PROJECT_STATUS.PROCESSING);
+    const data = fs.readFileSync(decompressedFilePath, "utf8");
+    const jsonData = JSON.parse(data);
+
+    await prisma.tu.createMany({
+      data: jsonData.map((item) => ({
+        ...item,
+        projectId,
+      })),
+      skipDuplicates: true,
+    });
+
+    await setProjectStatus(projectId, PROJECT_STATUS.READY);
+  } catch (error) {
+    console.error("Error processing URL project in background:", error);
+    await setProjectStatus(projectId, PROJECT_STATUS.MTQE_ERROR).catch(() => {});
+  }
 }
 
 export async function importProjectFromUrlService(url, userId, workspaceId) {
@@ -189,9 +294,6 @@ export async function importProjectFromUrlService(url, userId, workspaceId) {
     writeStream.on("error", reject);
   });
 
-  const data = fs.readFileSync(decompressedFilePath, "utf8");
-  const jsonData = JSON.parse(data);
-
   const createdProject = await prisma.project.create({
     data: {
       filename: fileName.trim(),
@@ -199,16 +301,16 @@ export async function importProjectFromUrlService(url, userId, workspaceId) {
       workspaceId,
       filePath: decompressedFilePath,
       extension: "json",
+      status: PROJECT_STATUS.UPLOADED,
     },
   });
 
-  await prisma.tu.createMany({
-    data: jsonData.map((item) => ({
-      ...item,
-      projectId: createdProject.id,
-    })),
-    skipDuplicates: true,
+  void processUrlProjectInBackground({
+    projectId: createdProject.id,
+    decompressedFilePath,
   });
+
+  return createdProject;
 }
 
 export async function importProjectsFromUploadService({
@@ -229,6 +331,7 @@ export async function importProjectsFromUploadService({
     throw new HttpError(400, "No file uploaded");
   }
 
+  const createdProjectIds = [];
   for (const file of files) {
     if (!file || !file.name) continue;
 
@@ -242,14 +345,6 @@ export async function importProjectsFromUploadService({
     const filePath = `./public/files/${uid()}_${file.name}`;
     await pump(file.stream(), fs.createWriteStream(filePath));
 
-    let result = [];
-    if (fileExtension === "json") {
-      const jsonData = JSON.parse(fs.readFileSync(filePath, "utf8"));
-      result = await processJsonWithOptionalMt(jsonData, mt);
-    } else {
-      result = await processNonJsonFile({ filePath, src, tgt, mt });
-    }
-
     const createdProject = await prisma.project.create({
       data: {
         filename: file.name.trim(),
@@ -260,18 +355,21 @@ export async function importProjectsFromUploadService({
         extension: fileExtension,
         sourceLanguage: src,
         targetLanguage: tgt,
+        status: PROJECT_STATUS.UPLOADED,
       },
     });
 
-    const data = result.map((item) => {
-      const { id, ...rest } = item;
-      return {
-        ...rest,
-        projectId: createdProject.id,
-      };
+    createdProjectIds.push(createdProject.id);
+    void processUploadedProjectInBackground({
+      projectId: createdProject.id,
+      filePath,
+      fileExtension,
+      mt,
+      src,
+      tgt,
     });
-
-    await prisma.tu.createMany({ data });
   }
+
+  return { projectIds: createdProjectIds };
 }
 
