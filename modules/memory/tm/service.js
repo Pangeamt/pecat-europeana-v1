@@ -14,12 +14,21 @@ import {
   updateTmRecord,
 } from "./prisma-repository";
 
+function optionalText(value) {
+  if (value === undefined || value === null) return null;
+  const text = String(value).trim();
+  if (!text || text === "undefined" || text === "null") return null;
+  return text;
+}
+
 function toTmDoc(record, daaitMemory = null) {
   if (!record) return null;
+  const domain = optionalText(record.domain);
+
   return {
     id: record.id,
     name: record.name,
-    domain: record.domain,
+    domain,
     sourceLanguage: record.sourceLanguage,
     targetLanguage: record.targetLanguage,
     workspaceId: record.workspaceId,
@@ -35,7 +44,7 @@ function toTmDoc(record, daaitMemory = null) {
     context: {
       user: record.createdBy?.email ?? null,
       project: null,
-      domain: record.domain ?? null,
+      domain,
       source: record.sourceLanguage,
       target: record.targetLanguage,
     },
@@ -74,7 +83,7 @@ export async function createTranslationMemoryService(payload, actorUser) {
   try {
     record = await createTmRecord({
       name,
-      domain: domain || null,
+      domain: optionalText(domain),
       sourceLanguage: source,
       targetLanguage: target,
       createdByUserId: actorUser.id,
@@ -168,7 +177,7 @@ export async function updateTranslationMemoryService(payload, actorUser) {
 
   const data = {};
   if (name !== undefined && name !== null && name !== "") data.name = name;
-  if (domain !== undefined) data.domain = domain || null;
+  if (domain !== undefined) data.domain = optionalText(domain);
 
   if (Object.keys(data).length === 0) {
     throw new HttpError(400, "No fields to update");
@@ -216,7 +225,7 @@ function hasValidTmId(tmId) {
 }
 
 export async function resolveTranslationMemoryForImportService({
-  translation_memory,
+  form,
   tmId,
   actorUser,
 }) {
@@ -234,12 +243,19 @@ export async function resolveTranslationMemoryForImportService({
     throw new HttpError(400, "A workspace is required to create a TM");
   }
 
-  const context = translation_memory.context ?? {};
+  const { name, domain, source, target } = form ?? {};
+  if (!name || !source || !target) {
+    throw new HttpError(
+      400,
+      "Name, source language and target language are required to import a new TM",
+    );
+  }
+
   const record = await createTmRecord({
-    name: translation_memory.name,
-    domain: context.domain ?? null,
-    sourceLanguage: context.source ?? "",
-    targetLanguage: context.target ?? "",
+    name,
+    domain: optionalText(domain),
+    sourceLanguage: source,
+    targetLanguage: target,
     createdByUserId: actorUser.id,
     workspaceId,
   });

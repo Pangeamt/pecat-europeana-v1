@@ -14,12 +14,15 @@ export const POST = async (req) => {
       name: formData.get("name"),
       project: formData.get("project"),
       domain: formData.get("domain"),
+      source: formData.get("source"),
+      target: formData.get("target"),
     });
+
     const tmId = parsedForm.tmId || 0;
     const data = await importTmFromFilesService({
       files,
       tmId,
-      userEmail: user.email,
+      form: parsedForm,
       actorUser: user,
     });
     return Response.json({ status: "success", data });

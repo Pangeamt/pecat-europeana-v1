@@ -38,4 +38,9 @@ export const tmExportQuerySchema = Joi.object({
 
 export const tmImportFormSchema = Joi.object({
   tmId: Joi.alternatives().try(Joi.string(), Joi.number()).optional(),
+  name: Joi.string().optional().allow("", null),
+  project: Joi.string().optional().allow("", null),
+  domain: Joi.string().optional().allow("", null),
+  source: Joi.string().optional().allow("", null),
+  target: Joi.string().optional().allow("", null),
 });

@@ -1,8 +1,27 @@
 "use client";
-import { Button, Divider, Form, Input, Modal, Upload, message } from "antd";
+import {
+  Button,
+  Divider,
+  Form,
+  Input,
+  Modal,
+  Upload,
+  message,
+  Select,
+} from "antd";
+import locales from "@/lib/locales.json";
 import { UploadOutlined } from "@ant-design/icons";
 import React, { useState } from "react";
 import { tmStore } from "@/store";
+
+const languages = locales;
+
+const getLocaleCode = (locale) => {
+  const language = Object.keys(languages).find(
+    (key) => languages[key][0] === locale,
+  );
+  return language;
+};
 
 const checkFile = (file) => {
   const fileName = file.name.trim().replace(/\s+/g, "");
@@ -47,8 +66,10 @@ const ImportTmButton = ({ refetch, user }) => {
     data: (file) => ({
       tm: tm?.id || 0,
       name: form.getFieldValue("name"),
-      project: form.getFieldValue("project"),
-      domain: form.getFieldValue("domain"),
+      project: form.getFieldValue("project") ?? "",
+      domain: form.getFieldValue("domain") ?? "",
+      source: getLocaleCode(form.getFieldValue("source")),
+      target: getLocaleCode(form.getFieldValue("target")),
     }),
     onChange: async (info) => {
       if (info.file.status === "done") {
@@ -60,7 +81,13 @@ const ImportTmButton = ({ refetch, user }) => {
         message.error(`${info.file.name} file upload failed.`);
       }
     },
-    beforeUpload: (file) => {
+    beforeUpload: async (file) => {
+      try {
+        await form.validateFields(["name", "source", "target"]);
+      } catch {
+        return false;
+      }
+
       const isLt = file.size / 1024 / 1024 < 15;
       if (!isLt) {
         message.error("Files must smaller than 15MB");
@@ -101,20 +128,50 @@ const ImportTmButton = ({ refetch, user }) => {
             offset: 2,
           }}
         >
+          <Form.Item
+            label="Name"
+            name="name"
+            rules={[{ required: true, message: "Please introduce a name!" }]}
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item label="Project" name="project">
+            <Input placeholder="Optional" />
+          </Form.Item>
+          <Form.Item label="Domain" name="domain">
+            <Input />
+          </Form.Item>
+          <Form.Item
+            label="Source"
+            name="source"
+            rules={[
+              { required: true, message: "Please select a source language" },
+            ]}
+          >
+            <Select showSearch>
+              {Object.keys(languages).map((locale) => (
+                <Select.Option key={locale} value={languages[locale][0]}>
+                  {languages[locale][0]}
+                </Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
+          <Form.Item
+            name="target"
+            label="Target"
+            rules={[
+              { required: true, message: "Please select a target language" },
+            ]}
+          >
+            <Select showSearch>
+              {Object.keys(languages).map((locale) => (
+                <Select.Option key={locale} value={languages[locale][0]}>
+                  {languages[locale][0]}
+                </Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
           <Form.Item label="File">
-            <Form.Item
-              label="Name"
-              name="name"
-              rules={[{ required: true, message: "Please introduce a name!" }]}
-            >
-              <Input />
-            </Form.Item>
-            <Form.Item label="Project" name="project">
-              <Input placeholder="Optional" />
-            </Form.Item>
-            <Form.Item label="Domain" name="domain">
-              <Input />
-            </Form.Item>
             <Upload {...props}>
               <Button icon={<UploadOutlined />}>Select your TMX file</Button>
             </Upload>

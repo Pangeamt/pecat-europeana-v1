@@ -1,13 +1,12 @@
 import { HttpError } from "@/modules/shared/http-error";
 import { deleteTmDaait, importTmxDaait } from "./repository";
-import { parseTmxFile } from "./tmx";
 import { resolveTranslationMemoryForImportService } from "./service";
 import { hardDeleteTmRecord } from "./prisma-repository";
 
 export async function importTmFromFilesService({
   files,
   tmId,
-  userEmail,
+  form,
   actorUser,
 }) {
   for (const file of files) {
@@ -19,10 +18,9 @@ export async function importTmFromFilesService({
       throw new HttpError(400, "The file type is not allowed");
     }
 
-    const tmxData = await parseTmxFile(file, userEmail, tmId);
     const { record, created } = await resolveTranslationMemoryForImportService({
-      tmId: tmxData.tmId,
-      translation_memory: tmxData.translation_memory,
+      tmId,
+      form,
       actorUser,
     });
 
