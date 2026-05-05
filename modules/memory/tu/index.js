@@ -1,6 +1,7 @@
 export {
   searchTranslationUnitsService,
   listAllTranslationUnitsService,
+  listTranslationUnitsPageService,
   createTranslationUnitService,
   deleteTranslationUnitService,
   updateTranslationUnitService,

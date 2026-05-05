@@ -1,6 +1,7 @@
 export {
   createTranslationMemoryService,
   listTranslationMemoriesService,
+  getTranslationMemoryService,
   updateTranslationMemoryService,
   deleteTranslationMemoryService,
 } from "./service";

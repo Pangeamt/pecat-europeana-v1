@@ -5,7 +5,15 @@ import {
 } from "@/modules/shared/similarity";
 import { HttpError } from "@/modules/shared/http-error";
 import { findTmRecordById } from "@/modules/memory/tm/prisma-repository";
-import { createTu, deleteTu, getTmById, listTus, updateTu } from "./repository";
+import {
+  createTu,
+  deleteTu,
+  getTmById,
+  listAllTus,
+  listTus,
+  listTusPage,
+  updateTu,
+} from "./repository";
 
 async function assertTmAccessibleByActor(translationMemoryId, actorUser) {
   if (!translationMemoryId) {
@@ -140,10 +148,34 @@ export async function listAllTranslationUnitsService(
     throw new HttpError(404, "Translation memory not found");
   }
 
-  const response = await listTus(translationMemoryId);
+  const response = await listAllTus(translationMemoryId);
   const docs = (response?.items ?? []).map((unit) => mapDaaitTu(unit, record));
 
   return { total: docs.length, docs };
+}
+
+export async function listTranslationUnitsPageService(
+  translationMemoryId,
+  actorUser,
+  { page = 1, size = 100 } = {},
+) {
+  const record = actorUser
+    ? await assertTmAccessibleByActor(translationMemoryId, actorUser)
+    : await findTmRecordById(translationMemoryId);
+
+  if (!record) {
+    throw new HttpError(404, "Translation memory not found");
+  }
+
+  const response = await listTusPage(translationMemoryId, { page, size });
+  const docs = (response?.items ?? []).map((unit) => mapDaaitTu(unit, record));
+
+  return {
+    total: response?.total ?? docs.length,
+    page: response?.page ?? page,
+    size: response?.size ?? size,
+    docs,
+  };
 }
 
 export async function createTranslationUnitService(payload, actorUser) {

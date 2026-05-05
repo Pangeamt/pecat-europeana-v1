@@ -1,22 +1,24 @@
 "use client";
-import { Button, Card, Modal, Space, message, Table } from "antd";
-import { useCallback, useEffect, useState } from "react";
 import {
+  DeleteOutlined,
   DownloadOutlined,
   EditOutlined,
+  EyeOutlined,
   PlusOutlined,
-  DeleteOutlined,
 } from "@ant-design/icons";
+import { Button, Card, message, Modal, Popconfirm, Space, Table } from "antd";
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
 
-import { tmStore, userStore } from "@/store";
 import {
   deleteTMRequest,
   exportTMRequest,
   fetchTMRequest,
 } from "@/services/tm.services";
-import TMAdd from "./add";
+import { tmStore, userStore } from "@/store";
 import CreateTmForm from "./CreateTmForm";
 import EditTmModal from "./EditTmModal";
+import ImportTmButton from "./importTM";
 
 const TmList = () => {
   const { user } = userStore();
@@ -69,8 +71,12 @@ const TmList = () => {
         content: "TM exported successfully!",
         key: "export-tm",
       });
-    } catch {
-      message.error({ content: "Error exporting TM", key: "export-tm" });
+    } catch (error) {
+      console.error(error);
+      message.error({
+        content: error?.message || "Error exporting TM",
+        key: "export-tm",
+      });
     }
   };
 
@@ -137,6 +143,15 @@ const TmList = () => {
       key: "actions",
       render: (record) => (
         <div>
+          <Link href={`/dashboard/tms/${record.id}`}>
+            <Button
+              className="ml-2"
+              icon={<EyeOutlined />}
+              type="default"
+              size="small"
+            />
+          </Link>
+
           <Button
             className="ml-2"
             icon={<EditOutlined />}
@@ -152,13 +167,19 @@ const TmList = () => {
             onClick={() => handleExport(record.id)}
             size="small"
           />
-
-          <Button
-            className="ml-2 text-red-500 ant-btn-dangerous"
-            icon={<DeleteOutlined />}
-            onClick={() => handleDelete(record.id)}
-            size="small"
-          />
+          <Popconfirm
+            title="Delete TM"
+            description="Are you sure you want to delete this TM?"
+            onConfirm={() => handleDelete(record.id)}
+            okText="Yes"
+            cancelText="No"
+          >
+            <Button
+              className="ml-2 text-red-500 ant-btn-dangerous"
+              icon={<DeleteOutlined />}
+              size="small"
+            />
+          </Popconfirm>
         </div>
       ),
     },
@@ -178,7 +199,7 @@ const TmList = () => {
             >
               Create TM
             </Button>
-            <TMAdd refetch={fetchTms} user={user} />
+            <ImportTmButton refetch={fetchTms} user={user} />
           </Space>
         }
       >

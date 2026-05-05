@@ -42,10 +42,10 @@ export default function EditTmModal({ open, tm, onClose, onUpdated }) {
       onCancel={onClose}
       footer={[
         <Button key="back" onClick={onClose}>
-          Return
+          Cancel
         </Button>,
         <Button key="submit" type="primary" onClick={() => form.submit()}>
-          Submit
+          Save
         </Button>,
       ]}
     >

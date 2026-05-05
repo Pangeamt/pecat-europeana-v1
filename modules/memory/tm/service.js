@@ -2,6 +2,7 @@ import { HttpError } from "@/modules/shared/http-error";
 import {
   createTmWithIdDaait,
   deleteTmDaait,
+  getTmDaait,
   listTmsDaait,
 } from "./repository";
 import {
@@ -69,26 +70,44 @@ export async function createTranslationMemoryService(payload, actorUser) {
 
   const { name, domain, source, target } = payload;
 
-  const record = await createTmRecord({
-    name,
-    domain: domain || null,
-    sourceLanguage: source,
-    targetLanguage: target,
-    createdByUserId: actorUser.id,
-    workspaceId,
-  });
+  let record;
+  try {
+    record = await createTmRecord({
+      name,
+      domain: domain || null,
+      sourceLanguage: source,
+      targetLanguage: target,
+      createdByUserId: actorUser.id,
+      workspaceId,
+    });
+  } catch (error) {
+    throw new HttpError(
+      500,
+      `Failed to create translation memory in Prisma: ${error.message}`,
+      "PRISMA_CREATE_FAILED",
+    );
+  }
 
   try {
     const daaitMemory = await createTmWithIdDaait(record.id, {
-      owner: record.workspaceId,
+      owner: workspaceId,
       source_language: record.sourceLanguage,
       target_language: record.targetLanguage,
-      tus: [],
+      tus: [
+        {
+          source: "string",
+          target: "string",
+        },
+      ],
     });
     return toTmDoc(record, daaitMemory);
   } catch (error) {
     await hardDeleteTmRecord(record.id).catch(() => {});
-    throw error;
+    throw new HttpError(
+      error.status || 500,
+      `Failed to create translation memory in Daait: ${error.message}`,
+      "DAAIT_CREATE_FAILED",
+    );
   }
 }
 
@@ -137,6 +156,12 @@ export async function listTranslationMemoriesService(queryParams, actorUser) {
   };
 }
 
+export async function getTranslationMemoryService(id, actorUser) {
+  const record = await assertTmInWorkspace(id, actorUser);
+  const daaitMemory = await getTmDaait(id);
+  return toTmDoc(record, daaitMemory);
+}
+
 export async function updateTranslationMemoryService(payload, actorUser) {
   const { id, name, domain } = payload;
   await assertTmInWorkspace(id, actorUser);
@@ -155,9 +180,29 @@ export async function updateTranslationMemoryService(payload, actorUser) {
 }
 
 export async function deleteTranslationMemoryService(id, actorUser) {
-  await assertTmInWorkspace(id, actorUser);
-  await softDeleteTmRecord(id);
-  const result = await deleteTmDaait(id).catch(() => null);
+  try {
+    await assertTmInWorkspace(id, actorUser);
+    await softDeleteTmRecord(id);
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
+    throw new HttpError(
+      500,
+      `Failed to delete translation memory in Prisma: ${error.message}`,
+      "PRISMA_DELETE_FAILED",
+    );
+  }
+
+  let result;
+  try {
+    result = await deleteTmDaait(id);
+  } catch (error) {
+    throw new HttpError(
+      error.status || 500,
+      `Failed to delete translation memory in Daait: ${error.message}`,
+      "DAAIT_DELETE_FAILED",
+    );
+  }
+
   return { message: "Deleted successfully", result };
 }
 

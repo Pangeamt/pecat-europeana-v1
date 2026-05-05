@@ -65,6 +65,8 @@ export type ListTmQuery = {
 export type ListResult<T> = {
   total: number;
   docs: T[];
+  page?: number;
+  size?: number;
 };
 
 export type TmListResponse = ListResult<TranslationMemory>;

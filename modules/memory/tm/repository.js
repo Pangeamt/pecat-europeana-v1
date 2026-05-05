@@ -2,6 +2,7 @@ import {
   createMemory,
   deleteMemory,
   exportMemory,
+  getMemory,
   importMemoryTmx,
   listMemories,
 } from "@/lib/daait";
@@ -18,6 +19,10 @@ export async function createTmWithIdDaait(id, doc) {
 
 export async function listTmsDaait({ owner, page, size } = {}) {
   return listMemories({ owner, page, size });
+}
+
+export async function getTmDaait(id) {
+  return getMemory(id);
 }
 
 export async function deleteTmDaait(id) {

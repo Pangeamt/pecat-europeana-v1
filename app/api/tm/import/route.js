@@ -11,6 +11,9 @@ export const POST = async (req) => {
     const files = formData.getAll("file");
     const parsedForm = await tmImportFormSchema.validateAsync({
       tmId: formData.get("tm"),
+      name: formData.get("name"),
+      project: formData.get("project"),
+      domain: formData.get("domain"),
     });
     const tmId = parsedForm.tmId || 0;
     const data = await importTmFromFilesService({

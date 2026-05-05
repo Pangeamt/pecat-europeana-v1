@@ -20,6 +20,8 @@ export const tuSearchQuerySchema = Joi.object({
 
 export const tuAllQuerySchema = Joi.object({
   translation_memory_id: Joi.string().required(),
+  page: Joi.number().integer().min(1).optional().default(1),
+  size: Joi.number().integer().min(1).max(500).optional().default(100),
 });
 
 export const createTuSchema = Joi.object({

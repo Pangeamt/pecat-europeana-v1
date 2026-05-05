@@ -2,7 +2,7 @@
 import { Button, Checkbox, Divider, Modal, Radio } from "antd";
 import { useState } from "react";
 import { tmStore } from "@/store";
-import TMAdd from "./add";
+import TMAdd from "./importTM";
 import TmTable from "./TmTable";
 import CreateTmForm from "./CreateTmForm";
 
@@ -23,8 +23,7 @@ export default function TmListModal({
   const { config, setConfig } = tmSt;
   const [view, setView] = useState("list");
 
-  const onChangeRadio = (e) =>
-    setConfig({ ...config, value: e.target.value });
+  const onChangeRadio = (e) => setConfig({ ...config, value: e.target.value });
   const onChange = (e) => setConfig({ ...config, update: e.target.checked });
 
   const backToList = async () => {

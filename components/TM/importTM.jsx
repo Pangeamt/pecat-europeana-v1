@@ -1,28 +1,31 @@
-import { Button, Divider, Form, Modal, Upload, message } from "antd";
-import { PlusOutlined, UploadOutlined } from "@ant-design/icons";
+"use client";
+import { Button, Divider, Form, Input, Modal, Upload, message } from "antd";
+import { UploadOutlined } from "@ant-design/icons";
 import React, { useState } from "react";
 import { tmStore } from "@/store";
 
 const checkFile = (file) => {
-    const fileName = file.name.trim().replace(/\s+/g, "");
-    const fileExtension = fileName.split(".").pop().toLowerCase();
+  const fileName = file.name.trim().replace(/\s+/g, "");
+  const fileExtension = fileName.split(".").pop().toLowerCase();
 
-    if (fileExtension === "tmx") return true
-    return false;
+  if (fileExtension === "tmx") return true;
+  return false;
 };
 
-const TMAdd = ({refetch, user}) => {
+const ImportTmButton = ({ refetch, user }) => {
   const tmSt = tmStore();
   const { tm } = tmSt;
-  const [ form] = Form.useForm();
-  const [ isModalOpen, setIsModalOpen] = useState(false);
-  const [ adding, setAdding] = useState(false);
+  const [form] = Form.useForm();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [adding, setAdding] = useState(false);
 
-  const showModal = () => { setIsModalOpen(true) }
-  const handleCancel = () => { 
+  const showModal = () => {
+    setIsModalOpen(true);
+  };
+  const handleCancel = () => {
     form.resetFields();
-    setIsModalOpen(false) 
-  }
+    setIsModalOpen(false);
+  };
 
   const handleOk = async () => {
     try {
@@ -43,11 +46,14 @@ const TMAdd = ({refetch, user}) => {
     },
     data: (file) => ({
       tm: tm?.id || 0,
+      name: form.getFieldValue("name"),
+      project: form.getFieldValue("project"),
+      domain: form.getFieldValue("domain"),
     }),
     onChange: async (info) => {
       if (info.file.status === "done") {
         message.success(`${info.file.name} file uploaded successfully`);
-        await refetch(); 
+        await refetch();
         setIsModalOpen(false);
         form.resetFields();
       } else if (info.file.status === "error") {
@@ -60,9 +66,9 @@ const TMAdd = ({refetch, user}) => {
         message.error("Files must smaller than 15MB");
         return false;
       }
-      
+
       if (!checkFile(file)) {
-        message.error("File type not supported"); 
+        message.error("File type not supported");
         return false;
       }
       return true;
@@ -72,11 +78,11 @@ const TMAdd = ({refetch, user}) => {
 
   return (
     <>
-      <Button icon={<PlusOutlined />} type="default" onClick={showModal}>
-        {tm ? "Update TM" : "Import TM"}
+      <Button icon={<UploadOutlined />} type="default" onClick={showModal}>
+        Import TM
       </Button>
       <Modal
-        title={tm ? "Update TM" : "Import TM"}
+        title="Import TM"
         open={isModalOpen}
         onOk={handleOk}
         onCancel={handleCancel}
@@ -95,15 +101,24 @@ const TMAdd = ({refetch, user}) => {
             offset: 2,
           }}
         >
-            <Form.Item label="File" >
-                <Upload {...props}>
-                  <Button
-                    icon={<UploadOutlined />}
-                  >
-                    Select your TMX file
-                  </Button>
-                </Upload>
+          <Form.Item label="File">
+            <Form.Item
+              label="Name"
+              name="name"
+              rules={[{ required: true, message: "Please introduce a name!" }]}
+            >
+              <Input />
             </Form.Item>
+            <Form.Item label="Project" name="project">
+              <Input placeholder="Optional" />
+            </Form.Item>
+            <Form.Item label="Domain" name="domain">
+              <Input />
+            </Form.Item>
+            <Upload {...props}>
+              <Button icon={<UploadOutlined />}>Select your TMX file</Button>
+            </Upload>
+          </Form.Item>
           <Divider />
         </Form>
       </Modal>
@@ -111,4 +126,4 @@ const TMAdd = ({refetch, user}) => {
   );
 };
 
-export default TMAdd;
+export default ImportTmButton;
