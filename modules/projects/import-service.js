@@ -34,7 +34,66 @@ async function setProjectStatus(projectId, status) {
   });
 }
 
-async function processJsonWithOptionalMt(jsonData, mt) {
+function parseProjectTmSettings(formData) {
+  const requestedTmMode = formData.get("tm_mode") || "standart";
+  const tmMode = ["standart", "smart"].includes(requestedTmMode)
+    ? requestedTmMode
+    : "standart";
+  const parsedThreshold = Number.parseInt(formData.get("tm_threshold") || "0", 10);
+  const rawTmIds = formData.get("tm_ids");
+  let tmIds = [];
+
+  if (rawTmIds) {
+    try {
+      tmIds = JSON.parse(rawTmIds);
+    } catch {
+      throw new HttpError(400, "tm_ids must be a valid JSON array");
+    }
+  }
+
+  return {
+    tmMode,
+    tmThreshold: Number.isFinite(parsedThreshold)
+      ? Math.min(Math.max(parsedThreshold, 0), 100)
+      : 0,
+    tmIds: Array.isArray(tmIds) ? tmIds : [],
+  };
+}
+
+function normalizeProjectSegmentsPayload(payload, { src, tgt } = {}) {
+  const segments = Array.isArray(payload?.segments)
+    ? payload.segments
+    : Array.isArray(payload)
+      ? payload
+      : [];
+
+  return segments.map((item, index) => {
+    if (item.src !== undefined || item.tgt !== undefined) {
+      return {
+        externalId: item.id ?? item.externalId ?? null,
+        count: item.count ?? index,
+        srcLiteral: item.src ?? "",
+        translatedLiteral: item.tgt ?? null,
+        translationScorePercent: item.mtqe_score ?? item.translationScorePercent ?? null,
+        sourceLanguage: item.sourceLanguage ?? src ?? "",
+        targetLanguage: item.targetLanguage ?? tgt ?? "",
+        Status: item.Status ?? "NOT_REVIEWED",
+        tmInfo: item.tm_info ?? item.tmInfo ?? null,
+      };
+    }
+
+    return {
+      ...item,
+      tmInfo: item.tm_info ?? item.tmInfo ?? null,
+      translationScorePercent: item.mtqe_score ?? item.translationScorePercent ?? null,
+      sourceLanguage: item.sourceLanguage ?? src ?? "",
+      targetLanguage: item.targetLanguage ?? tgt ?? "",
+    };
+  });
+}
+
+async function processJsonWithOptionalMt(jsonData, mt, { src, tgt } = {}) {
+  jsonData = normalizeProjectSegmentsPayload(jsonData, { src, tgt });
   let result = [];
   const textsToSegment = {};
 
@@ -160,12 +219,15 @@ async function processNonJsonFile({ filePath, src, tgt, mt, onBeforeMTQE }) {
     throw error;
   }
 
-  return responseMTQE.pairs.map((item, index) => ({
+  const responseSegments = responseMTQE.segments ?? responseMTQE.pairs ?? [];
+
+  return responseSegments.map((item, index) => ({
     externalId: null,
     count: index,
-    srcLiteral: item.mt_segment,
-    translatedLiteral: item.source_segment,
+    srcLiteral: item.src ?? item.mt_segment,
+    translatedLiteral: item.tgt ?? item.source_segment,
     translationScorePercent: item.mtqe_score,
+    tmInfo: item.tm_info ?? null,
     sourceLanguage: src,
     targetLanguage: tgt,
     Status: "NOT_REVIEWED",
@@ -174,11 +236,32 @@ async function processNonJsonFile({ filePath, src, tgt, mt, onBeforeMTQE }) {
 
 function toTusData(result, projectId) {
   return result.map((item) => {
-    const { id, ...rest } = item;
-    return {
-      ...rest,
+    const data = {
+      externalId: item.externalId ?? null,
+      translationLiteralId: item.translationLiteralId ?? null,
+      translationId: item.translationId ?? null,
+      count: item.count ?? null,
+      fieldName: item.fieldName ?? null,
+      shortFieldname: item.shortFieldname ?? null,
+      srcLiteral: item.srcLiteral,
+      translatedLiteral: item.translatedLiteral ?? null,
+      reviewLiteral: item.reviewLiteral ?? null,
+      sourceLanguage: item.sourceLanguage,
+      targetLanguage: item.targetLanguage,
+      translationScorePercent: item.translationScorePercent ?? item.mtqe_score ?? null,
+      exampleXml: item.exampleXml ?? null,
+      Status: item.Status ?? "NOT_REVIEWED",
+      levenshteinDistance: item.levenshteinDistance ?? null,
+      belongTo: item.belongTo ?? null,
       projectId,
     };
+
+    const tmInfo = item.tmInfo ?? item.tm_info ?? null;
+    if (tmInfo !== null && tmInfo !== undefined) {
+      data.tmInfo = tmInfo;
+    }
+
+    return data;
   });
 }
 
@@ -201,7 +284,7 @@ async function processUploadedProjectInBackground({
     if (fileExtension === "json") {
       await setProjectStatus(projectId, PROJECT_STATUS.PROCESSING);
       const jsonData = JSON.parse(fs.readFileSync(filePath, "utf8"));
-      result = await processJsonWithOptionalMt(jsonData, mt);
+      result = await processJsonWithOptionalMt(jsonData, mt, { src, tgt });
     } else {
       await setProjectStatus(projectId, PROJECT_STATUS.OXIGEN_PROCESSING);
       result = await processNonJsonFile({
@@ -232,11 +315,9 @@ async function processUrlProjectInBackground({ projectId, decompressedFilePath }
     const data = fs.readFileSync(decompressedFilePath, "utf8");
     const jsonData = JSON.parse(data);
 
+    const result = normalizeProjectSegmentsPayload(jsonData);
     await prisma.tu.createMany({
-      data: jsonData.map((item) => ({
-        ...item,
-        projectId,
-      })),
+      data: toTusData(result, projectId),
       skipDuplicates: true,
     });
 
@@ -326,6 +407,7 @@ export async function importProjectsFromUploadService({
   const mt = formData.get("mt") === "true";
   const src = formData.get("src");
   const tgt = formData.get("tgt");
+  const tmSettings = parseProjectTmSettings(formData);
 
   if (files.length === 0) {
     throw new HttpError(400, "No file uploaded");
@@ -352,6 +434,9 @@ export async function importProjectsFromUploadService({
         workspaceId,
         filePath,
         mt,
+        tmMode: tmSettings.tmMode,
+        tmThreshold: tmSettings.tmThreshold,
+        tmIds: tmSettings.tmIds,
         extension: fileExtension,
         sourceLanguage: src,
         targetLanguage: tgt,

@@ -10,19 +10,61 @@ import {
   Select,
   Upload,
   message,
+  Slider,
 } from "antd";
-import { useState } from "react";
-import { EUROPEAN_LANGUAGES, checkFile } from "../../lib/utils";
-export const EUROPEAN_LANGUAGES_TRG = { en: "English" };
+import { useEffect, useMemo, useState } from "react";
+import locales from "@/lib/locales.json";
+import { checkFile } from "../../lib/utils";
+import { fetchTMRequest } from "@/services/tm.services";
+import { userStore } from "@/store";
+
+const languageOptions = Object.keys(locales).map((code) => ({
+  value: code,
+  label: locales[code][0],
+}));
 
 const ProjectAdd = ({ add, refetch }) => {
   const [form] = Form.useForm();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [by, setBy] = useState("file");
   const [mt, setMt] = useState(true);
+  const [tmMode, setTmMode] = useState("standart");
+  const [tmThreshold, setTmThreshold] = useState(0.75);
+  const [tmIds, setTmIds] = useState([]);
+  const [tms, setTms] = useState([]);
   const [src, setSrc] = useState(null);
   const [tgt, setTgt] = useState(null);
   const [adding, setAdding] = useState(false);
+  const { user } = userStore();
+  const filteredTms = useMemo(() => {
+    if (!src || !tgt) return [];
+
+    return tms.filter((tm) => {
+      const tmSource = tm.sourceLanguage ?? tm.context?.source;
+      const tmTarget = tm.targetLanguage ?? tm.context?.target;
+      return tmSource === src && tmTarget === tgt;
+    });
+  }, [src, tgt, tms]);
+
+  useEffect(() => {
+    if (!isModalOpen || !user) return;
+
+    const query =
+      user.role === "SUPER"
+        ? { size: 1000 }
+        : user.workspaceId
+          ? { workspaceId: user.workspaceId, size: 1000 }
+          : null;
+
+    if (!query) return;
+
+    fetchTMRequest(query)
+      .then((response) => setTms(response?.docs ?? []))
+      .catch((error) => {
+        console.error(error);
+        setTms([]);
+      });
+  }, [isModalOpen, user]);
 
   const showModal = () => {
     setIsModalOpen(true);
@@ -30,11 +72,29 @@ const ProjectAdd = ({ add, refetch }) => {
   const handleCancel = () => {
     setIsModalOpen(false);
   };
+  const syncTmSelection = (nextSrc, nextTgt) => {
+    const validTmIds = new Set(
+      tms
+        .filter((tm) => {
+          const tmSource = tm.sourceLanguage ?? tm.context?.source;
+          const tmTarget = tm.targetLanguage ?? tm.context?.target;
+          return (
+            nextSrc && nextTgt && tmSource === nextSrc && tmTarget === nextTgt
+          );
+        })
+        .map((tm) => tm.id),
+    );
+    const nextTmIds = tmIds.filter((id) => validTmIds.has(id));
+    setTmIds(nextTmIds);
+    form.setFieldValue("tm_ids", nextTmIds);
+  };
   const onChangeSrc = (value) => {
     setSrc(value);
+    syncTmSelection(value, tgt);
   };
   const onChangeTgt = (value) => {
     setTgt(value);
+    syncTmSelection(src, value);
   };
 
   const handleOk = async () => {
@@ -58,7 +118,14 @@ const ProjectAdd = ({ add, refetch }) => {
     headers: {
       authorization: "authorization-text",
     },
-    data: { mt, src, tgt },
+    data: () => ({
+      mt,
+      src,
+      tgt,
+      tm_mode: tmMode,
+      tm_threshold: tmThreshold,
+      tm_ids: JSON.stringify(tmIds),
+    }),
     onChange(info) {
       if (info.file.status === "done") {
         message.success(`${info.file.name} file uploaded successfully`);
@@ -87,12 +154,7 @@ const ProjectAdd = ({ add, refetch }) => {
 
   const getTgtOptions = (src) => {
     if (src) {
-      return Object.keys(EUROPEAN_LANGUAGES)
-        .filter((key) => key !== src)
-        .map((key) => ({
-          value: key,
-          label: EUROPEAN_LANGUAGES[key],
-        }));
+      return languageOptions.filter((option) => option.value !== src);
     }
     return [];
   };
@@ -122,25 +184,8 @@ const ProjectAdd = ({ add, refetch }) => {
             offset: 2,
           }}
         >
-          {/* <Form.Item label="By">
-            <Radio.Group
-              defaultValue={by}
-              onChange={(event) => setBy(event.target.value)}
-            >
-              <Radio value="url">Url</Radio>
-
-              <Radio value="file">File/s</Radio>
-            </Radio.Group>
-          </Form.Item> */}
-
           {by === "file" && (
             <>
-              <Form.Item name="mt" label="Add MT" initialValue={mt}>
-                <Radio.Group onChange={(e) => setMt(e.target.value)}>
-                  <Radio value={true}> Yes </Radio>
-                  <Radio value={false}> No </Radio>
-                </Radio.Group>
-              </Form.Item>
               {mt && (
                 <>
                   <Form.Item
@@ -159,10 +204,7 @@ const ProjectAdd = ({ add, refetch }) => {
                       optionFilterProp="label"
                       onChange={onChangeSrc}
                       // onSearch={onSearch}
-                      options={Object.keys(EUROPEAN_LANGUAGES).map((key) => ({
-                        value: key,
-                        label: EUROPEAN_LANGUAGES[key],
-                      }))}
+                      options={languageOptions}
                     />
                   </Form.Item>
                   <Form.Item
@@ -180,19 +222,52 @@ const ProjectAdd = ({ add, refetch }) => {
                       placeholder="Select a language"
                       optionFilterProp="label"
                       onChange={onChangeTgt}
-                      // onSearch={onSearch}
-                      // options={getTgtOptions(src)}
                       disabled={!src}
-                      options={Object.keys(EUROPEAN_LANGUAGES_TRG).map(
-                        (key) => ({
-                          value: key,
-                          label: EUROPEAN_LANGUAGES_TRG[key],
-                        }),
-                      )}
+                      options={getTgtOptions(src)}
                     />
                   </Form.Item>
                 </>
               )}
+
+              <Form.Item name="tm_ids" label="TMs" initialValue={tmIds}>
+                <Select
+                  mode="multiple"
+                  placeholder="Select translation memories"
+                  disabled={!src || !tgt}
+                  notFoundContent={
+                    src && tgt
+                      ? "No matching memories for this language pair"
+                      : "Select source and target first"
+                  }
+                  optionFilterProp="label"
+                  onChange={setTmIds}
+                  options={filteredTms.map((tm) => ({
+                    value: tm.id,
+                    label: tm.name,
+                  }))}
+                />
+              </Form.Item>
+
+              <Form.Item name="tm_mode" label="TM mode" initialValue={tmMode}>
+                <Radio.Group onChange={(e) => setTmMode(e.target.value)}>
+                  <Radio value="standart">Standart</Radio>
+                  <Radio value="smart">Smart</Radio>
+                </Radio.Group>
+              </Form.Item>
+              <Form.Item
+                name="tm_threshold"
+                label="TM threshold"
+                initialValue={tmThreshold}
+              >
+                <Slider
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  onChange={(value) => setTmThreshold(value ?? 0)}
+                  value={tmThreshold}
+                />
+              </Form.Item>
+
               <Form.Item label="File" name="file">
                 <Upload {...props}>
                   <Button

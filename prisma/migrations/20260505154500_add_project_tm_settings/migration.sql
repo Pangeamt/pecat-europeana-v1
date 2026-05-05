@@ -1,0 +1,7 @@
+ALTER TABLE `projects`
+    ADD COLUMN `tmMode` VARCHAR(191) NOT NULL DEFAULT 'standart',
+    ADD COLUMN `tmThreshold` INTEGER NOT NULL DEFAULT 0,
+    ADD COLUMN `tmIds` JSON NULL;
+
+ALTER TABLE `tus`
+    ADD COLUMN `tmInfo` JSON NULL;

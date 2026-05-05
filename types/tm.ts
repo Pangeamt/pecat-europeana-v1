@@ -124,7 +124,14 @@ export type ProjectTu = {
   translatedLiteral: string | null;
   reviewLiteral?: string | null;
   Status: string;
+  translationScorePercent?: number | null;
   levenshteinDistance?: number | null;
+  tmInfo?: Array<{
+    tm_item_id?: string;
+    tm_score: number;
+    tm_id: string;
+    best?: boolean;
+  }> | null;
 };
 
 export type UpdateProjectTuPayload = {
