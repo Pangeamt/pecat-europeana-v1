@@ -16,6 +16,7 @@ export const GET = async () => {
     const result = await listProjectsService(actorUser);
     return Response.json(result);
   } catch (error) {
+    console.error("GET /api/projects failed:", error);
     return toErrorResponse(error);
   }
 };

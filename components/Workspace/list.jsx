@@ -15,6 +15,7 @@ import {
 import {
   Button,
   Card,
+  Empty,
   Form,
   Input,
   Modal,
@@ -105,19 +106,44 @@ const WorkspaceList = () => {
     }
   };
 
+  const totalMembers = workspaces.reduce(
+    (sum, workspace) => sum + (workspace._count?.members ?? 0),
+    0,
+  );
+  const totalProjects = workspaces.reduce(
+    (sum, workspace) => sum + (workspace._count?.projects ?? 0),
+    0,
+  );
+  const totalTms = workspaces.reduce(
+    (sum, workspace) => sum + (workspace._count?.tms ?? 0),
+    0,
+  );
+
   const columns = [
     {
       title: "Name",
       dataIndex: "name",
       key: "name",
       render: (value, record) => (
-        <Link href={`/dashboard/workspaces/${record.id}`}>{value}</Link>
+        <div>
+          <Link
+            href={`/dashboard/workspaces/${record.id}`}
+            className="font-semibold text-slate-900 hover:text-blue-600"
+          >
+            {value}
+          </Link>
+          <div className="mt-1 text-xs text-slate-400">{record.id}</div>
+        </div>
       ),
     },
     {
       title: "Members",
       key: "members",
-      render: (record) => <Tag color="blue">{record._count?.members ?? 0}</Tag>,
+      render: (record) => (
+        <Tag color="blue" className="rounded-full">
+          {record._count?.members ?? 0}
+        </Tag>
+      ),
     },
     {
       title: "Projects",
@@ -129,13 +155,21 @@ const WorkspaceList = () => {
     {
       title: "TMs",
       key: "tms",
-      render: (record) => <Tag color="purple">{record._count?.tms ?? 0}</Tag>,
+      render: (record) => (
+        <Tag color="purple" className="rounded-full">
+          {record._count?.tms ?? 0}
+        </Tag>
+      ),
     },
     {
       title: "Created",
       dataIndex: "createdAt",
       key: "createdAt",
-      render: (value) => new Date(value).toLocaleDateString(),
+      render: (value) => (
+        <span className="text-sm text-slate-600">
+          {new Date(value).toLocaleDateString()}
+        </span>
+      ),
     },
     {
       title: "",
@@ -145,13 +179,13 @@ const WorkspaceList = () => {
         <Space>
           <Tooltip title="Members">
             <Link href={`/dashboard/workspaces/${record.id}`}>
-              <Button size="small" shape="circle" icon={<TeamOutlined />} />
+              <Button size="small" type="text" icon={<TeamOutlined />} />
             </Link>
           </Tooltip>
           <Tooltip title="Edit">
             <Button
               size="small"
-              shape="circle"
+              type="text"
               icon={<EditOutlined />}
               onClick={() => openEdit(record)}
             />
@@ -167,9 +201,8 @@ const WorkspaceList = () => {
               <Tooltip title="Remove">
                 <Button
                   size="small"
-                  type="primary"
+                  type="text"
                   danger
-                  shape="circle"
                   icon={<DeleteOutlined />}
                 />
               </Tooltip>
@@ -181,17 +214,61 @@ const WorkspaceList = () => {
   ];
 
   return (
-    <Card
-      title="Workspaces"
-      extra={
-        canCreate && (
-          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            New workspace
-          </Button>
-        )
-      }
-      style={{ marginLeft: 20 }}
-    >
+    <Card className="overflow-hidden" style={{ marginLeft: 20 }}>
+      <div className="mb-5 rounded-2xl bg-slate-950 p-5 text-white">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-200">
+              Organization
+            </div>
+            <h2 className="mb-1 mt-2 text-2xl font-semibold">Workspaces</h2>
+            <p className="m-0 text-sm text-slate-300">
+              Manage teams, project ownership and memory access.
+            </p>
+          </div>
+          {canCreate && (
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+              New workspace
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-4">
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
+            Workspaces
+          </div>
+          <div className="mt-2 text-2xl font-semibold text-slate-900">
+            {workspaces.length}
+          </div>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
+            Members
+          </div>
+          <div className="mt-2 text-2xl font-semibold text-blue-600">
+            {totalMembers}
+          </div>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
+            Projects
+          </div>
+          <div className="mt-2 text-2xl font-semibold text-indigo-600">
+            {totalProjects}
+          </div>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
+            TMs
+          </div>
+          <div className="mt-2 text-2xl font-semibold text-purple-600">
+            {totalTms}
+          </div>
+        </div>
+      </div>
+
       <Table
         columns={columns}
         dataSource={workspaces}
@@ -199,6 +276,15 @@ const WorkspaceList = () => {
         loading={loading}
         size="small"
         scroll={{ x: 800 }}
+        locale={{
+          emptyText: (
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description="No workspaces found"
+            />
+          ),
+        }}
+        rowClassName="align-top"
       />
 
       <Modal

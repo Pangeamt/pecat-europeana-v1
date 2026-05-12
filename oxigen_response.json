@@ -1,0 +1,121 @@
+{
+  "trans_units": [
+    {
+      "src": "Hello World",
+      "tgt": "Hola mundo",
+      "mtqe_score": 0.863125,
+      "tm_info": [
+        {
+          "tm_item_id": "1a0e3ab2-ab9b-4039-8dc3-c97eebcafdb1",
+          "tm_score": 1.0,
+          "tm_id": "cmorb0p620005xjggi8iymd6k",
+          "source": "Hello World",
+          "target": "Hola mundo",
+          "best": true
+        },
+        {
+          "tm_item_id": "c8aee786-7c3b-4bf1-ad2a-03e8af25161e",
+          "tm_score": 0.6767,
+          "tm_id": "cmorb0p620005xjggi8iymd6k",
+          "source": "Hi there world",
+          "target": "Hola mundo",
+          "best": false
+        }
+      ]
+    },
+    {
+      "src": "The museum opens at nine.",
+      "tgt": "El museo abre a las nueve.",
+      "mtqe_score": 0.91,
+      "tm_info": [
+        {
+          "tm_item_id": "b201f4c3-1d2e-4a5b-9c0d-1e2f3a4b5c6d",
+          "tm_score": 0.92,
+          "tm_id": "cmorb0p620005xjggi8iymd6k",
+          "source": "The museum opens at 9.",
+          "target": "El museo abre a las 9.",
+          "best": true
+        }
+      ]
+    },
+    {
+      "src": "Rare idiomatic phrase about weather in May.",
+      "tgt": "Frase idiomática rara sobre el tiempo en mayo.",
+      "mtqe_score": 0.72
+    },
+    {
+      "src": "Please confirm your attendance.",
+      "tgt": "Por favor confirme su asistencia.",
+      "mtqe_score": 0.88,
+      "tm_info": []
+    },
+    {
+      "src": "Out of vocabulary brand name XyloZynth-9.",
+      "tgt": "Nombre de marca fuera del vocabulario XyloZynth-9.",
+      "mtqe_score": 0.55
+    },
+    {
+      "src": "Shipping costs apply.",
+      "tgt": "Se aplican gastos de envío.",
+      "mtqe_score": 0.84,
+      "tm_info": [
+        {
+          "tm_item_id": "e7f8a9b0-c1d2-4344-5566-778899aabbcc",
+          "tm_score": 0.95,
+          "tm_id": "differen00000tm00000000001",
+          "source": "Shipping costs apply",
+          "target": "Se aplican gastos de envío",
+          "best": true
+        },
+        {
+          "tm_item_id": "f0e1d2c3-b4a5-4657-8698-091a2b3c4d5e",
+          "tm_score": 0.71,
+          "tm_id": "differen00000tm00000000001",
+          "source": "Shipping fees apply",
+          "target": "Se aplican tasas de envío",
+          "best": false
+        }
+      ]
+    },
+    {
+      "src": "Section 4.2 — liability disclaimer.",
+      "tgt": "Sección 4.2 — descargo de responsabilidad.",
+      "mtqe_score": 0.79
+    },
+    {
+      "src": "Thank you for your visit.",
+      "tgt": "Gracias por su visita.",
+      "mtqe_score": 0.93,
+      "tm_info": [
+        {
+          "tm_item_id": "11223344-5566-7788-99aa-bbccddeeff00",
+          "tm_score": 1.0,
+          "tm_id": "cmorb0p620005xjggi8iymd6k",
+          "source": "Thank you for your visit",
+          "target": "Gracias por su visita",
+          "best": true
+        }
+      ]
+    },
+    {
+      "src": "New catalogue item without prior TM entries.",
+      "tgt": "Nuevo artículo de catálogo sin entradas previas en la MT.",
+      "mtqe_score": 0.68
+    },
+    {
+      "src": "Estimated delivery: 3–5 business days.",
+      "tgt": "Entrega estimada: 3 a 5 días laborables.",
+      "mtqe_score": 0.87,
+      "tm_info": [
+        {
+          "tm_item_id": "aa11bb22-cc33-dd44-ee55-ff6677889900",
+          "tm_score": 0.81,
+          "tm_id": "cmorb0p620005xjggi8iymd6k",
+          "source": "Delivery in 3-5 working days",
+          "target": "Entrega en 3 a 5 días laborables",
+          "best": true
+        }
+      ]
+    }
+  ]
+}

@@ -8,9 +8,6 @@ export async function findProjects(where) {
       filename: true,
       status: true,
       mt: true,
-      tmMode: true,
-      tmThreshold: true,
-      tmIds: true,
       extension: true,
       createdAt: true,
       deletedAt: true,
@@ -19,6 +16,12 @@ export async function findProjects(where) {
         select: {
           name: true,
           email: true,
+        },
+      },
+      workspace: {
+        select: {
+          id: true,
+          name: true,
         },
       },
     },
@@ -32,11 +35,13 @@ export async function findProjectById(id) {
 }
 
 export function buildProjectScopeWhere(actorUser, extra = {}) {
-  const where = { deletedAt: null, ...extra };
+  const role = String(actorUser?.role || "").toUpperCase();
 
-  if (actorUser.role === "SUPER") {
-    return where;
+  if (role === "SUPER") {
+    return { ...extra };
   }
+
+  const where = { deletedAt: null, ...extra };
 
   if (actorUser.workspaceId) {
     where.workspaceId = actorUser.workspaceId;
@@ -44,7 +49,7 @@ export function buildProjectScopeWhere(actorUser, extra = {}) {
     where.workspaceId = "__no_workspace__";
   }
 
-  if (actorUser.role === "USER") {
+  if (role === "USER") {
     where.userId = actorUser.id;
   }
 

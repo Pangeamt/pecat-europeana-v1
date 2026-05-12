@@ -1,8 +1,14 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Alert, Card, Space, Table, Tag, Typography } from "antd";
-import { ArrowRightOutlined } from "@ant-design/icons";
+import { Alert, Card, Empty, Space, Table, Tag, Typography } from "antd";
+import {
+  ArrowRightOutlined,
+  DatabaseOutlined,
+  FileTextOutlined,
+} from "@ant-design/icons";
 import { fetchTMByIdRequest, fetchTMTusRequest } from "@/services/tm.services";
+
+const { Text } = Typography;
 
 export default function TMView({ tmId }) {
   const [tm, setTm] = useState(null);
@@ -82,9 +88,9 @@ export default function TMView({ tmId }) {
       key: "index",
       width: 70,
       render: (_, __, index) => (
-        <code className="flex justify-center">
+        <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-slate-100 px-2 text-xs font-semibold text-slate-600">
           {(page - 1) * pageSize + index + 1}
-        </code>
+        </span>
       ),
     },
     {
@@ -92,9 +98,11 @@ export default function TMView({ tmId }) {
       dataIndex: "source_text",
       key: "source_text",
       render: (text) => (
-        <Typography.Text style={{ whiteSpace: "pre-wrap" }}>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm leading-relaxed text-slate-800">
+          <Text style={{ whiteSpace: "pre-wrap" }}>
           {text}
-        </Typography.Text>
+          </Text>
+        </div>
       ),
     },
     {
@@ -102,9 +110,11 @@ export default function TMView({ tmId }) {
       dataIndex: "translated_text",
       key: "translated_text",
       render: (text) => (
-        <Typography.Text style={{ whiteSpace: "pre-wrap" }}>
-          {text}
-        </Typography.Text>
+        <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3 text-sm leading-relaxed text-slate-900">
+          <Text style={{ whiteSpace: "pre-wrap" }}>
+            {text || "-"}
+          </Text>
+        </div>
       ),
     },
   ];
@@ -114,36 +124,66 @@ export default function TMView({ tmId }) {
   }
 
   return (
-    <Card
-      title={tm?.name || "Translation Memory"}
-      loading={loading && !tm}
-      extra={
-        tm ? (
-          <Space>
-            <Tag color="red">{tm.context?.source}</Tag>
-            <ArrowRightOutlined />
-            <Tag color="blue">{tm.context?.target}</Tag>
-          </Space>
-        ) : null
-      }
-    >
+    <Card loading={loading && !tm} className="overflow-hidden">
+      <div className="mb-5 rounded-2xl bg-slate-950 p-5 text-white">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-200">
+              Translation memory
+            </div>
+            <h2 className="mb-1 mt-2 text-2xl font-semibold">
+              {tm?.name || "Translation Memory"}
+            </h2>
+            <p className="m-0 text-sm text-slate-300">
+              Review the segments stored in this memory.
+            </p>
+          </div>
+          {tm ? (
+            <Space>
+              <Tag color="geekblue" className="rounded-full uppercase">
+                {tm.context?.source}
+              </Tag>
+              <ArrowRightOutlined className="text-slate-400" />
+              <Tag color="cyan" className="rounded-full uppercase">
+                {tm.context?.target}
+              </Tag>
+            </Space>
+          ) : null}
+        </div>
+      </div>
+
       {tm && (
-        <Space className="mb-4" size="large" wrap>
-          <Typography.Text type="secondary">
-            Domain: <Typography.Text>{tm.context?.domain || "-"}</Typography.Text>
-          </Typography.Text>
-          <Typography.Text type="secondary">
-            Project:{" "}
-            <Typography.Text>{tm.context?.project || "-"}</Typography.Text>
-          </Typography.Text>
-          <Typography.Text type="secondary">
-            Total segments: <Typography.Text>{totalTus}</Typography.Text>
-          </Typography.Text>
-        </Space>
+        <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-slate-400">
+              <DatabaseOutlined />
+              Domain
+            </div>
+            <div className="truncate font-semibold text-slate-900">
+              {tm.context?.domain || "-"}
+            </div>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-slate-400">
+              <FileTextOutlined />
+              Project
+            </div>
+            <div className="truncate font-semibold text-slate-900">
+              {tm.context?.project || "-"}
+            </div>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
+              Total segments
+            </div>
+            <div className="mt-2 text-2xl font-semibold text-slate-900">
+              {totalTus}
+            </div>
+          </div>
+        </div>
       )}
 
       <Table
-        bordered
         columns={columns}
         dataSource={tus}
         loading={tableLoading}
@@ -158,9 +198,18 @@ export default function TMView({ tmId }) {
           showTotal: (total) => `${total} segments`,
           total: totalTus,
         }}
+        locale={{
+          emptyText: (
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description="No segments found"
+            />
+          ),
+        }}
         rowKey={(record) => record.id}
         scroll={{ x: 900 }}
         size="small"
+        rowClassName="align-top"
       />
     </Card>
   );

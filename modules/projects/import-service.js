@@ -5,6 +5,7 @@ import { pipeline } from "stream";
 import { uid } from "uid";
 import { promisify } from "util";
 import zlib from "zlib";
+import oxigenResponse from "../../oxigen_response.json";
 
 import prisma from "../../lib/prisma";
 import {
@@ -39,7 +40,10 @@ function parseProjectTmSettings(formData) {
   const tmMode = ["standart", "smart"].includes(requestedTmMode)
     ? requestedTmMode
     : "standart";
-  const parsedThreshold = Number.parseInt(formData.get("tm_threshold") || "0", 10);
+  const parsedThreshold = Number.parseInt(
+    formData.get("tm_threshold") || "75",
+    10,
+  );
   const rawTmIds = formData.get("tm_ids");
   let tmIds = [];
 
@@ -74,7 +78,8 @@ function normalizeProjectSegmentsPayload(payload, { src, tgt } = {}) {
         count: item.count ?? index,
         srcLiteral: item.src ?? "",
         translatedLiteral: item.tgt ?? null,
-        translationScorePercent: item.mtqe_score ?? item.translationScorePercent ?? null,
+        translationScorePercent:
+          item.mtqe_score ?? item.translationScorePercent ?? null,
         sourceLanguage: item.sourceLanguage ?? src ?? "",
         targetLanguage: item.targetLanguage ?? tgt ?? "",
         Status: item.Status ?? "NOT_REVIEWED",
@@ -85,7 +90,8 @@ function normalizeProjectSegmentsPayload(payload, { src, tgt } = {}) {
     return {
       ...item,
       tmInfo: item.tm_info ?? item.tmInfo ?? null,
-      translationScorePercent: item.mtqe_score ?? item.translationScorePercent ?? null,
+      translationScorePercent:
+        item.mtqe_score ?? item.translationScorePercent ?? null,
       sourceLanguage: item.sourceLanguage ?? src ?? "",
       targetLanguage: item.targetLanguage ?? tgt ?? "",
     };
@@ -115,7 +121,7 @@ async function processJsonWithOptionalMt(jsonData, mt, { src, tgt } = {}) {
       const [srcLang] = language.split("-");
       segmentedTexts[language] = await segmentTexts(
         srcLang,
-        textsToSegment[language].map((item) => item.srcLiteral)
+        textsToSegment[language].map((item) => item.srcLiteral),
       );
 
       for (const language1 in segmentedTexts) {
@@ -127,7 +133,7 @@ async function processJsonWithOptionalMt(jsonData, mt, { src, tgt } = {}) {
             aux.push(
               textsToSegment[language1][index].srcLiteral
                 .substring(s.start, s.stop)
-                .trim()
+                .trim(),
             );
           });
         });
@@ -135,7 +141,7 @@ async function processJsonWithOptionalMt(jsonData, mt, { src, tgt } = {}) {
         mtTexts[language1] = await translateTexts(
           srcLangForTranslation,
           tgtLang,
-          aux
+          aux,
         );
       }
     }
@@ -145,7 +151,7 @@ async function processJsonWithOptionalMt(jsonData, mt, { src, tgt } = {}) {
       const [srcLang] = language.split("-");
       segmentedTexts[language] = await segmentTexts(
         srcLang,
-        textsToSegment[language].map((item) => item.srcLiteral)
+        textsToSegment[language].map((item) => item.srcLiteral),
       );
     }
   }
@@ -158,17 +164,22 @@ async function processJsonWithOptionalMt(jsonData, mt, { src, tgt } = {}) {
         segmentIndices[language] = 0;
       }
 
-      const segments = segmentedTexts[language].segments[segmentIndices[language]];
+      const segments =
+        segmentedTexts[language].segments[segmentIndices[language]];
       segmentIndices[language]++;
 
       segments.forEach((segment, index) => {
         result.push({
           ...item,
           id: `${item.id}-${index}`,
-          srcLiteral: item.srcLiteral.substring(segment.start, segment.stop).trim(),
+          srcLiteral: item.srcLiteral
+            .substring(segment.start, segment.stop)
+            .trim(),
           belongTo: item.id,
           Status: "TRANSLATED_MT",
-          translatedLiteral: mt ? mtTexts[language].translations[index].tgt : null,
+          translatedLiteral: mt
+            ? mtTexts[language].translations[index].tgt
+            : null,
           translationScorePercent: mt
             ? mtTexts[language].translations[index].score
             : null,
@@ -182,54 +193,48 @@ async function processJsonWithOptionalMt(jsonData, mt, { src, tgt } = {}) {
   return result;
 }
 
-async function processNonJsonFile({ filePath, src, tgt, mt, onBeforeMTQE }) {
+async function processNonJsonFile({
+  filePath,
+  src,
+  tgt,
+  mt,
+  tmMode,
+  tmThreshold,
+  tmIds,
+  userId,
+  workspaceId,
+}) {
   const objectOxigen = {
     filePath,
     src_lang: src || "en",
     tgt_lang: tgt || null,
     mt,
+    tm_mode: tmMode,
+    tm_threshold: tmThreshold,
+    tm_ids: tmIds,
+    user_id: userId,
+    workspace_id: workspaceId,
   };
 
-  const tmp = await oxygenTranslateFile(objectOxigen);
-  if (!tmp) {
-    const error = new Error("Internal error with Oxigen");
-    error.code = "OXIGEN_ERROR";
-    throw error;
-  }
+  // const tmp = await oxygenTranslateFile(objectOxigen);
+  // if (!tmp) {
+  //   const error = new Error("Internal error with Oxigen");
+  //   error.code = "OXIGEN_ERROR";
+  //   throw error;
+  // }
 
-  const objectMTQE = tmp.map((item) => ({
-    mt_segment: item.src,
-    source_segment: item.tgt,
-  }));
+  /** Simulación local: mismo envelope que Oxigen (`data.trans_units`). */
+  const tmp = oxigenResponse.trans_units;
 
-  await onBeforeMTQE?.();
-
-  let responseMTQE = null;
-  try {
-    responseMTQE = await postMTQE({ pairs: objectMTQE });
-  } catch {
-    const error = new Error("Internal error with MTQE");
-    error.code = "MTQE_ERROR";
-    throw error;
-  }
-
-  if (!responseMTQE) {
-    const error = new Error("Internal error with MTQE");
-    error.code = "MTQE_ERROR";
-    throw error;
-  }
-
-  const responseSegments = responseMTQE.segments ?? responseMTQE.pairs ?? [];
-
-  return responseSegments.map((item, index) => ({
+  return tmp.map((item, index) => ({
     externalId: null,
     count: index,
-    srcLiteral: item.src ?? item.mt_segment,
-    translatedLiteral: item.tgt ?? item.source_segment,
-    translationScorePercent: item.mtqe_score,
-    tmInfo: item.tm_info ?? null,
-    sourceLanguage: src,
-    targetLanguage: tgt,
+    srcLiteral: item.src ?? item.mt_segment ?? "",
+    translatedLiteral: item.tgt ?? item.source_segment ?? null,
+    translationScorePercent: item.mtqe_score ?? null,
+    tmInfo: item.tm_info ?? item.tmInfo ?? null,
+    sourceLanguage: src ?? "",
+    targetLanguage: tgt ?? "",
     Status: "NOT_REVIEWED",
   }));
 }
@@ -248,7 +253,8 @@ function toTusData(result, projectId) {
       reviewLiteral: item.reviewLiteral ?? null,
       sourceLanguage: item.sourceLanguage,
       targetLanguage: item.targetLanguage,
-      translationScorePercent: item.translationScorePercent ?? item.mtqe_score ?? null,
+      translationScorePercent:
+        item.translationScorePercent ?? item.mtqe_score ?? null,
       exampleXml: item.exampleXml ?? null,
       Status: item.Status ?? "NOT_REVIEWED",
       levenshteinDistance: item.levenshteinDistance ?? null,
@@ -278,6 +284,11 @@ async function processUploadedProjectInBackground({
   mt,
   src,
   tgt,
+  tmMode,
+  tmThreshold,
+  tmIds,
+  userId,
+  workspaceId,
 }) {
   try {
     let result = [];
@@ -292,9 +303,11 @@ async function processUploadedProjectInBackground({
         src,
         tgt,
         mt,
-        onBeforeMTQE: async () => {
-          await setProjectStatus(projectId, PROJECT_STATUS.MTQE_PROCESSING);
-        },
+        tmMode,
+        tmThreshold,
+        tmIds,
+        userId,
+        workspaceId,
       });
     }
 
@@ -309,7 +322,10 @@ async function processUploadedProjectInBackground({
   }
 }
 
-async function processUrlProjectInBackground({ projectId, decompressedFilePath }) {
+async function processUrlProjectInBackground({
+  projectId,
+  decompressedFilePath,
+}) {
   try {
     await setProjectStatus(projectId, PROJECT_STATUS.PROCESSING);
     const data = fs.readFileSync(decompressedFilePath, "utf8");
@@ -324,7 +340,9 @@ async function processUrlProjectInBackground({ projectId, decompressedFilePath }
     await setProjectStatus(projectId, PROJECT_STATUS.READY);
   } catch (error) {
     console.error("Error processing URL project in background:", error);
-    await setProjectStatus(projectId, PROJECT_STATUS.MTQE_ERROR).catch(() => {});
+    await setProjectStatus(projectId, PROJECT_STATUS.MTQE_ERROR).catch(
+      () => {},
+    );
   }
 }
 
@@ -346,7 +364,8 @@ export async function importProjectFromUrlService(url, userId, workspaceId) {
   let fileName = "downloaded-file";
   const contentDispositionHeader = response.headers["content-disposition"];
   if (contentDispositionHeader) {
-    fileName = contentDisposition.parse(contentDispositionHeader).parameters.filename;
+    fileName = contentDisposition.parse(contentDispositionHeader).parameters
+      .filename;
   }
 
   const newFolder = Date.now();
@@ -452,9 +471,11 @@ export async function importProjectsFromUploadService({
       mt,
       src,
       tgt,
+      tmMode: tmSettings.tmMode,
+      tmThreshold: tmSettings.tmThreshold,
+      tmIds: tmSettings.tmIds,
     });
   }
 
   return { projectIds: createdProjectIds };
 }
-

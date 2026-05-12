@@ -1,9 +1,14 @@
 "use client";
-import { Button, Divider, Form, Input, Select, message } from "antd";
+import { FileTextOutlined, GlobalOutlined } from "@ant-design/icons";
+import { Button, Form, Input, Select, message } from "antd";
 import locales from "@/lib/locales.json";
 import { addTMRequest } from "@/services/tm.services";
 
 const languages = locales;
+const languageOptions = Object.keys(languages).map((code) => ({
+  value: languages[code][0],
+  label: languages[code][0],
+}));
 
 const getLocaleCode = (locale) => {
   const language = Object.keys(languages).find(
@@ -43,59 +48,97 @@ export default function CreateTmForm({ user, onBack, onCreated }) {
       {contextHolder}
       <Form
         form={form}
-        labelCol={{ span: 4 }}
-        wrapperCol={{ span: 20 }}
-        layout="horizontal"
+        layout="vertical"
         onFinish={onFinish}
       >
-        <Form.Item
-          label="Name"
-          name="name"
-          rules={[{ required: true, message: "Please introduce a name!" }]}
-        >
-          <Input />
-        </Form.Item>
-        <Form.Item label="Project" name="project">
-          <Input placeholder="Optional" />
-        </Form.Item>
-        <Form.Item label="Domain" name="domain">
-          <Input />
-        </Form.Item>
-        <Form.Item
-          label="Source"
-          name="source"
-          rules={[
-            { required: true, message: "Please select a source language" },
-          ]}
-        >
-          <Select showSearch>
-            {Object.keys(languages).map((locale) => (
-              <Select.Option key={locale} value={languages[locale][0]}>
-                {languages[locale][0]}
-              </Select.Option>
-            ))}
-          </Select>
-        </Form.Item>
-        <Form.Item
-          name="target"
-          label="Target"
-          rules={[
-            { required: true, message: "Please select a target language" },
-          ]}
-        >
-          <Select showSearch>
-            {Object.keys(languages).map((locale) => (
-              <Select.Option key={locale} value={languages[locale][0]}>
-                {languages[locale][0]}
-              </Select.Option>
-            ))}
-          </Select>
-        </Form.Item>
-        <Form.Item wrapperCol={{ offset: 4, span: 16 }}>
-          <Button type="primary" htmlType="submit">
-            Create
-          </Button>
-        </Form.Item>
+        <div className="space-y-3">
+          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-3 flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                <FileTextOutlined />
+              </div>
+              <div>
+                <div className="font-semibold text-slate-900">Memory details</div>
+                <div className="text-xs text-slate-500">
+                  Name, project and domain metadata.
+                </div>
+              </div>
+            </div>
+            <Form.Item
+              label="Name"
+              name="name"
+              rules={[{ required: true, message: "Please introduce a name!" }]}
+            >
+              <Input placeholder="Memory name" />
+            </Form.Item>
+            <div className="grid grid-cols-2 gap-2">
+              <Form.Item label="Project" name="project">
+                <Input placeholder="Optional" />
+              </Form.Item>
+              <Form.Item label="Domain" name="domain">
+                <Input placeholder="Optional" />
+              </Form.Item>
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-3 flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+                <GlobalOutlined />
+              </div>
+              <div>
+                <div className="font-semibold text-slate-900">Languages</div>
+                <div className="text-xs text-slate-500">
+                  Select the source and target language pair.
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Form.Item
+                label="Source"
+                name="source"
+                rules={[
+                  { required: true, message: "Please select a source language" },
+                ]}
+              >
+                <Select
+                  showSearch
+                  placeholder="Select source"
+                  optionFilterProp="label"
+                  options={languageOptions}
+                />
+              </Form.Item>
+              <Form.Item
+                name="target"
+                label="Target"
+                rules={[
+                  { required: true, message: "Please select a target language" },
+                ]}
+              >
+                <Select
+                  showSearch
+                  placeholder="Select target"
+                  optionFilterProp="label"
+                  options={languageOptions}
+                />
+              </Form.Item>
+            </div>
+          </section>
+
+          <div className="flex justify-end gap-2">
+            <Button onClick={onBack}>Cancel</Button>
+            <Button
+              type="primary"
+              htmlType="submit"
+              style={{
+                background: "linear-gradient(135deg, #111827 0%, #2563eb 100%)",
+                border: 0,
+              }}
+            >
+              Create TM
+            </Button>
+          </div>
+        </div>
       </Form>
     </>
   );

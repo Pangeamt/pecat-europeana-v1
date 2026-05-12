@@ -1,7 +1,7 @@
 "use client";
 import ProjectAdd from "@/components/Project/add";
 import ProjectEdit from "@/components/Project/edit";
-import { capitalize, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import {
   addProject,
   getProjects,
@@ -19,7 +19,7 @@ import {
   Avatar,
   Button,
   Card,
-  List,
+  Empty,
   message,
   Popconfirm,
   Progress,
@@ -27,12 +27,9 @@ import {
   Tag,
   Table,
   Tooltip,
-  Typography,
 } from "antd";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-
-const { Title } = Typography;
 
 const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL;
 const READY_PROJECT_STATUS = "READY";
@@ -164,40 +161,97 @@ const ProjectList = () => {
     }
   };
 
+  const readyProjects = data.filter(
+    (project) => project.status === READY_PROJECT_STATUS,
+  ).length;
+  const pendingProjects = data.filter(
+    (project) =>
+      project.status &&
+      project.status !== READY_PROJECT_STATUS &&
+      !project.status.endsWith("_ERROR"),
+  ).length;
+  const errorProjects = data.filter((project) =>
+    project.status?.endsWith("_ERROR"),
+  ).length;
+  const deletedProjects = data.filter((project) => project.deletedAt).length;
+  const workspaceCount = new Set(
+    data.map((project) => project.workspace?.id).filter(Boolean),
+  ).size;
+
   const columns = [
     {
       title: "Filename",
       dataIndex: "filename",
       key: "name",
       render: (text, record) => {
-        const isReady = record.status === READY_PROJECT_STATUS;
+        const isReady = record.status === READY_PROJECT_STATUS && !record.deletedAt;
         if (!isReady) {
           return (
             <Tooltip title="Project is still processing">
-              <span className="text-gray-500 cursor-not-allowed">{text}</span>
+              <div>
+                <span className="font-semibold text-slate-500">{text}</span>
+                <div className="mt-1 text-xs text-slate-400">{record.id}</div>
+              </div>
             </Tooltip>
           );
         }
-        return <Link href={`/dashboard/${record.id}/tus`}>{text}</Link>;
+        return (
+          <div>
+            <Link
+              href={`/dashboard/${record.id}/tus`}
+              className="font-semibold text-slate-900 hover:text-blue-600"
+            >
+              {text}
+            </Link>
+            <div className="mt-1 text-xs text-slate-400">{record.id}</div>
+          </div>
+        );
       },
     },
     {
       title: "Label",
       dataIndex: "label",
       key: "label",
+      render: (label) =>
+        label ? (
+          <Tag className="rounded-full">{label}</Tag>
+        ) : (
+          <span className="text-slate-400">-</span>
+        ),
+    },
+    {
+      title: "Workspace",
+      key: "workspace",
+      render: (record) =>
+        record.workspace?.name ? (
+          <Tag color="geekblue" className="rounded-full">
+            {record.workspace.name}
+          </Tag>
+        ) : (
+          <span className="text-slate-400">-</span>
+        ),
     },
     {
       title: "Status",
       dataIndex: "status",
       key: "status",
       width: 150,
-      render: (status) => getProjectStatusTag(status),
+      render: (status, record) =>
+        record.deletedAt ? (
+          <Tag color="red" className="rounded-full">
+            Deleted
+          </Tag>
+        ) : (
+          getProjectStatusTag(status)
+        ),
     },
     {
       title: "Created At",
       dataIndex: "createdAt",
       key: "createdAt",
-      render: (text) => formatDate(text),
+      render: (text) => (
+        <span className="text-sm text-slate-600">{formatDate(text)}</span>
+      ),
       width: 180,
     },
 
@@ -205,9 +259,11 @@ const ProjectList = () => {
       title: "User",
       key: "user",
       render: (_, record) => (
-        <Space size="middle">
-          <Avatar icon={<UserOutlined />} />
-          <strong>{record.User.email}</strong>
+        <Space size={8}>
+          <Avatar size="small" icon={<UserOutlined />} />
+          <span className="text-sm font-medium text-slate-700">
+            {record.User.email}
+          </span>
         </Space>
       ),
     },
@@ -237,82 +293,19 @@ const ProjectList = () => {
       },
     },
     {
-      title: "Stats",
-      key: "stats",
-      render: (record) => {
-        return (
-          <List size="small" bordered>
-            {record.countByStatus.map((status) => {
-              return (
-                // <div key={status.Status} className="flex justify-between">
-                //   <span className="text-xs">
-                //     {capitalize({ str: status.Status })}
-                //   </span>
-                //   <code className="text-black font-semibold">
-                //     {status._count}
-                //   </code>
-                // </div>
-                <List.Item
-                  key={status.Status}
-                  style={{
-                    padding: "0 0.5rem",
-                  }}
-                >
-                  <div className="w-full flex justify-between">
-                    {capitalize({
-                      str:
-                        status.Status === "TRANSLATED_MT"
-                          ? "NOT REVIEWED"
-                          : status.Status,
-                    })}
-                    <code className="text-black font-semibold">
-                      {status._count}
-                    </code>
-                  </div>
-                </List.Item>
-              );
-            })}
-          </List>
-          // <div className="">
-          //   {record.countByStatus.map((status) => {
-          //     return (
-          //       <div key={status.Status} className="flex justify-between">
-          //         <span className="text-xs">
-          //           {capitalize({ str: status.Status })}
-          //         </span>
-          //         <code className="text-black font-semibold">
-          //           {status._count}
-          //         </code>
-          //       </div>
-          //     );
-          //   })}
-          //   <div key="total" className="flex justify-between">
-          //     <span className="text-xs">TOTAL</span>
-          //     <code className="text-black font-semibold">
-          //       {record.totalCount}
-          //     </code>
-          //   </div>
-          // </div>
-        );
-      },
-    },
-
-    {
       title: "",
       key: "action",
       width: 120,
       render: (record) => {
         return (
-          <div className="flex justify-end">
+          <Space size={6}>
             <Tooltip title="Generate Download link">
               <Button
                 size="small"
-                type="default"
-                shape="circle"
+                type="text"
                 icon={<DownloadOutlined />}
                 onClick={() => getDownloadLink(record.id)}
                 loading={requesting === record.id}
-                className="mr-2"
               />
             </Tooltip>
             <ProjectEdit key={record.label} project={record} save={save} />
@@ -327,29 +320,71 @@ const ProjectList = () => {
               <Tooltip title="Remove">
                 <Button
                   size="small"
-                  type="primary"
-                  shape="circle"
+                  type="text"
                   danger
                   icon={<DeleteOutlined />}
                 />
               </Tooltip>
             </Popconfirm>
-          </div>
+          </Space>
         );
       },
     },
   ];
 
   return (
-    <Card
-      title="Projects"
-      extra={<ProjectAdd add={add} refetch={fetchData} />}
-      className="project-list-card"
-      style={{ marginLeft: 20 }}
-    >
-      {/* <div className="mb-4">
-        <Title level={5}>Projects</Title>
-      </div> */}
+    <Card className="project-list-card overflow-hidden" style={{ marginLeft: 20 }}>
+      <div className="mb-5 rounded-2xl bg-slate-950 p-5 text-white">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-200">
+              Project workspace
+            </div>
+            <h2 className="mb-1 mt-2 text-2xl font-semibold">Projects</h2>
+            <p className="m-0 text-sm text-slate-300">
+              Upload, track and review translation projects.
+            </p>
+          </div>
+          <ProjectAdd add={add} refetch={fetchData} />
+        </div>
+      </div>
+
+      <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-4">
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
+            Total
+          </div>
+          <div className="mt-2 text-2xl font-semibold text-slate-900">
+            {data.length}
+          </div>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
+            Workspaces
+          </div>
+          <div className="mt-2 text-2xl font-semibold text-slate-900">
+            {workspaceCount}
+          </div>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
+            Ready
+          </div>
+          <div className="mt-2 text-2xl font-semibold text-emerald-600">
+            {readyProjects}
+          </div>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
+            Processing / deleted
+          </div>
+          <div className="mt-2 text-2xl font-semibold text-blue-600">
+            {pendingProjects}
+            <span className="ml-2 text-sm text-red-500">/ {deletedProjects}</span>
+          </div>
+        </div>
+      </div>
+
       <Table
         loading={loading}
         columns={columns}
@@ -357,6 +392,15 @@ const ProjectList = () => {
         rowKey={(record) => record.id}
         size="small"
         scroll={{ x: 800 }}
+        locale={{
+          emptyText: (
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description="No projects yet"
+            />
+          ),
+        }}
+        rowClassName="align-top"
       />
     </Card>
   );

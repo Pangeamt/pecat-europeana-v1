@@ -3,6 +3,7 @@ import {
   Avatar,
   Button,
   Card,
+  Empty,
   Popconfirm,
   Select,
   Space,
@@ -123,7 +124,7 @@ const WorkspaceDetail = ({ workspaceId }) => {
     } catch (error) {
       console.error(error);
     }
-  }, []);
+  }, [workspaceId]);
 
   useEffect(() => {
     void fetchWorkspace();
@@ -193,8 +194,23 @@ const WorkspaceDetail = ({ workspaceId }) => {
       width: 60,
       render: () => <Avatar src="/images/Logo perfil RRSS 1.png" />,
     },
-    { title: "Name", dataIndex: "name", key: "name" },
-    { title: "Email", dataIndex: "email", key: "email" },
+    {
+      title: "Name",
+      dataIndex: "name",
+      key: "name",
+      render: (name, record) => (
+        <div>
+          <div className="font-semibold text-slate-900">{name}</div>
+          <div className="mt-1 text-xs text-slate-400">{record.id}</div>
+        </div>
+      ),
+    },
+    {
+      title: "Email",
+      dataIndex: "email",
+      key: "email",
+      render: (email) => <span className="text-slate-700">{email}</span>,
+    },
     {
       title: "Role",
       dataIndex: "role",
@@ -221,8 +237,8 @@ const WorkspaceDetail = ({ workspaceId }) => {
           <Tooltip title="Remove from workspace">
             <Button
               size="small"
+              type="text"
               danger
-              shape="circle"
               icon={<DeleteOutlined />}
             />
           </Tooltip>
@@ -232,25 +248,72 @@ const WorkspaceDetail = ({ workspaceId }) => {
   ].filter(Boolean);
 
   return (
-    <Card
-      title={
-        <Space>
-          <Link href="/dashboard/workspaces">
-            <Button type="text" shape="circle" icon={<ArrowLeftOutlined />} />
-          </Link>
-          <span>{workspace?.name ?? "Workspace"}</span>
-        </Space>
-      }
-      loading={loading}
-      style={{ marginLeft: 20 }}
-      extra={
-        <Space>
+    <Card loading={loading} style={{ marginLeft: 20 }} className="overflow-hidden">
+      <div className="mb-5 rounded-2xl bg-slate-950 p-5 text-white">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-start gap-3">
+            <Link href="/dashboard/workspaces">
+              <Button
+                type="text"
+                shape="circle"
+                icon={<ArrowLeftOutlined />}
+                className="mt-1 !text-white hover:!bg-white/10"
+              />
+            </Link>
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-200">
+                Workspace detail
+              </div>
+              <h2 className="mb-1 mt-2 text-2xl font-semibold">
+                {workspace?.name ?? "Workspace"}
+              </h2>
+              <p className="m-0 text-sm text-slate-300">
+                Manage members, roles and workspace access.
+              </p>
+            </div>
+          </div>
+          <Tag color="blue" className="m-0 rounded-full">
+            {workspace?.members?.length ?? 0} members
+          </Tag>
+        </div>
+      </div>
+
+      <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
+            Members
+          </div>
+          <div className="mt-2 text-2xl font-semibold text-blue-600">
+            {workspace?.members?.length ?? 0}
+          </div>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
+            Projects
+          </div>
+          <div className="mt-2 text-2xl font-semibold text-indigo-600">
+            {workspace?._count?.projects ?? 0}
+          </div>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
+            TMs
+          </div>
+          <div className="mt-2 text-2xl font-semibold text-purple-600">
+            {workspace?._count?.tms ?? 0}
+          </div>
+        </div>
+      </div>
+
+      <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-3 font-semibold text-slate-900">Add member</div>
+        <Space wrap>
           <Select
             showSearch
             placeholder="Select a user to add"
             value={selectedUserId}
             onChange={setSelectedUserId}
-            style={{ minWidth: 260 }}
+            style={{ minWidth: 320 }}
             optionFilterProp="label"
             options={assignableUsers.map((u) => ({
               label: `${u.name} · ${u.email}`,
@@ -267,24 +330,27 @@ const WorkspaceDetail = ({ workspaceId }) => {
             Add member
           </Button>
         </Space>
-      }
-    >
-      <Space direction="vertical" size="small" style={{ marginBottom: 12 }}>
-        <Tag color="geekblue">Projects: {workspace?._count?.projects ?? 0}</Tag>
-        <Tag color="purple">TMs: {workspace?._count?.tms ?? 0}</Tag>
-      </Space>
+      </div>
+
       <Table
         columns={columns}
         dataSource={workspace?.members ?? []}
         rowKey="id"
         size="small"
-        pagination={true}
-        total={wsUsers.length}
-        pageSize={10}
-        current={1}
-        onChange={(page, pageSize) => {
-          console.log(page, pageSize);
+        pagination={{
+          pageSize: 10,
+          total: workspace?.members?.length ?? wsUsers.length,
+          showTotal: (total) => `${total} members`,
         }}
+        locale={{
+          emptyText: (
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description="No members in this workspace"
+            />
+          ),
+        }}
+        rowClassName="align-top"
       />
     </Card>
   );

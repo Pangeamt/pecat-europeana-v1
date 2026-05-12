@@ -1,7 +1,6 @@
 "use client";
 import {
   Button,
-  Divider,
   Form,
   Input,
   Modal,
@@ -10,11 +9,17 @@ import {
   Select,
 } from "antd";
 import locales from "@/lib/locales.json";
-import { UploadOutlined } from "@ant-design/icons";
+import { FileTextOutlined, PlusOutlined, UploadOutlined } from "@ant-design/icons";
 import React, { useState } from "react";
 import { tmStore } from "@/store";
 
 const languages = locales;
+const { Dragger } = Upload;
+
+const languageOptions = Object.keys(languages).map((code) => ({
+  value: languages[code][0],
+  label: languages[code][0],
+}));
 
 const getLocaleCode = (locale) => {
   const language = Object.keys(languages).find(
@@ -37,6 +42,10 @@ const ImportTmButton = ({ refetch, user }) => {
   const [form] = Form.useForm();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [adding, setAdding] = useState(false);
+  const requiredValues = Form.useWatch(["name", "source", "target"], form);
+  const isUploadEnabled = Boolean(
+    requiredValues?.[0] && requiredValues?.[1] && requiredValues?.[2],
+  );
 
   const showModal = () => {
     setIsModalOpen(true);
@@ -100,12 +109,21 @@ const ImportTmButton = ({ refetch, user }) => {
       }
       return true;
     },
-    disabled: false,
+    disabled: !isUploadEnabled,
   };
 
   return (
     <>
-      <Button icon={<UploadOutlined />} type="default" onClick={showModal}>
+      <Button
+        icon={<PlusOutlined />}
+        type="primary"
+        onClick={showModal}
+        className="shadow-sm"
+        style={{
+          background: "linear-gradient(135deg, #111827 0%, #2563eb 100%)",
+          border: 0,
+        }}
+      >
         Import TM
       </Button>
       <Modal
@@ -114,69 +132,120 @@ const ImportTmButton = ({ refetch, user }) => {
         onOk={handleOk}
         onCancel={handleCancel}
         confirmLoading={adding}
-        // footer={null}
+        footer={null}
+        width={760}
+        centered
+        styles={{ body: { padding: 0, overflow: "hidden" } }}
       >
-        <Divider />
+        <div className="relative overflow-hidden rounded-lg bg-slate-950 px-5 py-4 text-white">
+          <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-blue-500/25 blur-3xl" />
+          <div className="relative">
+            <div className="text-lg font-semibold leading-tight">
+              Import translation memory
+            </div>
+            <div className="mt-1 text-sm text-slate-300">
+              Define metadata and upload a TMX file.
+            </div>
+          </div>
+        </div>
         <Form
           form={form}
-          layout="horizontal"
-          labelCol={{
-            span: 7,
-          }}
-          wrapperCol={{
-            span: 14,
-            offset: 2,
-          }}
+          layout="vertical"
+          className="p-4"
         >
-          <Form.Item
-            label="Name"
-            name="name"
-            rules={[{ required: true, message: "Please introduce a name!" }]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item label="Project" name="project">
-            <Input placeholder="Optional" />
-          </Form.Item>
-          <Form.Item label="Domain" name="domain">
-            <Input />
-          </Form.Item>
-          <Form.Item
-            label="Source"
-            name="source"
-            rules={[
-              { required: true, message: "Please select a source language" },
-            ]}
-          >
-            <Select showSearch>
-              {Object.keys(languages).map((locale) => (
-                <Select.Option key={locale} value={languages[locale][0]}>
-                  {languages[locale][0]}
-                </Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
-          <Form.Item
-            name="target"
-            label="Target"
-            rules={[
-              { required: true, message: "Please select a target language" },
-            ]}
-          >
-            <Select showSearch>
-              {Object.keys(languages).map((locale) => (
-                <Select.Option key={locale} value={languages[locale][0]}>
-                  {languages[locale][0]}
-                </Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
-          <Form.Item label="File">
-            <Upload {...props}>
-              <Button icon={<UploadOutlined />}>Select your TMX file</Button>
-            </Upload>
-          </Form.Item>
-          <Divider />
+          <div className="space-y-3">
+            <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="mb-3 flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                  <FileTextOutlined />
+                </div>
+                <div>
+                  <div className="font-semibold text-slate-900">Memory details</div>
+                  <div className="text-xs text-slate-500">
+                    Name, context and optional metadata.
+                  </div>
+                </div>
+              </div>
+              <Form.Item
+                label="Name"
+                name="name"
+                rules={[{ required: true, message: "Please introduce a name!" }]}
+              >
+                <Input placeholder="Memory name" />
+              </Form.Item>
+              <div className="grid grid-cols-2 gap-2">
+                <Form.Item label="Project" name="project">
+                  <Input placeholder="Optional" />
+                </Form.Item>
+                <Form.Item label="Domain" name="domain">
+                  <Input placeholder="Optional" />
+                </Form.Item>
+              </div>
+            </section>
+
+            <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="mb-3">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                  Languages
+                </div>
+                <div className="mt-1 font-semibold text-slate-900">
+                  Source and target
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Form.Item
+                  label="Source"
+                  name="source"
+                  rules={[
+                    { required: true, message: "Please select a source language" },
+                  ]}
+                >
+                  <Select
+                    showSearch
+                    placeholder="Select source"
+                    optionFilterProp="label"
+                    options={languageOptions}
+                  />
+                </Form.Item>
+                <Form.Item
+                  name="target"
+                  label="Target"
+                  rules={[
+                    { required: true, message: "Please select a target language" },
+                  ]}
+                >
+                  <Select
+                    showSearch
+                    placeholder="Select target"
+                    optionFilterProp="label"
+                    options={languageOptions}
+                  />
+                </Form.Item>
+              </div>
+            </section>
+
+            <section
+              className={`rounded-xl border border-dashed bg-white p-4 shadow-sm ${
+                isUploadEnabled ? "border-blue-200" : "border-slate-200 opacity-60"
+              }`}
+            >
+              <Dragger {...props}>
+                <p className="ant-upload-drag-icon">
+                  <UploadOutlined />
+                </p>
+                <p className="ant-upload-text">
+                  {isUploadEnabled
+                    ? "Drop TMX file or browse"
+                    : "Complete required fields to upload"}
+                </p>
+                <p className="ant-upload-hint">
+                  {isUploadEnabled
+                    ? "TMX only. Maximum file size 15MB."
+                    : "Name, source and target are required."}
+                </p>
+              </Dragger>
+            </section>
+          </div>
         </Form>
       </Modal>
     </>

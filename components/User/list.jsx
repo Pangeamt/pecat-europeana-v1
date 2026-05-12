@@ -3,9 +3,11 @@ import {
   Avatar,
   Button,
   Card,
+  Empty,
   Popconfirm,
   Space,
   Table,
+  Tag,
   Tooltip,
   message,
   Image,
@@ -109,6 +111,10 @@ const UserList = () => {
     }
   };
 
+  const adminUsers = users.filter((user) => user.role === "ADMIN").length;
+  const regularUsers = users.filter((user) => user.role === "USER").length;
+  const superUsers = users.filter((user) => user.role === "SUPER").length;
+
   const columns = [
     {
       title: "",
@@ -126,16 +132,32 @@ const UserList = () => {
       title: "Name",
       dataIndex: "name",
       key: "name",
+      render: (name, record) => (
+        <div>
+          <div className="font-semibold text-slate-900">{name}</div>
+          <div className="mt-1 text-xs text-slate-400">{record.id}</div>
+        </div>
+      ),
     },
     {
       title: "Email",
       dataIndex: "email",
       key: "email",
+      render: (email) => <span className="text-slate-700">{email}</span>,
     },
     {
       title: "Role",
       dataIndex: "role",
       key: "role",
+      render: (role) => {
+        const color =
+          role === "SUPER" ? "purple" : role === "ADMIN" ? "blue" : "default";
+        return (
+          <Tag color={color} className="rounded-full">
+            {role}
+          </Tag>
+        );
+      },
     },
     {
       title: "",
@@ -144,7 +166,7 @@ const UserList = () => {
       render: (record) => {
         const deletable = canDelete(record);
         return (
-          <div className="flex justify-end">
+          <Space size={6}>
             <UserEdit user={record} save={save} />
 
             {deletable && (
@@ -158,27 +180,71 @@ const UserList = () => {
                 <Tooltip title="Remove">
                   <Button
                     size="small"
-                    type="primary"
-                    shape="circle"
+                    type="text"
                     danger
                     icon={<DeleteOutlined />}
                   />
                 </Tooltip>
               </Popconfirm>
             )}
-          </div>
+          </Space>
         );
       },
     },
   ];
 
   return (
-    <Card
-      title="Users"
-      extra={<UserAdd add={add} refetch={fetchData} />}
-      className="project-list-card"
-      style={{ marginLeft: 20 }}
-    >
+    <Card className="project-list-card overflow-hidden" style={{ marginLeft: 20 }}>
+      <div className="mb-5 rounded-2xl bg-slate-950 p-5 text-white">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-200">
+              Access control
+            </div>
+            <h2 className="mb-1 mt-2 text-2xl font-semibold">Users</h2>
+            <p className="m-0 text-sm text-slate-300">
+              Manage users, roles and workspace membership.
+            </p>
+          </div>
+          <UserAdd add={add} refetch={fetchData} />
+        </div>
+      </div>
+
+      <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-4">
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
+            Total
+          </div>
+          <div className="mt-2 text-2xl font-semibold text-slate-900">
+            {users.length}
+          </div>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
+            Super
+          </div>
+          <div className="mt-2 text-2xl font-semibold text-purple-600">
+            {superUsers}
+          </div>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
+            Admins
+          </div>
+          <div className="mt-2 text-2xl font-semibold text-blue-600">
+            {adminUsers}
+          </div>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
+            Users
+          </div>
+          <div className="mt-2 text-2xl font-semibold text-slate-900">
+            {regularUsers}
+          </div>
+        </div>
+      </div>
+
       <Table
         loading={requesting}
         columns={columns}
@@ -186,6 +252,15 @@ const UserList = () => {
         rowKey={(record) => record.id}
         size="small"
         scroll={{ x: 800 }}
+        locale={{
+          emptyText: (
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description="No users found"
+            />
+          ),
+        }}
+        rowClassName="align-top"
       />
     </Card>
   );
