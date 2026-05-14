@@ -1,48 +1,46 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
-import {
-  Button,
-  Card,
-  Divider,
-  Input,
-  Modal,
-  Space,
-  Table,
-  Tag,
-  Tooltip,
-  message,
-} from "antd";
-import axios from "axios";
-import { useParams } from "next/navigation";
-import { Resizable } from "re-resizable";
-import Highlighter from "react-highlight-words";
-import { useHotkeys } from "react-hotkeys-hook";
-import XMLViewer from "react-xml-viewer";
 import {
   CheckCircleTwoTone,
-  CheckOutlined,
-  CloseOutlined,
   ColumnHeightOutlined,
   EditTwoTone,
   HourglassTwoTone,
   SearchOutlined,
   StopTwoTone,
 } from "@ant-design/icons";
+import {
+  Button,
+  Card,
+  Input,
+  message,
+  Modal,
+  Space,
+  Table,
+  Tabs,
+  Tag,
+  Tooltip,
+} from "antd";
+import axios from "axios";
+import { CircleCheck, CircleX, LockIcon, UnlockIcon } from "lucide-react";
+import { useParams } from "next/navigation";
+import { Resizable } from "re-resizable";
+import React, { useEffect, useRef, useState } from "react";
+import Highlighter from "react-highlight-words";
+import { useHotkeys } from "react-hotkeys-hook";
+import XMLViewer from "react-xml-viewer";
 
-import CustomTextArea from "../../components/CustomTextArea";
-import HeaderTus from "../../components/Tus/header";
-import { tmStore, userStore } from "@/store";
+import { StatsTus, TmTool } from "@/components/Tus";
 import {
   confirmTu,
   confirmTuTm,
-  updateTuTm,
   getTus,
+  updateTuTm,
 } from "@/services/tus.services";
+import { getProject } from "@/services/project.services";
+import { tmStore, userStore } from "@/store";
+import CustomTextArea from "../../components/CustomTextArea";
 
 const style = {
-  border: "solid 2px #ddd",
-  background: "#f0f0f0",
-  padding: "15px 5px",
+  padding: "10px 5px",
 };
 
 const stripHTML = (html) => {
@@ -61,7 +59,13 @@ const EMPTY_STATS = {
 };
 
 const TusList = () => {
-  const params = useParams();
+  const { projectId } = useParams();
+  const [data, setData] = useState([]);
+  const [tmInfo, setTmInfo] = useState([]);
+  const [projectConfig, setProjectConfig] = useState(null);
+
+  const [selectedRow, setSelectedRow] = useState(null);
+
   const [open, setOpen] = useState(false);
   const tmSt = tmStore();
   const userSt = userStore();
@@ -69,9 +73,9 @@ const TusList = () => {
   const { user } = userSt;
   const [messageApi, contextHolder] = message.useMessage();
   const tblRef = React.useRef(null);
-  const [selectedRow, setSelectedRow] = useState(null);
+
   const [requesting, setRequesting] = useState(true);
-  const [data, setData] = useState([]);
+
   const [xmlData, setXmlData] = useState(null);
 
   const [searchText, setSearchText] = useState("");
@@ -80,14 +84,14 @@ const TusList = () => {
 
   const [pageSize, setPageSize] = useState(20);
   const [page, setPage] = useState(1);
-  const [height, setHeight] = useState(110);
+  const [height, setHeight] = useState(200);
   const [xmlRequesting, setXmlRequesting] = useState(null);
 
   useEffect(() => {
     const get = async () => {
       try {
         setRequesting(true);
-        const response = await getTus(params.projectId);
+        const response = await getTus(projectId);
         const docs = response.data.docs || [];
         setData(docs);
         setSelectedRow((prev) => prev || docs[0] || null);
@@ -102,8 +106,16 @@ const TusList = () => {
         setRequesting(false);
       }
     };
-    if (params.projectId) get();
-  }, [params.projectId]);
+    if (projectId) get();
+  }, [projectId]);
+
+  useEffect(() => {
+    const getProjectConfig = async () => {
+      const response = await getProject(projectId);
+      setProjectConfig(response.data);
+    };
+    getProjectConfig();
+  }, [projectId]);
 
   const stats = (() => {
     if (requesting || data.length === 0) return EMPTY_STATS;
@@ -237,26 +249,26 @@ const TusList = () => {
   });
 
   const columns = [
-    {
-      title: "No.",
-      dataIndex: "index",
-      key: "index",
-      width: 90,
-      render: (_, __, index) => {
-        if (selectedRow && selectedRow.id === __.id) {
-          return (
-            <div className="absolute top-2 left-2">
-              <Tag color="#faad14">{(page - 1) * pageSize + index + 1}</Tag>
-            </div>
-          );
-        }
-        return (
-          <code className="absolute top-2 left-4">
-            {(page - 1) * pageSize + index + 1}
-          </code>
-        );
-      },
-    },
+    // {
+    //   title: "No.",
+    //   dataIndex: "index",
+    //   key: "index",
+    //   width: 90,
+    //   render: (_, __, index) => {
+    //     if (selectedRow && selectedRow.id === __.id) {
+    //       return (
+    //         <div className="absolute top-2 left-2">
+    //           <Tag color="#faad14">{(page - 1) * pageSize + index + 1}</Tag>
+    //         </div>
+    //       );
+    //     }
+    //     return (
+    //       <code className="absolute top-2 left-4">
+    //         {(page - 1) * pageSize + index + 1}
+    //       </code>
+    //     );
+    //   },
+    // },
     {
       title: "Source",
       dataIndex: "srcLiteral",
@@ -308,8 +320,33 @@ const TusList = () => {
       },
     },
     {
+      title: <LockIcon size={16} className="text-gray-500" />,
+      width: 80,
+      dataIndex: "blocks",
+      key: "blocks",
+      render: (text) => {
+        if (text) {
+          return <LockIcon size={16} className="text-gray-400" />;
+        } else {
+          return <UnlockIcon size={16} className="text-gray-400" />;
+        }
+      },
+    },
+    {
+      title: "Fuzzy",
+      width: 80,
+      dataIndex: "fuzzyScorePercent",
+      key: "levenshteinDistance",
+      sorter: (a, b) => a.levenshteinDistance - b.levenshteinDistance,
+      render: (text) => (
+        <Tag bordered={false} color="geekblue">
+          {text ? parseFloat(text).toFixed(2) : ""}
+        </Tag>
+      ),
+    },
+    {
       title: "QE",
-      width: 70,
+      width: 100,
       dataIndex: "translationScorePercent",
       key: "translationScorePercent",
       sorter: (a, b) => a.translationScorePercent - b.translationScorePercent,
@@ -349,25 +386,25 @@ const TusList = () => {
         let cpm = (
           <HourglassTwoTone
             twoToneColor="#faad14"
-            style={{ fontSize: "25px" }}
+            style={{ fontSize: "18px" }}
           />
         );
         if (text === "REJECTED") {
           cpm = (
-            <StopTwoTone style={{ fontSize: "25px" }} twoToneColor="#f5222d" />
+            <StopTwoTone style={{ fontSize: "18px" }} twoToneColor="#f5222d" />
           );
         }
         if (text === "ACCEPTED") {
           cpm = (
             <CheckCircleTwoTone
               twoToneColor="#52c41a"
-              style={{ fontSize: "25px" }}
+              style={{ fontSize: "18px" }}
             />
           );
         }
         if (text === "EDITED") {
           cpm = (
-            <EditTwoTone twoToneColor="#4096ff" style={{ fontSize: "25px" }} />
+            <EditTwoTone twoToneColor="#4096ff" style={{ fontSize: "18px" }} />
           );
         }
         return <div className="absolute top-2 left-2">{cpm}</div>;
@@ -376,7 +413,7 @@ const TusList = () => {
     {
       title: "Actions",
       key: "action",
-      width: 150,
+      width: 100,
       render: (record) => {
         if (selectedRow && selectedRow.id !== record.id) return null;
         return (
@@ -402,9 +439,9 @@ const TusList = () => {
                 onClick={() => {
                   save(null);
                 }}
-                shape="circle"
-                type="primary"
-                icon={<CheckOutlined />}
+                variant="text"
+                color="green"
+                icon={<CircleCheck size={24} strokeWidth={2} />}
                 size="small"
               ></Button>
             </Tooltip>
@@ -414,9 +451,9 @@ const TusList = () => {
                 className="ml-2"
                 shape="circle"
                 onClick={reject}
-                type="primary"
-                danger
-                icon={<CloseOutlined />}
+                variant="text"
+                color="red"
+                icon={<CircleX size={24} strokeWidth={2} />}
                 size="small"
               ></Button>
             </Tooltip>
@@ -603,58 +640,31 @@ const TusList = () => {
   return (
     <div>
       {contextHolder}
-      <Resizable
-        style={style}
-        size={{ height }}
-        onResizeStop={(_, __, ___, d) => {
-          setHeight(height + d.height);
-        }}
-        className="overflow-x-hidden overflow-y-auto"
-        enable={{
-          top: true,
-          right: false,
-          bottom: true,
-          left: false,
-          topRight: false,
-          bottomRight: false,
-          bottomLeft: false,
-          topLeft: false,
-        }}
-        handleComponent={{
-          bottom: (
-            <Button
-              type="primary"
-              shape="circle"
-              icon={<ColumnHeightOutlined />}
-              size="small"
-              className="cursor-row-resize"
-              style={{
-                position: "absolute",
-                bottom: 12,
-                right: 12,
-              }}
-            />
-          ),
+      <div
+        className="mb-2"
+        style={{
+          position: "sticky",
+          bottom: 0,
+          left: 0,
+          width: "100%",
+          zIndex: 10,
         }}
       >
-        <HeaderTus
+        <StatsTus
           stats={stats}
           percentage={stats.porcent}
-          selectedRow={selectedRow}
-          selectedText={searchText}
-          changeTextInTextarea={changeTextInTextarea}
-          setHeight={setHeight}
           requesting={requesting}
+          mode={projectConfig?.tmMode}
+          tmThreshold={projectConfig?.tmThreshold}
+          tms={projectConfig?.tmIds?.length}
         />
-      </Resizable>
-      <Divider className="my-2" />
+      </div>
       <Card id="tus-list">
         <Modal
           title="XML Example"
           centered
           open={open}
           onCancel={() => setOpen(false)}
-          width={1000}
           footer={null}
         >
           <XMLViewer
@@ -720,9 +730,56 @@ const TusList = () => {
               setPage(page);
             },
           }}
-          scroll={{ x: "100%", y: "calc(100vh - 360px)" }}
+          scroll={{ x: "100%", y: "calc(100vh - 460px)" }}
         />
       </Card>
+
+      <Resizable
+        style={style}
+        size={{ height }}
+        onResizeStop={(_, __, ___, d) => {
+          setHeight(height + d.height);
+        }}
+        className="overflow-x-hidden overflow-y-auto"
+        enable={{
+          top: true,
+          right: false,
+          bottom: true,
+          left: false,
+          topRight: false,
+          bottomRight: false,
+          bottomLeft: false,
+          topLeft: false,
+        }}
+        handleComponent={{
+          bottom: (
+            <Button
+              type="primary"
+              shape="circle"
+              icon={<ColumnHeightOutlined />}
+              size="small"
+              className="cursor-row-resize"
+              style={{
+                position: "absolute",
+                bottom: 12,
+                right: 12,
+              }}
+            />
+          ),
+        }}
+      >
+        <Tabs
+          type="card"
+          defaultActiveKey="1"
+          items={[
+            {
+              key: "1",
+              label: "TMs",
+              children: <TmTool />,
+            },
+          ]}
+        />
+      </Resizable>
     </div>
   );
 };

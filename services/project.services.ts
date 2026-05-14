@@ -33,8 +33,14 @@ export const getProjects = async () => {
   });
 };
 
+export const getProject = async (projectId) => {
+  return await httpClient({
+    method: "get",
+    url: `/api/projects/${projectId}`,
+  });
+};
+
 export const getProjectShareLink = async (projectId, baseURL) => {
   const { data } = await httpClient.get(`${baseURL}/api/file/${projectId}`);
   return `${baseURL}/api/file?uuid=${data.uuid}&projectId=${projectId}`;
 };
-

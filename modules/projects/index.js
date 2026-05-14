@@ -1,4 +1,5 @@
 export {
+  getProjectByIdService,
   listProjectsService,
   updateProjectLabelService,
   softDeleteProjectService,
