@@ -656,7 +656,8 @@ const TusList = () => {
           requesting={requesting}
           mode={projectConfig?.tmMode}
           tmThreshold={projectConfig?.tmThreshold}
-          tms={projectConfig?.tmIds?.length}
+          tms={projectConfig?.tmNames?.length ?? projectConfig?.tmIds?.length}
+          tmNames={projectConfig?.tmNames}
         />
       </div>
       <Card id="tus-list">

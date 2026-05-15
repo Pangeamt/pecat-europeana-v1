@@ -45,6 +45,7 @@ const StatsTus = ({
   mode,
   tmThreshold,
   tms,
+  tmNames,
 }) => {
   const pct = Math.min(100, Math.max(0, Number(percentage) || 0));
 
@@ -117,9 +118,15 @@ const StatsTus = ({
           className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-700"
           role="tms"
           aria-label={`TMS ${tms}`}
+          title={Array.isArray(tmNames) && tmNames.length ? tmNames.join(", ") : ""}
         >
           <span>TMS: </span>
           <span className="font-bold tabular-nums">{tms ? `${tms}` : "—"}</span>
+          {Array.isArray(tmNames) && tmNames.length > 0 ? (
+            <span className="max-w-60 truncate text-[11px] text-gray-500">
+              {tmNames.join(", ")}
+            </span>
+          ) : null}
         </span>
       </div>
     </div>
@@ -137,13 +144,18 @@ StatsTus.propTypes = {
   }).isRequired,
   percentage: PropTypes.number,
   requesting: PropTypes.bool.isRequired,
-  mode: PropTypes.string.isRequired,
-  tmThreshold: PropTypes.number.isRequired,
-  tms: PropTypes.number.isRequired,
+  mode: PropTypes.string,
+  tmThreshold: PropTypes.number,
+  tms: PropTypes.number,
+  tmNames: PropTypes.arrayOf(PropTypes.string),
 };
 
 StatsTus.defaultProps = {
   percentage: 0,
+  mode: "",
+  tmThreshold: 0,
+  tms: 0,
+  tmNames: [],
 };
 
 export default StatsTus;

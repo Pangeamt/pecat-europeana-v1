@@ -2,18 +2,28 @@ import { HttpError } from "../shared/http-error";
 import {
   buildProjectScopeWhere,
   findProjectById,
-  findProjectForActor,
   findProjects,
+  findProjectWithTmsForActor,
   getProjectStatusCounts,
   updateProjectById,
 } from "./repository";
 
 export async function getProjectByIdService(projectId, actorUser) {
-  const project = await findProjectForActor(projectId, actorUser);
+  const project = await findProjectWithTmsForActor(projectId, actorUser);
   if (!project) {
     throw new HttpError(404, "Project not found");
   }
-  return project;
+
+  const tmIds = project.projectTms.map((link) => link.tmId);
+  const tmNames = project.projectTms
+    .map((link) => link.tm?.name)
+    .filter((name) => typeof name === "string");
+
+  return {
+    ...project,
+    tmIds,
+    tmNames,
+  };
 }
 
 export async function listProjectsService(actorUser) {

@@ -16,6 +16,7 @@ import {
   translateTexts,
 } from "../../lib/utils";
 import { HttpError } from "../shared/http-error";
+import { findValidTmIdsInWorkspace } from "./repository";
 
 const pump = promisify(pipeline);
 const PROJECT_STATUS = {
@@ -62,6 +63,21 @@ function parseProjectTmSettings(formData) {
       : 0,
     tmIds: Array.isArray(tmIds) ? tmIds : [],
   };
+}
+
+function normalizeTmIds(tmIds) {
+  if (!Array.isArray(tmIds)) return [];
+  return [...new Set(tmIds.filter((tmId) => typeof tmId === "string" && tmId))];
+}
+
+async function linkProjectTms(projectId, tmIds) {
+  const normalized = normalizeTmIds(tmIds);
+  if (normalized.length === 0) return;
+
+  await prisma.projectTm.createMany({
+    data: normalized.map((tmId) => ({ projectId, tmId })),
+    skipDuplicates: true,
+  });
 }
 
 function normalizeProjectSegmentsPayload(payload, { src, tgt } = {}) {
@@ -427,6 +443,10 @@ export async function importProjectsFromUploadService({
   const src = formData.get("src");
   const tgt = formData.get("tgt");
   const tmSettings = parseProjectTmSettings(formData);
+  const validTmIds = await findValidTmIdsInWorkspace(
+    tmSettings.tmIds,
+    workspaceId,
+  );
 
   if (files.length === 0) {
     throw new HttpError(400, "No file uploaded");
@@ -455,13 +475,14 @@ export async function importProjectsFromUploadService({
         mt,
         tmMode: tmSettings.tmMode,
         tmThreshold: tmSettings.tmThreshold,
-        tmIds: tmSettings.tmIds,
         extension: fileExtension,
         sourceLanguage: src,
         targetLanguage: tgt,
         status: PROJECT_STATUS.UPLOADED,
       },
     });
+
+    await linkProjectTms(createdProject.id, validTmIds);
 
     createdProjectIds.push(createdProject.id);
     void processUploadedProjectInBackground({
@@ -473,7 +494,7 @@ export async function importProjectsFromUploadService({
       tgt,
       tmMode: tmSettings.tmMode,
       tmThreshold: tmSettings.tmThreshold,
-      tmIds: tmSettings.tmIds,
+      tmIds: validTmIds,
     });
   }
 

@@ -62,6 +62,44 @@ export async function findProjectForActor(projectId, actorUser) {
   return prisma.project.findFirst({ where });
 }
 
+export async function findProjectWithTmsForActor(projectId, actorUser) {
+  if (!projectId) return null;
+  const where = buildProjectScopeWhere(actorUser, { id: projectId });
+
+  return prisma.project.findFirst({
+    where,
+    include: {
+      projectTms: {
+        select: {
+          tmId: true,
+          tm: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+export async function findValidTmIdsInWorkspace(tmIds, workspaceId) {
+  if (!Array.isArray(tmIds) || tmIds.length === 0) return [];
+  if (!workspaceId) return [];
+
+  const rows = await prisma.tm.findMany({
+    where: {
+      id: { in: tmIds },
+      workspaceId,
+      deletedAt: null,
+    },
+    select: { id: true },
+  });
+
+  return rows.map((row) => row.id);
+}
+
 export async function findTusByProjectId(projectId) {
   return prisma.tu.findMany({
     where: { projectId },

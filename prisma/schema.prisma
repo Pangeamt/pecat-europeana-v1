@@ -88,7 +88,6 @@ model Project {
   mt             Boolean   @default(false)
   tmMode         String    @default("standart")
   tmThreshold    Int       @default(0)
-  tmIds          Json?
   extension      String    @default("json")
   sourceLanguage String?
   targetLanguage String?
@@ -97,6 +96,7 @@ model Project {
   User           User      @relation(fields: [userId], references: [id])
   workspace      Workspace @relation(fields: [workspaceId], references: [id])
   tus            Tu[]
+  projectTms     ProjectTm[]
 
   @@index([userId], map: "projects_userId_fkey")
   @@index([workspaceId], map: "projects_workspaceId_fkey")
@@ -144,11 +144,25 @@ model Tm {
   deletedAt       DateTime?
   createdBy       User      @relation("TmCreatedBy", fields: [createdByUserId], references: [id])
   workspace       Workspace @relation(fields: [workspaceId], references: [id])
+  projectTms      ProjectTm[]
 
   @@index([workspaceId], map: "tms_workspaceId_fkey")
   @@index([createdByUserId], map: "tms_createdByUserId_fkey")
   @@index([deletedAt], map: "tms_deletedAt_idx")
   @@map("tms")
+}
+
+model ProjectTm {
+  projectId String
+  tmId      String
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tm      Tm      @relation(fields: [tmId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, tmId])
+  @@index([tmId], map: "project_tms_tmId_idx")
+  @@map("project_tms")
 }
 
 model VerificationToken {
