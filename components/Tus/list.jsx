@@ -1,15 +1,16 @@
 "use client";
 import {
   CheckCircleTwoTone,
-  ColumnHeightOutlined,
   EditTwoTone,
   HourglassTwoTone,
   SearchOutlined,
   StopTwoTone,
 } from "@ant-design/icons";
 import {
+  Badge,
   Button,
   Card,
+  Divider,
   Input,
   message,
   Modal,
@@ -22,26 +23,17 @@ import {
 import axios from "axios";
 import { CircleCheck, CircleX, LockIcon, UnlockIcon } from "lucide-react";
 import { useParams } from "next/navigation";
-import { Resizable } from "re-resizable";
+
 import React, { useEffect, useRef, useState } from "react";
 import Highlighter from "react-highlight-words";
 import { useHotkeys } from "react-hotkeys-hook";
 import XMLViewer from "react-xml-viewer";
 
 import { StatsTus, TmTool } from "@/components/Tus";
-import {
-  confirmTu,
-  confirmTuTm,
-  getTus,
-  updateTuTm,
-} from "@/services/tus.services";
 import { getProject } from "@/services/project.services";
-import { tmStore, userStore } from "@/store";
+import { appendTu, confirmTu, getTus } from "@/services/tus.services";
+import { userStore } from "@/store";
 import CustomTextArea from "../../components/CustomTextArea";
-
-const style = {
-  padding: "10px 5px",
-};
 
 const stripHTML = (html) => {
   let temporalDiv = document.createElement("div");
@@ -61,15 +53,12 @@ const EMPTY_STATS = {
 const TusList = () => {
   const { projectId } = useParams();
   const [data, setData] = useState([]);
-  const [tmInfo, setTmInfo] = useState([]);
   const [projectConfig, setProjectConfig] = useState(null);
 
   const [selectedRow, setSelectedRow] = useState(null);
 
   const [open, setOpen] = useState(false);
-  const tmSt = tmStore();
   const userSt = userStore();
-  const { tm, tu: tmTu, config } = tmSt;
   const { user } = userSt;
   const [messageApi, contextHolder] = message.useMessage();
   const tblRef = React.useRef(null);
@@ -84,7 +73,6 @@ const TusList = () => {
 
   const [pageSize, setPageSize] = useState(20);
   const [page, setPage] = useState(1);
-  const [height, setHeight] = useState(200);
   const [xmlRequesting, setXmlRequesting] = useState(null);
 
   useEffect(() => {
@@ -92,6 +80,7 @@ const TusList = () => {
       try {
         setRequesting(true);
         const response = await getTus(projectId);
+        console.log("response", response);
         const docs = response.data.docs || [];
         setData(docs);
         setSelectedRow((prev) => prev || docs[0] || null);
@@ -107,15 +96,24 @@ const TusList = () => {
       }
     };
     if (projectId) get();
-  }, [projectId]);
+  }, [projectId, messageApi]);
 
   useEffect(() => {
     const getProjectConfig = async () => {
-      const response = await getProject(projectId);
-      setProjectConfig(response.data);
+      try {
+        const response = await getProject(projectId);
+        setProjectConfig(response.data);
+      } catch (error) {
+        console.error(error);
+        messageApi.error(
+          error?.response?.data?.error?.message ||
+            "Error getting project config",
+        );
+        setProjectConfig(null);
+      }
     };
     getProjectConfig();
-  }, [projectId]);
+  }, [projectId, messageApi]);
 
   const stats = (() => {
     if (requesting || data.length === 0) return EMPTY_STATS;
@@ -249,31 +247,32 @@ const TusList = () => {
   });
 
   const columns = [
-    // {
-    //   title: "No.",
-    //   dataIndex: "index",
-    //   key: "index",
-    //   width: 90,
-    //   render: (_, __, index) => {
-    //     if (selectedRow && selectedRow.id === __.id) {
-    //       return (
-    //         <div className="absolute top-2 left-2">
-    //           <Tag color="#faad14">{(page - 1) * pageSize + index + 1}</Tag>
-    //         </div>
-    //       );
-    //     }
-    //     return (
-    //       <code className="absolute top-2 left-4">
-    //         {(page - 1) * pageSize + index + 1}
-    //       </code>
-    //     );
-    //   },
-    // },
+    {
+      title: "No.",
+      dataIndex: "index",
+      key: "index",
+      width: 50,
+      render: (_, __, index) => {
+        if (selectedRow && selectedRow.id === __.id) {
+          return (
+            <div className="absolute top-2 left-2">
+              <Tag color="#faad14">{(page - 1) * pageSize + index + 1}</Tag>
+            </div>
+          );
+        }
+        return (
+          <code className="absolute top-2 left-4">
+            {(page - 1) * pageSize + index + 1}
+          </code>
+        );
+      },
+    },
     {
       title: "Source",
       dataIndex: "srcLiteral",
       key: "srcLiteral",
       width: "40%",
+      minWidth: 400,
       ...getColumnSearchProps("srcLiteral"),
     },
     {
@@ -503,7 +502,13 @@ const TusList = () => {
   const moveNext = () => {
     const index = data.findIndex((doc) => doc.id === selectedRow.id);
     if (index < data.length - 1) {
-      setSelectedRow(data[index + 1]);
+      const nextRow = data[index + 1];
+      console.log("nextRow", nextRow);
+      if (nextRow) {
+        setSelectedRow(nextRow);
+      } else {
+        messageApi.error("No next row found");
+      }
 
       tblRef.current?.scrollTo({ index: index });
     }
@@ -522,46 +527,12 @@ const TusList = () => {
       action: "approve",
     });
 
-    if (tm && config.update) {
-      console.log("config.value", config.value);
-      console.log("tmTu", tmTu);
-      console.log("--------------------------------");
-      console.log("--------------------------------");
-      if (config.value === 1 && tmTu) {
-        console.log("updateTuTm");
-        console.log("--------------------------------");
-        console.log("--------------------------------");
-        try {
-          await updateTuTm({
-            translation_unit_id: tmTu.id,
-            translation_memory_id: tm.id,
-            source_language: tm.context.source,
-            target_language: tm.context.target,
-            source_text: selectedRow.srcLiteral,
-            translated_text: str || selectedRow.reviewLiteral,
-            user: user ? user?.email : null,
-            project: tm.context.project,
-            domain: tm.context.domain,
-          });
-        } catch (error) {
-          console.error(error);
-        }
-      } else {
-        try {
-          await confirmTuTm({
-            translation_memory_id: tm.id,
-            source_language: tm.context.source,
-            target_language: tm.context.target,
-            source_text: selectedRow.srcLiteral,
-            translated_text: str || selectedRow.reviewLiteral,
-            user: user ? user?.email : null,
-            project: tm.context.project,
-            domain: tm.context.domain,
-          });
-        } catch (error) {
-          console.error(error);
-        }
-      }
+    if (projectConfig?.tmIds) {
+      await appendTu({
+        tmIds: projectConfig.tmIds,
+        source: selectedRow.srcLiteral,
+        target: str || selectedRow.reviewLiteral,
+      });
     }
 
     moveNext();
@@ -660,6 +631,37 @@ const TusList = () => {
           tmNames={projectConfig?.tmNames}
         />
       </div>
+
+      <div className="mb-2">
+        <Tabs
+          type="card"
+          defaultActiveKey="1"
+          headers={{
+            style: {
+              padding: "0px 0px",
+            },
+          }}
+          items={[
+            {
+              key: "1",
+              label: (
+                <>
+                  <span>TMs</span> <Badge count={selectedRow?.tmInfo?.length} />
+                </>
+              ),
+              children: (
+                <TmTool
+                  tmInfo={selectedRow?.tmInfo}
+                  threshold={projectConfig?.tmThreshold}
+                />
+              ),
+            },
+          ]}
+        />
+      </div>
+
+      <Divider />
+
       <Card id="tus-list">
         <Modal
           title="XML Example"
@@ -734,53 +736,6 @@ const TusList = () => {
           scroll={{ x: "100%", y: "calc(100vh - 460px)" }}
         />
       </Card>
-
-      <Resizable
-        style={style}
-        size={{ height }}
-        onResizeStop={(_, __, ___, d) => {
-          setHeight(height + d.height);
-        }}
-        className="overflow-x-hidden overflow-y-auto"
-        enable={{
-          top: true,
-          right: false,
-          bottom: true,
-          left: false,
-          topRight: false,
-          bottomRight: false,
-          bottomLeft: false,
-          topLeft: false,
-        }}
-        handleComponent={{
-          bottom: (
-            <Button
-              type="primary"
-              shape="circle"
-              icon={<ColumnHeightOutlined />}
-              size="small"
-              className="cursor-row-resize"
-              style={{
-                position: "absolute",
-                bottom: 12,
-                right: 12,
-              }}
-            />
-          ),
-        }}
-      >
-        <Tabs
-          type="card"
-          defaultActiveKey="1"
-          items={[
-            {
-              key: "1",
-              label: "TMs",
-              children: <TmTool />,
-            },
-          ]}
-        />
-      </Resizable>
     </div>
   );
 };

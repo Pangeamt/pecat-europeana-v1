@@ -1,5 +1,16 @@
 import React, { useEffect, useState } from "react";
-import { Badge, Button, Col, Modal, Progress, Radio, Row, Space, Table, Typography } from "antd";
+import {
+  Badge,
+  Button,
+  Col,
+  Modal,
+  Progress,
+  Radio,
+  Row,
+  Space,
+  Table,
+  Typography,
+} from "antd";
 import { useParams } from "next/navigation";
 import PropTypes from "prop-types";
 import { InfoCircleOutlined, LoadingOutlined } from "@ant-design/icons";
@@ -11,7 +22,15 @@ import { getTmTus } from "@/services/tus.services";
 
 const { Text } = Typography;
 
-const HeaderTus = ({ stats, percentage, selectedRow, selectedText,changeTextInTextarea, setHeight, requesting }) => {
+const HeaderTus = ({
+  stats,
+  percentage,
+  selectedRow,
+  selectedText,
+  changeTextInTextarea,
+  setHeight,
+  requesting,
+}) => {
   const params = useParams();
   const userSt = userStore();
   const tmSt = tmStore();
@@ -35,8 +54,12 @@ const HeaderTus = ({ stats, percentage, selectedRow, selectedText,changeTextInTe
   const [tmTus, setTmTus] = useState([]);
   const [tmTusText, setTmTusText] = useState([]);
   const [tmRequesting, setTmRequesting] = useState(false);
-  const onChange = ({ target: { value } }) => { setView(value); };
-  const getCount = (value) => { return value.length; };
+  const onChange = ({ target: { value } }) => {
+    setView(value);
+  };
+  const getCount = (value) => {
+    return value.length;
+  };
 
   useEffect(() => {
     if (!requesting) {
@@ -70,7 +93,7 @@ const HeaderTus = ({ stats, percentage, selectedRow, selectedText,changeTextInTe
   ]);
 
   useEffect(() => {
-    if (view === "tms")  queryTmTus();
+    if (view === "tms") queryTmTus();
     if (view === "tus") queryTmTusText();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, tm?.id, selectedRow?.srcLiteral]);
@@ -101,11 +124,6 @@ const HeaderTus = ({ stats, percentage, selectedRow, selectedText,changeTextInTe
       dataIndex: "rejected",
       key: "rejected",
     },
-    // {
-    //   title: "Translated_mt",
-    //   dataIndex: "translated_mt",
-    //   key: "translated_mt",
-    // },
     {
       width: 200,
       title: "Progress",
@@ -202,12 +220,11 @@ const HeaderTus = ({ stats, percentage, selectedRow, selectedText,changeTextInTe
         </>
       ),
       onOk() {},
-    })
-  }
+    });
+  };
 
   return (
     <Row gutter={[8, 8]}>
-
       <Col>
         <Table
           className="mb-2"
@@ -280,7 +297,6 @@ const HeaderTus = ({ stats, percentage, selectedRow, selectedText,changeTextInTe
           />
         </Col>
       )}
-
     </Row>
   );
 };

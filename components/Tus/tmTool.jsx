@@ -1,65 +1,82 @@
 "use client";
 
-import {
-  Button,
-  Card,
-  Divider,
-  Input,
-  Modal,
-  Space,
-  Table,
-  Tag,
-  Tooltip,
-  message,
-} from "antd";
-import axios from "axios";
-import { useParams } from "next/navigation";
+import { Button, Table, Tag } from "antd";
 import { Resizable } from "re-resizable";
-import Highlighter from "react-highlight-words";
-import { useHotkeys } from "react-hotkeys-hook";
-import XMLViewer from "react-xml-viewer";
+import { useState } from "react";
+import { ColumnHeightOutlined } from "@ant-design/icons";
+import PropTypes from "prop-types";
 
-import {
-  CheckCircleTwoTone,
-  CheckOutlined,
-  CloseOutlined,
-  ColumnHeightOutlined,
-  EditTwoTone,
-  HourglassTwoTone,
-  SearchOutlined,
-  StopTwoTone,
-  UnlockOutlined,
-  LockOutlined,
-} from "@ant-design/icons";
-import { LockIcon, UnlockIcon, CircleCheck, CircleX } from "lucide-react";
+const style = {
+  padding: "10px 5px",
+};
 
-const TmTool = ({ tmInfo }) => {
+const TmTool = ({ tmInfo, threshold }) => {
+  const [height, setHeight] = useState(150);
+
   const columns = [
     {
       title: "Source",
       dataIndex: "source",
       key: "source",
-      width: "40%",
+      width: "45%",
+    },
+    {
+      title: "Similarity",
+      dataIndex: "tm_score",
+      key: "tm_score",
+      render: (text) => {
+        return <Tag color="green">{text.toFixed(2)}</Tag>;
+      },
     },
     {
       title: "Target",
       dataIndex: "target",
       key: "target",
-      width: "40%",
-    },
-    {
-      title: "TM Score",
-      dataIndex: "tm_score",
-      key: "tm_score",
+      width: "45%",
     },
   ];
+
   return (
-    <div>
-      <Table dataSource={tmInfo} columns={columns} />
-    </div>
+    <>
+      <Resizable
+        style={style}
+        size={{ height }}
+        onResizeStop={(_, __, ___, d) => {
+          setHeight(height + d.height);
+        }}
+        className="overflow-x-hidden overflow-y-auto"
+        enable={{
+          top: true,
+          right: false,
+          bottom: true,
+          left: false,
+          topRight: false,
+          bottomRight: false,
+          bottomLeft: false,
+          topLeft: false,
+        }}
+        handleComponent={{
+          bottom: (
+            <Button
+              type="primary"
+              shape="circle"
+              icon={<ColumnHeightOutlined />}
+              size="small"
+              className="cursor-row-resize"
+              style={{
+                position: "absolute",
+                bottom: 12,
+                right: 12,
+              }}
+            />
+          ),
+        }}
+      >
+        <Table dataSource={tmInfo} columns={columns} />
+      </Resizable>
+    </>
   );
 };
-import PropTypes from "prop-types";
 
 TmTool.propTypes = {
   tmInfo: PropTypes.arrayOf(
