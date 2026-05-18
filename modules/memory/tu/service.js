@@ -13,6 +13,7 @@ import {
   listTus,
   listTusPage,
   updateTu,
+  appendTu,
 } from "./repository";
 
 async function assertTmAccessibleByActor(translationMemoryId, actorUser) {
@@ -67,7 +68,8 @@ async function assertTranslationMemoryExists(translationMemoryId) {
 
 function hasSameDirection(record, sourceLanguage, targetLanguage) {
   return (
-    record.sourceLanguage === sourceLanguage && record.targetLanguage === targetLanguage
+    record.sourceLanguage === sourceLanguage &&
+    record.targetLanguage === targetLanguage
   );
 }
 
@@ -93,7 +95,10 @@ export async function searchTranslationUnitsService(queryParams, actorUser) {
     minSimilarity = DEFAULT_MIN_SIMILARITY,
   } = queryParams;
 
-  const record = await assertTmAccessibleByActor(translation_memory_id, actorUser);
+  const record = await assertTmAccessibleByActor(
+    translation_memory_id,
+    actorUser,
+  );
   if (!hasSameDirection(record, source_language, target_language)) {
     return { total: 0, docs: [] };
   }
@@ -187,7 +192,10 @@ export async function createTranslationUnitService(payload, actorUser) {
     translated_text,
   } = payload;
 
-  const record = await assertTmAccessibleByActor(translation_memory_id, actorUser);
+  const record = await assertTmAccessibleByActor(
+    translation_memory_id,
+    actorUser,
+  );
   assertPayloadDirection(record, source_language, target_language);
   await assertTranslationMemoryExists(translation_memory_id);
 
@@ -207,7 +215,10 @@ export async function updateTranslationUnitService(payload, actorUser) {
     translated_text,
   } = payload;
 
-  const record = await assertTmAccessibleByActor(translation_memory_id, actorUser);
+  const record = await assertTmAccessibleByActor(
+    translation_memory_id,
+    actorUser,
+  );
   assertPayloadDirection(record, source_language, target_language);
   await assertTranslationMemoryExists(translation_memory_id);
 
@@ -225,4 +236,16 @@ export async function deleteTranslationUnitService(payload, actorUser) {
   await assertTranslationMemoryExists(translation_memory_id);
 
   return deleteTu(translation_memory_id, translation_unit_id);
+}
+
+export async function appendTranslationUnitService(payload, actorUser) {
+  const { tmIds, source, target } = payload;
+
+  for (const tmId of tmIds) {
+    await assertTmAccessibleByActor(tmId, actorUser);
+    await assertTranslationMemoryExists(tmId);
+    await appendTu(tmId, source, target);
+  }
+
+  return { success: true, tmIds, source, target };
 }

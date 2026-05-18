@@ -2,9 +2,14 @@
 import { requireAuthUser, toErrorResponse } from "@/modules/shared";
 import {
   listTusByProjectService,
-  updateTuSchema,
   updateTuStatusService,
+  updateTuSchema,
 } from "@/modules/tus";
+
+import {
+  appendTranslationUnitService,
+  appendTuSchema,
+} from "@/modules/memory/tu";
 
 export const GET = async (req) => {
   try {
@@ -23,9 +28,21 @@ export const POST = async (req) => {
   try {
     const actorUser = await requireAuthUser();
     const body = await req.json();
+    const payload = await appendTuSchema.validateAsync(body);
+    const result = await appendTranslationUnitService(payload, actorUser);
+    return Response.json(result, { status: 200 });
+  } catch (error) {
+    return toErrorResponse(error);
+  }
+};
+
+export const PATCH = async (req) => {
+  try {
+    const actorUser = await requireAuthUser();
+    const body = await req.json();
     const payload = await updateTuSchema.validateAsync(body);
-    const { tu, alsoUpdated } = await updateTuStatusService(payload, actorUser);
-    return Response.json({ tu, alsoUpdated }, { status: 200 });
+    const result = await updateTuStatusService(payload, actorUser);
+    return Response.json(result, { status: 200 });
   } catch (error) {
     return toErrorResponse(error);
   }

@@ -5,6 +5,7 @@ export {
   createTranslationUnitService,
   deleteTranslationUnitService,
   updateTranslationUnitService,
+  appendTranslationUnitService,
 } from "./service";
 
 export {
@@ -13,4 +14,5 @@ export {
   createTuSchema,
   deleteTuSchema,
   updateTuSchema,
+  appendTuSchema,
 } from "./schemas";

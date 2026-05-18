@@ -10,7 +10,10 @@ export async function listTus(translationMemoryId, size = 10000) {
   return getMemoryTus(translationMemoryId, { size });
 }
 
-export async function listTusPage(translationMemoryId, { page = 1, size = 100 } = {}) {
+export async function listTusPage(
+  translationMemoryId,
+  { page = 1, size = 100 } = {},
+) {
   return getMemoryTus(translationMemoryId, { page, size });
 }
 
@@ -46,4 +49,13 @@ export async function deleteTu(translationMemoryId, translationUnitId) {
 
 export async function getTmById(id) {
   return getMemory(id);
+}
+
+export async function appendTu(tmId, source, target) {
+  return addMemoryTus(tmId, [
+    {
+      source,
+      target,
+    },
+  ]);
 }

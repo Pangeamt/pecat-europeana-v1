@@ -9,10 +9,21 @@ import type {
   UpdateProjectTuPayload,
   UpdateTuPayload,
 } from "@/types/tm";
+import type { tuAppendPayload } from "@/types/tu.type";
 
 export const confirmTu = async (
   payload: UpdateProjectTuPayload,
 ): Promise<AxiosResponse<{ tu: ProjectTu; alsoUpdated: ProjectTu[] }>> => {
+  return await httpClient({
+    method: "patch",
+    url: "/api/tus",
+    data: payload,
+  });
+};
+
+export const appendTu = async (
+  payload: tuAppendPayload,
+): Promise<AxiosResponse<unknown>> => {
   return await httpClient({
     method: "post",
     url: "/api/tus",

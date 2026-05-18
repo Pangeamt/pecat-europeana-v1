@@ -35,6 +35,12 @@ export const createTuSchema = Joi.object({
   domain: Joi.string().optional().allow(null, ""),
 });
 
+export const appendTuSchema = Joi.object({
+  tmIds: Joi.array().items(Joi.string()).required(),
+  source: Joi.string().required(),
+  target: Joi.string().required(),
+});
+
 export const updateTuSchema = Joi.object({
   translation_unit_id: Joi.string().required(),
   translation_memory_id: Joi.string().required(),
