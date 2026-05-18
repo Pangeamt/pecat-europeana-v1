@@ -130,33 +130,15 @@ const ProjectList = () => {
   //   });
   // }
 
-  async function copyTextToClipboard(textToCopy) {
-    // verificarPermisoPortapapeles();
-    const navigator = window.navigator;
-    const clipboard = navigator.clipboard;
-    if (!clipboard || !clipboard.writeText) {
-      console.error(
-        "La API del portapapeles no es compatible con este navegador",
-      );
-      return;
-    }
-
-    await clipboard.writeText(textToCopy);
-  }
-
   const getDownloadLink = async (projectId) => {
     try {
       setRequesting(projectId);
       const shareLink = await getProjectShareLink(projectId, baseURL);
-      await copyTextToClipboard(shareLink);
-
-      // await copyTextToClipboard(
-      //   `${baseURL}/api/file?uuid=${1}&projectId=${projectId}`
-      // );
-      message.success("Link copied to clipboard");
+      window.location.assign(shareLink);
       setRequesting("");
     } catch (error) {
       console.error(error);
+      message.error("Could not download file");
       setRequesting("");
     }
   };
@@ -299,7 +281,7 @@ const ProjectList = () => {
       render: (record) => {
         return (
           <Space size={6}>
-            <Tooltip title="Generate Download link">
+            <Tooltip title="Download file">
               <Button
                 size="small"
                 type="text"
