@@ -5,8 +5,6 @@ import { pipeline } from "stream";
 import { uid } from "uid";
 import { promisify } from "util";
 import zlib from "zlib";
-import oxigenResponse from "../../oxigen_response.json";
-
 import prisma from "../../lib/prisma";
 import {
   checkFile,
@@ -37,13 +35,12 @@ async function setProjectStatus(projectId, status) {
 }
 
 function parseProjectTmSettings(formData) {
-  const requestedTmMode = formData.get("tm_mode") || "standart";
-  const tmMode = ["standart", "smart"].includes(requestedTmMode)
+  const requestedTmMode = formData.get("tm_mode") || "standard";
+  const tmMode = ["standard", "smart"].includes(requestedTmMode)
     ? requestedTmMode
-    : "standart";
-  const parsedThreshold = Number.parseInt(
-    formData.get("tm_threshold") || "75",
-    10,
+    : "standard";
+  const parsedThreshold = Number.parseFloat(
+    formData.get("tm_threshold") || "0.75",
   );
   const rawTmIds = formData.get("tm_ids");
   let tmIds = [];
@@ -59,7 +56,10 @@ function parseProjectTmSettings(formData) {
   return {
     tmMode,
     tmThreshold: Number.isFinite(parsedThreshold)
-      ? Math.min(Math.max(parsedThreshold, 0), 100)
+      ? Math.min(
+          Math.max(parsedThreshold > 1 ? parsedThreshold / 100 : parsedThreshold, 0),
+          1,
+        )
       : 0,
     tmIds: Array.isArray(tmIds) ? tmIds : [],
   };
@@ -232,15 +232,16 @@ async function processNonJsonFile({
     workspace_id: workspaceId,
   };
 
-  // const tmp = await oxygenTranslateFile(objectOxigen);
-  // if (!tmp) {
-  //   const error = new Error("Internal error with Oxigen");
-  //   error.code = "OXIGEN_ERROR";
-  //   throw error;
-  // }
+  console.log("objectOxigen", objectOxigen);
+  const tmp = await oxygenTranslateFile(objectOxigen);
+  if (!tmp) {
+    const error = new Error("Internal error with Oxigen");
+    error.code = "OXIGEN_ERROR";
+    throw error;
+  }
 
   /** Simulación local: mismo envelope que Oxigen (`data.trans_units`). */
-  const tmp = oxigenResponse.trans_units;
+  // const tmp = oxigenResponse.trans_units;
 
   return tmp.map((item, index) => ({
     externalId: null,
@@ -495,6 +496,8 @@ export async function importProjectsFromUploadService({
       tmMode: tmSettings.tmMode,
       tmThreshold: tmSettings.tmThreshold,
       tmIds: validTmIds,
+      userId,
+      workspaceId,
     });
   }
 

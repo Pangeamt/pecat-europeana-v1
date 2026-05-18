@@ -36,7 +36,7 @@ const ProjectAdd = ({ add, refetch }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [by, setBy] = useState("file");
   const [mt, setMt] = useState(true);
-  const [tmMode, setTmMode] = useState("standart");
+  const [tmMode, setTmMode] = useState("standard");
   const [tmThreshold, setTmThreshold] = useState(0.75);
   const [tmIds, setTmIds] = useState([]);
   const [tms, setTms] = useState([]);
@@ -94,7 +94,8 @@ const ProjectAdd = ({ add, refetch }) => {
     );
     const nextTmIds = tmIds.filter((id) => validTmIds.has(id));
     setTmIds(nextTmIds);
-    form.setFieldValue("tm_ids", nextTmIds);
+    // Compatibilidad entre versiones de antd/form API.
+    form?.setFieldsValue?.({ tm_ids: nextTmIds });
   };
   const onChangeSrc = (value) => {
     setSrc(value);
