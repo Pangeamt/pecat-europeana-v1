@@ -86,8 +86,8 @@ model Project {
   workspaceId    String
   deletedAt      DateTime?
   mt             Boolean   @default(false)
-  tmMode         String    @default("standart")
-  tmThreshold    Int       @default(0)
+  tmMode         String    @default("standard")
+  tmThreshold    Float     @default(0)
   extension      String    @default("json")
   sourceLanguage String?
   targetLanguage String?
