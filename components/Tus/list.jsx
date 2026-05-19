@@ -80,6 +80,17 @@ const TusList = () => {
   const [pageSize, setPageSize] = useState(20);
   const [page, setPage] = useState(1);
   const [xmlRequesting, setXmlRequesting] = useState(null);
+  const pendingScrollIndexRef = useRef(null);
+
+  const isSegmentBlocked = (doc) => Boolean(doc?.block);
+
+  useEffect(() => {
+    if (pendingScrollIndexRef.current == null) return;
+
+    const indexOnPage = pendingScrollIndexRef.current;
+    pendingScrollIndexRef.current = null;
+    tblRef.current?.scrollTo({ index: indexOnPage });
+  }, [page, pageSize]);
 
   useEffect(() => {
     const get = async () => {
@@ -340,13 +351,13 @@ const TusList = () => {
       },
     },
     {
-      title: <LockIcon size={16} className="text-gray-500" />,
+      title: <LockIcon size={16} className="text-gray-800" />,
       width: 80,
       dataIndex: "block",
       key: "block",
       render: (value) => {
         if (value) {
-          return <LockIcon size={16} className="text-gray-400" />;
+          return <LockIcon size={16} className="text-gray-800" />;
         } else {
           return <UnlockIcon size={16} className="text-gray-400" />;
         }
@@ -490,77 +501,102 @@ const TusList = () => {
   ];
 
   const confirm = async ({ tuId, reviewLiteral, action }) => {
-    try {
-      const response = await confirmTu({ tuId, reviewLiteral, action });
-      const { tu, alsoUpdated = [] } = response.data;
-      const updatedById = new Map(
-        [tu, ...alsoUpdated].map((item) => [item.id, item]),
-      );
+    const response = await confirmTu({ tuId, reviewLiteral, action });
+    const { tu, alsoUpdated = [] } = response.data;
+    const updatedById = new Map(
+      [tu, ...alsoUpdated].map((item) => [item.id, item]),
+    );
 
-      setData((prev) =>
-        prev.map((doc) =>
-          updatedById.has(doc.id)
-            ? { ...doc, ...updatedById.get(doc.id) }
-            : doc,
-        ),
-      );
-      setSelectedRow((prev) =>
-        prev && updatedById.has(prev.id)
-          ? { ...prev, ...updatedById.get(prev.id) }
-          : prev,
-      );
-    } catch (error) {
-      console.error(error);
+    setData((prev) =>
+      prev.map((doc) =>
+        updatedById.has(doc.id) ? { ...doc, ...updatedById.get(doc.id) } : doc,
+      ),
+    );
+    setSelectedRow((prev) =>
+      prev && updatedById.has(prev.id)
+        ? { ...prev, ...updatedById.get(prev.id) }
+        : prev,
+    );
+  };
+
+  const goToRowIndex = (index) => {
+    if (index < 0 || index >= data.length) return;
+
+    const targetPage = Math.floor(index / pageSize) + 1;
+    const indexOnPage = index % pageSize;
+
+    setSelectedRow(data[index]);
+
+    if (targetPage === page) {
+      tblRef.current?.scrollTo({ index: indexOnPage });
+      return;
     }
+
+    pendingScrollIndexRef.current = indexOnPage;
+    setPage(targetPage);
   };
 
   const movePrevious = () => {
-    const index = data.findIndex((doc) => doc.id === selectedRow.id);
-    if (index > 0) {
-      setSelectedRow(data[index - 1]);
-      const el = document.getElementById(`textarea-${selectedRow.id}`);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-      tblRef.current?.scrollTo({ index: index - 1 });
-    }
+    if (!selectedRow) return;
+    const currentIndex = data.findIndex((doc) => doc.id === selectedRow.id);
+    if (currentIndex <= 0) return;
+
+    goToRowIndex(currentIndex - 1);
   };
 
-  const moveNext = () => {
-    const index = data.findIndex((doc) => doc.id === selectedRow.id);
-    if (index < data.length - 1) {
-      const nextRow = data[index + 1];
-      console.log("nextRow", nextRow);
-      if (nextRow) {
-        setSelectedRow(nextRow);
-      } else {
-        messageApi.error("No next row found");
-      }
+  const moveNext = ({ skipBlocked = false } = {}) => {
+    if (!selectedRow) return;
+    const currentIndex = data.findIndex((doc) => doc.id === selectedRow.id);
+    if (currentIndex < 0 || currentIndex >= data.length - 1) return;
 
-      tblRef.current?.scrollTo({ index: index });
+    let nextIndex = currentIndex + 1;
+
+    if (skipBlocked && !isSegmentBlocked(selectedRow)) {
+      while (nextIndex < data.length && isSegmentBlocked(data[nextIndex])) {
+        nextIndex += 1;
+      }
+    }
+
+    if (nextIndex < data.length) {
+      goToRowIndex(nextIndex);
     }
   };
 
   const save = async (str) => {
+    if (!selectedRow) return;
+
+    const currentRow = selectedRow;
+    const reviewLiteral =
+      str ?? currentRow.reviewLiteral ?? currentRow.translatedLiteral ?? "";
+
     messageApi.open({
       key: "loading",
       type: "loading",
       content: "saving...",
     });
 
-    if (!selectedRow.block) {
-      await confirm({
-        tuId: selectedRow.id,
-        reviewLiteral: str || selectedRow.reviewLiteral,
-        action: "approve",
-      });
-
-      if (projectConfig?.tmIds) {
-        await appendTu({
-          tmIds: projectConfig.tmIds,
-          source: selectedRow.srcLiteral,
-          target: str || selectedRow.reviewLiteral,
+    try {
+      if (!isSegmentBlocked(currentRow)) {
+        await confirm({
+          tuId: currentRow.id,
+          reviewLiteral,
+          action: "approve",
         });
+
+        moveNext({ skipBlocked: true });
+
+        if (projectConfig?.tmIds?.length) {
+          appendTu({
+            tmIds: projectConfig.tmIds,
+            source: currentRow.srcLiteral,
+            target: reviewLiteral,
+          }).catch((appendError) => {
+            console.error(appendError);
+            messageApi.warning("Segment saved, but TM update failed");
+          });
+        }
+      } else {
+        moveNext();
       }
 
       messageApi.open({
@@ -569,9 +605,10 @@ const TusList = () => {
         content: "Successful save!",
         duration: 2,
       });
+    } catch (error) {
+      messageApi.error("Error saving TU");
+      console.error(error);
     }
-
-    moveNext();
   };
 
   const reject = async () => {
@@ -746,12 +783,17 @@ const TusList = () => {
             position: ["bottomCenter"],
             showSizeChanger: true,
             pageSizeOptions: ["10", "20", "50"],
-            defaultPageSize: pageSize,
+            current: page,
+            pageSize,
             onShowSizeChange: (_, size) => {
               setPageSize(size);
+              setPage(1);
             },
-            onChange: (page) => {
-              setPage(page);
+            onChange: (nextPage, nextPageSize) => {
+              setPage(nextPage);
+              if (nextPageSize && nextPageSize !== pageSize) {
+                setPageSize(nextPageSize);
+              }
             },
           }}
           scroll={{ x: "100%", y: "calc(100vh - 460px)" }}
