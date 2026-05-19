@@ -254,15 +254,15 @@ async function processNonJsonFile({
     workspace_id: workspaceId,
   };
 
-  // const tmp = await oxygenTranslateFile(objectOxigen);
-  // if (!tmp) {
-  //   const error = new Error("Internal error with Oxigen");
-  //   error.code = "OXIGEN_ERROR";
-  //   throw error;
-  // }
+  const tmp = await oxygenTranslateFile(objectOxigen);
+  if (!tmp) {
+    const error = new Error("Internal error with Oxigen");
+    error.code = "OXIGEN_ERROR";
+    throw error;
+  }
 
   /** Simulación local: mismo envelope que Oxigen (`data.trans_units`). */
-  const tmp = oxigenResponse.trans_units;
+  // const tmp = oxigenResponse.trans_units;
 
   return tmp.map((item, index) => ({
     externalId: null,
