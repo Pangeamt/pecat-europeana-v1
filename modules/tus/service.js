@@ -55,7 +55,13 @@ export async function listTusByProjectService(projectId, actorUser) {
 }
 
 export async function updateTuStatusService(payload, actorUser) {
-  const { tuId, reviewLiteral, action, levenshteinDistance = null } = payload;
+  const {
+    tuId,
+    reviewLiteral,
+    action,
+    levenshteinDistance = null,
+    block,
+  } = payload;
 
   const tu = await findTuById(tuId);
   if (!tu) {
@@ -84,6 +90,10 @@ export async function updateTuStatusService(payload, actorUser) {
 
   if (levenshteinDistance) {
     data.levenshteinDistance = levenshteinDistance;
+  }
+
+  if (typeof block === "boolean") {
+    data.block = block;
   }
 
   const tuUpdated = await updateTuById(tuId, data);

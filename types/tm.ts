@@ -124,6 +124,7 @@ export type ProjectTu = {
   translatedLiteral: string | null;
   reviewLiteral?: string | null;
   Status: string;
+  block?: boolean;
   translationScorePercent?: number | null;
   levenshteinDistance?: number | null;
   tmInfo?: Array<{
@@ -139,4 +140,5 @@ export type UpdateProjectTuPayload = {
   reviewLiteral?: string | null;
   action: "approve" | "reject";
   levenshteinDistance?: number;
+  block?: boolean;
 };

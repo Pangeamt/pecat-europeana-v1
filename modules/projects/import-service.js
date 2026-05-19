@@ -15,6 +15,7 @@ import {
 } from "../../lib/utils";
 import { HttpError } from "../shared/http-error";
 import { findValidTmIdsInWorkspace } from "./repository";
+import oxigenResponse from "@/oxigen_response.json";
 
 const pump = promisify(pipeline);
 const PROJECT_STATUS = {
@@ -57,7 +58,10 @@ function parseProjectTmSettings(formData) {
     tmMode,
     tmThreshold: Number.isFinite(parsedThreshold)
       ? Math.min(
-          Math.max(parsedThreshold > 1 ? parsedThreshold / 100 : parsedThreshold, 0),
+          Math.max(
+            parsedThreshold > 1 ? parsedThreshold / 100 : parsedThreshold,
+            0,
+          ),
           1,
         )
       : 0,
@@ -100,6 +104,12 @@ function normalizeProjectSegmentsPayload(payload, { src, tgt } = {}) {
         targetLanguage: item.targetLanguage ?? tgt ?? "",
         Status: item.Status ?? "NOT_REVIEWED",
         tmInfo: item.tm_info ?? item.tmInfo ?? null,
+        block:
+          typeof item.block === "boolean"
+            ? item.block
+            : typeof item.blocks === "boolean"
+              ? item.blocks
+              : false,
       };
     }
 
@@ -110,6 +120,12 @@ function normalizeProjectSegmentsPayload(payload, { src, tgt } = {}) {
         item.mtqe_score ?? item.translationScorePercent ?? null,
       sourceLanguage: item.sourceLanguage ?? src ?? "",
       targetLanguage: item.targetLanguage ?? tgt ?? "",
+      block:
+        typeof item.block === "boolean"
+          ? item.block
+          : typeof item.blocks === "boolean"
+            ? item.blocks
+            : false,
     };
   });
 }
@@ -232,16 +248,15 @@ async function processNonJsonFile({
     workspace_id: workspaceId,
   };
 
-  console.log("objectOxigen", objectOxigen);
-  const tmp = await oxygenTranslateFile(objectOxigen);
-  if (!tmp) {
-    const error = new Error("Internal error with Oxigen");
-    error.code = "OXIGEN_ERROR";
-    throw error;
-  }
+  // const tmp = await oxygenTranslateFile(objectOxigen);
+  // if (!tmp) {
+  //   const error = new Error("Internal error with Oxigen");
+  //   error.code = "OXIGEN_ERROR";
+  //   throw error;
+  // }
 
   /** Simulación local: mismo envelope que Oxigen (`data.trans_units`). */
-  // const tmp = oxigenResponse.trans_units;
+  const tmp = oxigenResponse.trans_units;
 
   return tmp.map((item, index) => ({
     externalId: null,
@@ -250,9 +265,29 @@ async function processNonJsonFile({
     translatedLiteral: item.tgt ?? item.source_segment ?? null,
     translationScorePercent: item.mtqe_score ?? null,
     tmInfo: item.tm_info ?? item.tmInfo ?? null,
+    block: (() => {
+      const tmInfoArray = item.tm_info ?? item.tmInfo ?? [];
+      if (Array.isArray(tmInfoArray)) {
+        const bestTm = tmInfoArray.find((tm) => tm.best === true);
+        if (bestTm && bestTm.tm_score == 1) {
+          return true;
+        }
+      }
+      return false;
+    })(),
     sourceLanguage: src ?? "",
     targetLanguage: tgt ?? "",
     Status: "NOT_REVIEWED",
+    levenshteinDistance: (() => {
+      const tmInfoArray = item.tm_info ?? item.tmInfo ?? [];
+      if (Array.isArray(tmInfoArray)) {
+        const bestTm = tmInfoArray.find((tm) => tm.best === true);
+        if (bestTm && typeof bestTm.tm_score === "number") {
+          return bestTm.tm_score;
+        }
+      }
+      return null;
+    })(),
   }));
 }
 
@@ -275,6 +310,12 @@ function toTusData(result, projectId) {
       exampleXml: item.exampleXml ?? null,
       Status: item.Status ?? "NOT_REVIEWED",
       levenshteinDistance: item.levenshteinDistance ?? null,
+      block:
+        typeof item.block === "boolean"
+          ? item.block
+          : typeof item.blocks === "boolean"
+            ? item.blocks
+            : false,
       belongTo: item.belongTo ?? null,
       projectId,
     };

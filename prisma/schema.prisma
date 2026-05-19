@@ -124,6 +124,7 @@ model Tu {
   Status                  Status   @default(NOT_REVIEWED)
   projectId               String?
   levenshteinDistance     Float?
+  block                   Boolean  @default(false)
   belongTo                String?
   Project                 Project? @relation(fields: [projectId], references: [id])
 

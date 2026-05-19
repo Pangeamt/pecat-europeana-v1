@@ -1,0 +1,2 @@
+ALTER TABLE `tus`
+    ADD COLUMN `block` BOOLEAN NOT NULL DEFAULT false;
