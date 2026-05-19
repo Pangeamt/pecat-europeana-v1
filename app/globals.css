@@ -125,6 +125,30 @@
     background-color: #f6ffed;
 }
 
+.ant-table-row.blocked {
+    background-color: #f8fafc;
+    box-shadow: inset 3px 0 0 #64748b;
+}
+
+.ant-table-row.blocked .ant-table-cell-row-hover {
+    background-color: #f1f5f9 !important;
+}
+
+.ant-table-row.blocked.edited {
+    background-color: #eef6ff;
+    box-shadow: inset 3px 0 0 #64748b;
+}
+
+.ant-table-row.blocked.rejected {
+    background-color: #fff5f5;
+    box-shadow: inset 3px 0 0 #64748b;
+}
+
+.ant-table-row.blocked.original-accepted {
+    background-color: #f3faf0;
+    box-shadow: inset 3px 0 0 #64748b;
+}
+
 :where(.css-dev-only-do-not-override-j9bb5n).ant-input-outlined.ant-input-status-warning:not(.ant-input-disabled) {
     border-width: 2px !important;
 }

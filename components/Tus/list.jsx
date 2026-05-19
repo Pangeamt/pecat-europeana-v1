@@ -48,6 +48,12 @@ const EMPTY_STATS = {
   edited: 0,
   translated_mt: 0,
   porcent: 0,
+  notMatch: 0,
+  fuzzy100: 0,
+  fuzzy95: 0,
+  fuzzy85: 0,
+  fuzzy75: 0,
+  fuzzy50: 0,
 };
 
 const TusList = () => {
@@ -134,6 +140,14 @@ const TusList = () => {
         newStats.edited += 1;
         totalStats += 1;
       }
+
+      const ld = doc.levenshteinDistance;
+      if (ld == null || ld < 0.5) newStats.notMatch += 1;
+      else if (ld >= 0.5 && ld < 0.75) newStats.fuzzy50 += 1;
+      else if (ld >= 0.75 && ld < 0.85) newStats.fuzzy75 += 1;
+      else if (ld >= 0.85 && ld < 0.95) newStats.fuzzy85 += 1;
+      else if (ld >= 0.95 && ld < 1) newStats.fuzzy95 += 1;
+      else if (ld === 1) newStats.fuzzy100 += 1;
     });
 
     newStats.porcent = parseFloat(
@@ -161,7 +175,11 @@ const TusList = () => {
       clearFilters,
       close,
     }) => (
-      <div style={{ padding: 8 }} onKeyDown={(e) => e.stopPropagation()}>
+      <div
+        style={{ padding: 8 }}
+        onKeyDown={(e) => e.stopPropagation()}
+        className="text-gray-500"
+      >
         <Input
           ref={searchInput}
           placeholder={`Search ${dataIndex}`}
@@ -170,7 +188,7 @@ const TusList = () => {
             setSelectedKeys(e.target.value ? [e.target.value] : [])
           }
           onPressEnter={() => handleSearch(selectedKeys, confirm, dataIndex)}
-          style={{ marginBottom: 8, display: "block" }}
+          style={{ marginBottom: 8, display: "block", color: "#666" }}
         />
         <Space>
           <Button
@@ -283,6 +301,9 @@ const TusList = () => {
       ...getColumnSearchProps("reviewLiteral"),
       render: (text, record) => {
         const aux = text || record.translatedLiteral || "";
+
+        if (record.block) return <p className="text-gray-500">{aux}</p>;
+
         if (selectedRow && record.id === selectedRow.id) {
           return (
             <CustomTextArea
@@ -321,10 +342,10 @@ const TusList = () => {
     {
       title: <LockIcon size={16} className="text-gray-500" />,
       width: 80,
-      dataIndex: "blocks",
-      key: "blocks",
-      render: (text) => {
-        if (text) {
+      dataIndex: "block",
+      key: "block",
+      render: (value) => {
+        if (value) {
           return <LockIcon size={16} className="text-gray-400" />;
         } else {
           return <UnlockIcon size={16} className="text-gray-400" />;
@@ -334,12 +355,19 @@ const TusList = () => {
     {
       title: "Fuzzy",
       width: 80,
-      dataIndex: "fuzzyScorePercent",
+      dataIndex: "levenshteinDistance",
       key: "levenshteinDistance",
-      sorter: (a, b) => a.levenshteinDistance - b.levenshteinDistance,
-      render: (text) => (
-        <Tag bordered={false} color="geekblue">
-          {text ? parseFloat(text).toFixed(2) : ""}
+      sorter: (a, b) =>
+        (Number(a.levenshteinDistance) || 0) -
+        (Number(b.levenshteinDistance) || 0),
+      render: (value) => (
+        <Tag
+          bordered={false}
+          color={value == 1 ? "green" : value == 0 ? "red" : "yellow"}
+        >
+          {value != null && value !== ""
+            ? Number.parseFloat(String(value)).toFixed(2)
+            : "—"}
         </Tag>
       ),
     },
@@ -350,11 +378,9 @@ const TusList = () => {
       key: "translationScorePercent",
       sorter: (a, b) => a.translationScorePercent - b.translationScorePercent,
       render: (text) => (
-        <div className="absolute top-2 left-2">
-          <Tag bordered={false} color="geekblue">
-            {text ? parseFloat(text).toFixed(2) : ""}
-          </Tag>
-        </div>
+        <Tag bordered={false} color="geekblue">
+          {text ? parseFloat(text).toFixed(2) : ""}
+        </Tag>
       ),
     },
     {
@@ -414,6 +440,7 @@ const TusList = () => {
       key: "action",
       width: 100,
       render: (record) => {
+        if (record.block) return null;
         if (selectedRow && selectedRow.id !== record.id) return null;
         return (
           <div className="absolute top-2 left-2">
@@ -521,27 +548,30 @@ const TusList = () => {
       content: "saving...",
     });
 
-    await confirm({
-      tuId: selectedRow.id,
-      reviewLiteral: str || selectedRow.reviewLiteral,
-      action: "approve",
-    });
+    if (!selectedRow.block) {
+      await confirm({
+        tuId: selectedRow.id,
+        reviewLiteral: str || selectedRow.reviewLiteral,
+        action: "approve",
+      });
 
-    if (projectConfig?.tmIds) {
-      await appendTu({
-        tmIds: projectConfig.tmIds,
-        source: selectedRow.srcLiteral,
-        target: str || selectedRow.reviewLiteral,
+      if (projectConfig?.tmIds) {
+        await appendTu({
+          tmIds: projectConfig.tmIds,
+          source: selectedRow.srcLiteral,
+          target: str || selectedRow.reviewLiteral,
+        });
+      }
+
+      messageApi.open({
+        key: "loading",
+        type: "success",
+        content: "Successful save!",
+        duration: 2,
       });
     }
 
     moveNext();
-    messageApi.open({
-      key: "loading",
-      type: "success",
-      content: "Successful save!",
-      duration: 2,
-    });
   };
 
   const reject = async () => {
@@ -625,6 +655,7 @@ const TusList = () => {
           stats={stats}
           percentage={stats.porcent}
           requesting={requesting}
+          totalSegments={data.length}
           mode={projectConfig?.tmMode}
           tmThreshold={projectConfig?.tmThreshold}
           tms={projectConfig?.tmNames?.length ?? projectConfig?.tmIds?.length}
@@ -698,28 +729,18 @@ const TusList = () => {
             };
           }}
           rowClassName={(record) => {
-            if (selectedRow) {
-              if (record.Status === "REJECTED") {
-                return "cursor-pointer rejected selected-row";
-              }
-              if (record.Status === "ACCEPTED") {
-                return "cursor-pointer original-accepted selected-row";
-              }
-              if (record.Status === "EDITED") {
-                return "cursor-pointer edited selected-row";
-              }
-            }
-            if (record.Status === "REJECTED") {
-              return "cursor-pointer rejected";
-            }
-            if (record.Status === "ACCEPTED") {
-              return "cursor-pointer original-accepted";
-            }
-            if (record.Status === "EDITED") {
-              return "cursor-pointer edited";
-            }
+            const classes = ["cursor-pointer"];
 
-            return "cursor-pointer";
+            if (record.block) classes.push("blocked");
+
+            if (record.Status === "REJECTED") classes.push("rejected");
+            else if (record.Status === "ACCEPTED")
+              classes.push("original-accepted");
+            else if (record.Status === "EDITED") classes.push("edited");
+
+            if (selectedRow?.id === record.id) classes.push("selected-row");
+
+            return classes.join(" ");
           }}
           pagination={{
             position: ["bottomCenter"],

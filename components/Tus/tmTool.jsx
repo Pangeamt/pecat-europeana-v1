@@ -24,8 +24,17 @@ const TmTool = ({ tmInfo, threshold }) => {
       title: "Similarity",
       dataIndex: "tm_score",
       key: "tm_score",
-      render: (text) => {
-        return <Tag color="green">{text.toFixed(2)}</Tag>;
+      render: (value) => {
+        return (
+          <Tag
+            bordered={false}
+            color={value == 1 ? "green" : value == 0 ? "red" : "yellow"}
+          >
+            {value != null && value !== ""
+              ? Number.parseFloat(String(value)).toFixed(2)
+              : "—"}
+          </Tag>
+        );
       },
     },
     {
@@ -72,7 +81,7 @@ const TmTool = ({ tmInfo, threshold }) => {
           ),
         }}
       >
-        <Table dataSource={tmInfo} columns={columns} />
+        <Table dataSource={tmInfo} columns={columns} size="small" />
       </Resizable>
     </>
   );
