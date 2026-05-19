@@ -54,7 +54,7 @@ export default function CreateTmForm({ user, onBack, onCreated }) {
         <div className="space-y-3">
           <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+              <div className="flex size-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
                 <FileTextOutlined />
               </div>
               <div>
@@ -83,7 +83,7 @@ export default function CreateTmForm({ user, onBack, onCreated }) {
 
           <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+              <div className="flex size-8 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
                 <GlobalOutlined />
               </div>
               <div>

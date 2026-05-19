@@ -92,7 +92,11 @@ const AvatarDropdown = () => {
         marginTop: -20,
       }}
     >
-      <a onClick={(e) => e.preventDefault()}>
+      <button
+        type="button"
+        className="mt-4 cursor-pointer border-0 bg-transparent p-0 text-left"
+        aria-label="Open user menu"
+      >
         <Space className="mt-4">
           <div className="flex justify-between align-middle h-full">
             {requesting ? (
@@ -126,7 +130,7 @@ const AvatarDropdown = () => {
             </div>
           </div>
         </Space>
-      </a>
+      </button>
     </Dropdown>
   );
 };

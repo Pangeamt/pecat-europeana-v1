@@ -51,7 +51,7 @@ const TmTool = ({ tmInfo, threshold }) => {
         style={style}
         size={{ height }}
         onResizeStop={(_, __, ___, d) => {
-          setHeight(height + d.height);
+          setHeight((prev) => prev + d.height);
         }}
         className="overflow-x-hidden overflow-y-auto"
         enable={{

@@ -5,6 +5,7 @@ import {
   listWorkspaces,
   updateWorkspace,
 } from "@/services/workspace.services";
+import { formatDate } from "@/lib/utils";
 import { userStore } from "@/store";
 import {
   DeleteOutlined,
@@ -166,9 +167,7 @@ const WorkspaceList = () => {
       dataIndex: "createdAt",
       key: "createdAt",
       render: (value) => (
-        <span className="text-sm text-slate-600">
-          {new Date(value).toLocaleDateString()}
-        </span>
+        <span className="text-sm text-slate-600">{formatDate(value)}</span>
       ),
     },
     {

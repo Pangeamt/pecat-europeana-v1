@@ -21,7 +21,7 @@ const resolveAuthErrorMessage = (error) => {
 };
 
 const LoginContent = () => {
-  const router = useRouter();
+  const { push, refresh } = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
 
@@ -42,8 +42,8 @@ const LoginContent = () => {
       });
 
       if (result?.ok) {
-        router.push(callbackUrl);
-        router.refresh();
+        push(callbackUrl);
+        refresh();
         return;
       }
 
@@ -112,7 +112,7 @@ const LoginContent = () => {
               { type: "email", message: "Please enter a valid email" },
             ]}
           >
-            <Input autoComplete="email" autoFocus />
+            <Input autoComplete="email" />
           </Form.Item>
 
           <Form.Item

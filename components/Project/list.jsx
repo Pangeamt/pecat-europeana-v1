@@ -29,7 +29,7 @@ import {
   Tooltip,
 } from "antd";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL;
 const READY_PROJECT_STATUS = "READY";
@@ -62,6 +62,9 @@ const ProjectList = () => {
     }
   }, []);
 
+  const fetchDataRef = useRef(fetchData);
+  fetchDataRef.current = fetchData;
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
@@ -77,11 +80,11 @@ const ProjectList = () => {
     if (!hasPendingProjects) return;
 
     const timer = setInterval(() => {
-      fetchData();
+      fetchDataRef.current();
     }, 5000);
 
     return () => clearInterval(timer);
-  }, [data, fetchData]);
+  }, [data]);
 
   const getProjectStatusTag = (status) => {
     const config = PROJECT_STATUS_CONFIG[status] ?? {
@@ -157,7 +160,9 @@ const ProjectList = () => {
   ).length;
   const deletedProjects = data.filter((project) => project.deletedAt).length;
   const workspaceCount = new Set(
-    data.map((project) => project.workspace?.id).filter(Boolean),
+    data.flatMap((project) =>
+      project.workspace?.id ? [project.workspace.id] : [],
+    ),
   ).size;
 
   const columns = [

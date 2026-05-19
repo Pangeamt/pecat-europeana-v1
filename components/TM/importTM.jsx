@@ -138,7 +138,7 @@ const ImportTmButton = ({ refetch, user }) => {
         styles={{ body: { padding: 0, overflow: "hidden" } }}
       >
         <div className="relative overflow-hidden rounded-lg bg-slate-950 px-5 py-4 text-white">
-          <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-blue-500/25 blur-3xl" />
+          <div className="absolute -right-10 -top-10 size-28 rounded-full bg-blue-500/25 blur-3xl" />
           <div className="relative">
             <div className="text-lg font-semibold leading-tight">
               Import translation memory
@@ -156,7 +156,7 @@ const ImportTmButton = ({ refetch, user }) => {
           <div className="space-y-3">
             <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="mb-3 flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                <div className="flex size-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
                   <FileTextOutlined />
                 </div>
                 <div>

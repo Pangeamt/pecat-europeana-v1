@@ -146,11 +146,11 @@ const EffortModal = ({ open, onClose, stats, requesting, totalSegments }) => {
     >
       <div className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 px-6 pb-5 pt-6 text-white">
         <div
-          className="pointer-events-none absolute -right-8 -top-8 h-40 w-40 rounded-full bg-blue-500/20 blur-3xl"
+          className="pointer-events-none absolute -right-8 -top-8 size-40 rounded-full bg-blue-500/20 blur-3xl"
           aria-hidden
         />
         <div
-          className="pointer-events-none absolute -bottom-10 left-8 h-32 w-32 rounded-full bg-violet-500/15 blur-3xl"
+          className="pointer-events-none absolute -bottom-10 left-8 size-32 rounded-full bg-violet-500/15 blur-3xl"
           aria-hidden
         />
 
@@ -183,7 +183,7 @@ const EffortModal = ({ open, onClose, stats, requesting, totalSegments }) => {
         </div>
       </div>
 
-      <div className="space-y-2.5 bg-slate-50 px-5 py-5">
+      <div className="space-y-2.5 bg-slate-50 p-5">
         {effortSummary.buckets.map((bucket, index) => {
           const pct =
             effortSummary.total > 0
@@ -252,12 +252,12 @@ EffortModal.propTypes = {
 
 const StatsTus = ({
   stats,
-  percentage,
+  percentage = 0,
   requesting,
-  mode,
-  tmThreshold,
-  tms,
-  tmNames,
+  mode = "",
+  tmThreshold = 0,
+  tms = 0,
+  tmNames = [],
   totalSegments = 0,
 }) => {
   const [showEffortModal, setShowEffortModal] = useState(false);
@@ -398,15 +398,6 @@ StatsTus.propTypes = {
   tms: PropTypes.number,
   tmNames: PropTypes.arrayOf(PropTypes.string),
   totalSegments: PropTypes.number,
-};
-
-StatsTus.defaultProps = {
-  percentage: 0,
-  mode: "",
-  tmThreshold: 0,
-  tms: 0,
-  tmNames: [],
-  totalSegments: 0,
 };
 
 export default StatsTus;

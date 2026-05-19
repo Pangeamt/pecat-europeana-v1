@@ -41,9 +41,10 @@ const RoleCell = ({ role, onChange }) => {
   const [selectedRole, setSelectedRole] = useState(role);
   const [changing, setChanging] = useState(false);
 
-  useEffect(() => {
-    if (!popVisible) setSelectedRole(role);
-  }, [role, popVisible]);
+  const handleOpenChange = (open) => {
+    if (open) setSelectedRole(role);
+    setPopVisible(open);
+  };
 
   const handleConfirm = async () => {
     if (selectedRole === role) {
@@ -75,7 +76,7 @@ const RoleCell = ({ role, onChange }) => {
         />
       }
       open={popVisible}
-      onOpenChange={setPopVisible}
+      onOpenChange={handleOpenChange}
       onConfirm={handleConfirm}
       okButtonProps={{ loading: changing }}
       okText="Change"

@@ -82,15 +82,14 @@ const ProjectAdd = ({ add, refetch }) => {
   };
   const syncTmSelection = (nextSrc, nextTgt) => {
     const validTmIds = new Set(
-      tms
-        .filter((tm) => {
-          const tmSource = tm.sourceLanguage ?? tm.context?.source;
-          const tmTarget = tm.targetLanguage ?? tm.context?.target;
-          return (
-            nextSrc && nextTgt && tmSource === nextSrc && tmTarget === nextTgt
-          );
-        })
-        .map((tm) => tm.id),
+      tms.reduce((ids, tm) => {
+        const tmSource = tm.sourceLanguage ?? tm.context?.source;
+        const tmTarget = tm.targetLanguage ?? tm.context?.target;
+        if (nextSrc && nextTgt && tmSource === nextSrc && tmTarget === nextTgt) {
+          ids.push(tm.id);
+        }
+        return ids;
+      }, []),
     );
     const nextTmIds = tmIds.filter((id) => validTmIds.has(id));
     setTmIds(nextTmIds);
@@ -194,7 +193,7 @@ const ProjectAdd = ({ add, refetch }) => {
         styles={{ body: { padding: 0, overflow: "hidden" } }}
       >
         <div className="relative overflow-hidden rounded-lg bg-slate-950 px-5 py-4 text-white">
-          <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-blue-500/25 blur-3xl" />
+          <div className="absolute -right-10 -top-10 size-28 rounded-full bg-blue-500/25 blur-3xl" />
           <div className="relative">
             <div className="text-lg font-semibold leading-tight">
               Configure project
@@ -267,7 +266,7 @@ const ProjectAdd = ({ add, refetch }) => {
 
               <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="mb-3 flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                  <div className="flex size-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
                     <DatabaseOutlined />
                   </div>
                   <div>

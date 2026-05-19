@@ -241,11 +241,13 @@ export async function deleteTranslationUnitService(payload, actorUser) {
 export async function appendTranslationUnitService(payload, actorUser) {
   const { tmIds, source, target } = payload;
 
-  for (const tmId of tmIds) {
-    await assertTmAccessibleByActor(tmId, actorUser);
-    await assertTranslationMemoryExists(tmId);
-    await appendTu(tmId, source, target);
-  }
+  await Promise.all(
+    tmIds.map(async (tmId) => {
+      await assertTmAccessibleByActor(tmId, actorUser);
+      await assertTranslationMemoryExists(tmId);
+      await appendTu(tmId, source, target);
+    }),
+  );
 
   return { success: true, tmIds, source, target };
 }

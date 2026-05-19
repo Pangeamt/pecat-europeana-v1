@@ -13,8 +13,10 @@ export async function getProjectLogsStatsService({
     throw new HttpError(404, "Project not found");
   }
 
-  const tus = await findTusByProjectId(project.id);
-  const tmTus = await listAllTranslationUnitsService(tmId, actorUser);
+  const [tus, tmTus] = await Promise.all([
+    findTusByProjectId(project.id),
+    listAllTranslationUnitsService(tmId, actorUser),
+  ]);
   const docs = tmTus.docs;
 
   const stats = {

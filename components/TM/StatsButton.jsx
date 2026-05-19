@@ -16,7 +16,7 @@ const ranges = [
 export default function StatsButton({ projectId, tmId }) {
   const [loading, setLoading] = useState(false);
 
-  const handleClick = async () => {
+  const handleOpenTmAnalysis = async () => {
     setLoading(true);
     try {
       const response = await getLogsRequest(projectId, tmId);
@@ -52,7 +52,7 @@ export default function StatsButton({ projectId, tmId }) {
       className="ml-2 mr-2 mt-1"
       icon={<PieChartOutlined />}
       type="primary"
-      onClick={handleClick}
+      onClick={handleOpenTmAnalysis}
       loading={loading}
     />
   );

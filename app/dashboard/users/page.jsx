@@ -6,14 +6,14 @@ import UserList from "../../../components/User/list";
 import { userStore } from "@/store";
 
 const Users = () => {
-  const router = useRouter();
+  const { replace } = useRouter();
   const { user } = userStore();
 
   useEffect(() => {
     if (user && user.role !== "ADMIN" && user.role !== "SUPER") {
-      router.replace("/dashboard");
+      replace("/dashboard");
     }
-  }, [user, router]);
+  }, [user, replace]);
 
   if (!user || (user.role !== "ADMIN" && user.role !== "SUPER")) return null;
 

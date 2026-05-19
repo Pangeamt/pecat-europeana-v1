@@ -21,6 +21,8 @@ export default function TMView({ tmId }) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (!tmId) return undefined;
+
     let isMounted = true;
 
     const fetchTm = async () => {
@@ -41,7 +43,7 @@ export default function TMView({ tmId }) {
       }
     };
 
-    if (tmId) void fetchTm();
+    void fetchTm();
 
     return () => {
       isMounted = false;
@@ -49,6 +51,8 @@ export default function TMView({ tmId }) {
   }, [tmId]);
 
   useEffect(() => {
+    if (!tmId) return undefined;
+
     let isMounted = true;
 
     const fetchTus = async () => {
@@ -75,7 +79,7 @@ export default function TMView({ tmId }) {
       }
     };
 
-    if (tmId) void fetchTus();
+    void fetchTus();
 
     return () => {
       isMounted = false;
@@ -110,7 +114,7 @@ export default function TMView({ tmId }) {
       dataIndex: "translated_text",
       key: "translated_text",
       render: (text) => (
-        <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3 text-sm leading-relaxed text-slate-900">
+        <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3 text-sm leading-relaxed text-blue-950">
           <Text style={{ whiteSpace: "pre-wrap" }}>
             {text || "-"}
           </Text>

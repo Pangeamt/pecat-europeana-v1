@@ -36,7 +36,8 @@ const HeaderTus = ({
   const tmSt = tmStore();
   const { user } = userSt;
   const { tm, tu: tmTu, saveTu } = tmSt;
-  const [view, setView] = useState("tms");
+  const [manualView, setManualView] = useState("tms");
+  const view = selectedText ? "tus" : manualView;
   const [dataSource, setDataSource] = useState([
     {
       key: "1",
@@ -55,7 +56,7 @@ const HeaderTus = ({
   const [tmTusText, setTmTusText] = useState([]);
   const [tmRequesting, setTmRequesting] = useState(false);
   const onChange = ({ target: { value } }) => {
-    setView(value);
+    setManualView(value);
   };
   const getCount = (value) => {
     return value.length;
@@ -97,11 +98,6 @@ const HeaderTus = ({
     if (view === "tus") queryTmTusText();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, tm?.id, selectedRow?.srcLiteral]);
-
-  useEffect(() => {
-    if (selectedText) setView("tus");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedText]);
 
   const columns = [
     {

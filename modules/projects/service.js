@@ -14,10 +14,14 @@ export async function getProjectByIdService(projectId, actorUser) {
     throw new HttpError(404, "Project not found");
   }
 
-  const tmIds = project.projectTms.map((link) => link.tmId);
-  const tmNames = project.projectTms
-    .map((link) => link.tm?.name)
-    .filter((name) => typeof name === "string");
+  const tmIds = [];
+  const tmNames = [];
+  for (const link of project.projectTms) {
+    tmIds.push(link.tmId);
+    if (typeof link.tm?.name === "string") {
+      tmNames.push(link.tm.name);
+    }
+  }
 
   return {
     ...project,

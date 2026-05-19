@@ -127,7 +127,7 @@ const TmList = () => {
       key: "index",
       width: 64,
       render: (_, __, index) => (
-        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
+        <span className="inline-flex size-7 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
           {index + 1}
         </span>
       ),

@@ -149,14 +149,18 @@ async function processJsonWithOptionalMt(jsonData, mt, { src, tgt } = {}) {
   const mtTexts = {};
 
   if (mt) {
-    for (const language in textsToSegment) {
-      const [srcLang] = language.split("-");
-      segmentedTexts[language] = await segmentTexts(
-        srcLang,
-        textsToSegment[language].map((item) => item.srcLiteral),
-      );
+    await Promise.all(
+      Object.entries(textsToSegment).map(async ([language, items]) => {
+        const [srcLang] = language.split("-");
+        segmentedTexts[language] = await segmentTexts(
+          srcLang,
+          items.map((item) => item.srcLiteral),
+        );
+      }),
+    );
 
-      for (const language1 in segmentedTexts) {
+    await Promise.all(
+      Object.keys(segmentedTexts).map(async (language1) => {
         const [srcLangForTranslation, tgtLang] = language1.split("-");
         const aux = [];
 
@@ -175,17 +179,19 @@ async function processJsonWithOptionalMt(jsonData, mt, { src, tgt } = {}) {
           tgtLang,
           aux,
         );
-      }
-    }
+      }),
+    );
   } else {
     // Keep same shape for non-MT flow and avoid undefined access.
-    for (const language in textsToSegment) {
-      const [srcLang] = language.split("-");
-      segmentedTexts[language] = await segmentTexts(
-        srcLang,
-        textsToSegment[language].map((item) => item.srcLiteral),
-      );
-    }
+    await Promise.all(
+      Object.entries(textsToSegment).map(async ([language, items]) => {
+        const [srcLang] = language.split("-");
+        segmentedTexts[language] = await segmentTexts(
+          srcLang,
+          items.map((item) => item.srcLiteral),
+        );
+      }),
+    );
   }
 
   const segmentIndices = {};

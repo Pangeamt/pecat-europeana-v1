@@ -189,6 +189,7 @@ const TusList = () => {
       <div
         style={{ padding: 8 }}
         onKeyDown={(e) => e.stopPropagation()}
+        role="search"
         className="text-gray-500"
       >
         <Input
@@ -460,7 +461,8 @@ const TusList = () => {
                 onClick={() => {
                   loadXml(record);
                 }}
-                style={{ fontSize: "11px", lineHeight: "1.5" }}
+                className="text-xs"
+                style={{ lineHeight: "1.5" }}
                 shape="circle"
                 type="primary"
                 size="small"

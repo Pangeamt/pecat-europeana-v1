@@ -23,8 +23,10 @@ export default function TmListModal({
   const { config, setConfig } = tmSt;
   const [view, setView] = useState("list");
 
-  const onChangeRadio = (e) => setConfig({ ...config, value: e.target.value });
-  const onChange = (e) => setConfig({ ...config, update: e.target.checked });
+  const onChangeRadio = (e) =>
+    setConfig((prev) => ({ ...prev, value: e.target.value }));
+  const onChange = (e) =>
+    setConfig((prev) => ({ ...prev, update: e.target.checked }));
 
   const backToList = async () => {
     await onRefetch?.();

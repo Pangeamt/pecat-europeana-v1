@@ -65,14 +65,15 @@ const TusTM = ({
           const diff = diffChars(text, selectedRow.srcLiteral);
           return (
             <div>
-              {diff.map((part, index) => {
+              {diff.map((part) => {
                 const color = part.added
                   ? "green"
                   : part.removed
                   ? "red"
                   : "black";
+                const diffKey = `${part.added ? "a" : part.removed ? "r" : "n"}-${part.value}`;
                 return (
-                  <Text key={index} style={{ color }}>
+                  <Text key={diffKey} style={{ color }}>
                     {part.value}
                   </Text>
                 );

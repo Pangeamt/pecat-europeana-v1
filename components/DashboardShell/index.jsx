@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button, Layout, Menu } from "antd";
@@ -93,11 +93,26 @@ const DashboardShell = ({ initialUser, children }) => {
   const storeUser = userStore((state) => state.user);
   const user = storeUser ?? initialUser;
 
-  const [collapsed, setCollapsed] = useState(() => isTusRoute(pathname));
+  const routeKey = isTusRoute(pathname) ? "tus" : "default";
+  const [collapsedState, setCollapsedState] = useState(() => ({
+    key: routeKey,
+    value: isTusRoute(pathname),
+  }));
 
-  useEffect(() => {
-    setCollapsed(isTusRoute(pathname));
-  }, [pathname]);
+  if (collapsedState.key !== routeKey) {
+    setCollapsedState({ key: routeKey, value: routeKey === "tus" });
+  }
+
+  const collapsed = collapsedState.value;
+  const setCollapsed = (valueOrUpdater) => {
+    setCollapsedState((prev) => ({
+      ...prev,
+      value:
+        typeof valueOrUpdater === "function"
+          ? valueOrUpdater(prev.value)
+          : valueOrUpdater,
+    }));
+  };
 
   const menuItems = useMemo(() => buildMenuItems(user?.role), [user?.role]);
   const selectedKeys = useMemo(() => [getSelectedKey(pathname)], [pathname]);

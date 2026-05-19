@@ -5,14 +5,14 @@ import WorkspaceList from "@/components/Workspace/list";
 import { userStore } from "@/store";
 
 const WorkspacesPage = () => {
-  const router = useRouter();
+  const { replace } = useRouter();
   const { user } = userStore();
 
   useEffect(() => {
     if (user && user.role !== "SUPER") {
-      router.replace("/dashboard");
+      replace("/dashboard");
     }
-  }, [user, router]);
+  }, [user, replace]);
 
   if (!user || user.role !== "SUPER") return null;
 
