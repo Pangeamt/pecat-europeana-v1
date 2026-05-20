@@ -274,7 +274,7 @@ async function processNonJsonFile({
     block: (() => {
       const tmInfoArray = item.tm_info ?? item.tmInfo ?? [];
       if (Array.isArray(tmInfoArray)) {
-        const bestTm = tmInfoArray.find((tm) => tm.best === true);
+        const bestTm = tmInfoArray.find((tm) => tm.tm_match === true);
         if (bestTm && bestTm.tm_score == 1) {
           return true;
         }
@@ -283,11 +283,20 @@ async function processNonJsonFile({
     })(),
     sourceLanguage: src ?? "",
     targetLanguage: tgt ?? "",
-    Status: "NOT_REVIEWED",
+    Status: (() => {
+      const tmInfoArray = item.tm_info ?? item.tmInfo ?? [];
+      if (Array.isArray(tmInfoArray)) {
+        const bestTm = tmInfoArray.find((tm) => tm.tm_match === true);
+        if (bestTm && bestTm.tm_score == 1) {
+          return "ACCEPTED";
+        }
+      }
+      return "NOT_REVIEWED";
+    })(),
     levenshteinDistance: (() => {
       const tmInfoArray = item.tm_info ?? item.tmInfo ?? [];
       if (Array.isArray(tmInfoArray)) {
-        const bestTm = tmInfoArray.find((tm) => tm.best === true);
+        const bestTm = tmInfoArray.find((tm) => tm.tm_match === true);
         if (bestTm && typeof bestTm.tm_score === "number") {
           return bestTm.tm_score;
         }

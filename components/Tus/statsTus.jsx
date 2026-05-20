@@ -121,10 +121,7 @@ const EffortModal = ({ open, onClose, stats, requesting, totalSegments }) => {
     return { buckets, total, effortIndex };
   }, [stats]);
 
-  const maxCount = Math.max(
-    ...effortSummary.buckets.map((b) => b.count),
-    1,
-  );
+  const maxCount = Math.max(...effortSummary.buckets.map((b) => b.count), 1);
 
   return (
     <Modal
