@@ -209,7 +209,11 @@ const TusList = () => {
             setSelectedKeys(e.target.value ? [e.target.value] : [])
           }
           onPressEnter={() => handleSearch(selectedKeys, confirm, dataIndex)}
-          style={{ marginBottom: 8, display: "block", color: "#666" }}
+          style={{
+            marginBottom: 8,
+            display: "block",
+            color: "#666",
+          }}
         />
         <Space>
           <Button
@@ -281,7 +285,9 @@ const TusList = () => {
           textToHighlight={text ? text.toString() : ""}
         />
       ) : (
-        <>{text}</>
+        <div style={{ wordWrap: "break-word", wordBreak: "break-word" }}>
+          {text}
+        </div>
       ),
   });
 
@@ -312,7 +318,13 @@ const TusList = () => {
       key: "srcLiteral",
       width: "40%",
       minWidth: 400,
+      textWrap: "word-break",
       ...getColumnSearchProps("srcLiteral"),
+      render: (text) => (
+        <div style={{ wordWrap: "break-word", wordBreak: "break-word" }}>
+          {text}
+        </div>
+      ),
     },
     {
       title: "Review",
@@ -323,7 +335,15 @@ const TusList = () => {
       render: (text, record) => {
         const aux = text || record.translatedLiteral || "";
 
-        if (record.block) return <p className="text-gray-500">{aux}</p>;
+        if (record.block)
+          return (
+            <div
+              className="text-gray-500"
+              style={{ wordWrap: "break-word", wordBreak: "break-word" }}
+            >
+              {aux}
+            </div>
+          );
 
         if (selectedRow && record.id === selectedRow.id) {
           return (

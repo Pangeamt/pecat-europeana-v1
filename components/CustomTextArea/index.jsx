@@ -61,7 +61,8 @@ const CustomTextArea = ({ value, setValue, onKeyDown }) => {
       {editorReady ? (
         <ReactQuill
           ref={quillRef}
-          className="custom-text-area"
+          className="custom-text-area word-wrap-break-word break-words"
+          style={{ wordWrap: "break-word", wordBreak: "break-word" }}
           theme="snow"
           value={`${value}`}
           onChange={setValue}
