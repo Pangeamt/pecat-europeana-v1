@@ -116,17 +116,29 @@ export async function buildProjectDownloadService({ uuid, projectId }) {
   const tgts = tusCombined.map((tu) =>
     tu.reviewLiteral ? tu.reviewLiteral : tu.translatedLiteral || ""
   );
-  const data = await oxygenBuildFile({
-    tgts,
-    src_lang: project.sourceLanguage,
-    tgt_lang: project.targetLanguage,
-    filePath: project.filePath,
-  });
+
+  let data;
+  try {
+    data = await oxygenBuildFile({
+      tgts,
+      src_lang: project.sourceLanguage,
+      tgt_lang: project.targetLanguage,
+      filePath: project.filePath,
+    });
+  } catch (error) {
+    throw new HttpError(502, error.message || "Failed to build project file");
+  }
+
+  if (!data || data instanceof Error) {
+    throw new HttpError(502, "Failed to build project file");
+  }
+
+  const body = Buffer.isBuffer(data) ? data : Buffer.from(data);
 
   return {
-    body: Buffer.from(data),
+    body,
     headers: {
-      "Content-Type": "application/json",
+      "Content-Type": "application/octet-stream",
       "Content-Disposition": `attachment; filename=${project.filename}`,
     },
   };

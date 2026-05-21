@@ -24,7 +24,7 @@ import axios from "axios";
 import { CircleCheck, CircleX, LockIcon, UnlockIcon } from "lucide-react";
 import { useParams } from "next/navigation";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Highlighter from "react-highlight-words";
 import { useHotkeys } from "react-hotkeys-hook";
 import XMLViewer from "react-xml-viewer";
@@ -60,6 +60,7 @@ const TusList = () => {
   const { projectId } = useParams();
   const [data, setData] = useState([]);
   const [projectConfig, setProjectConfig] = useState(null);
+  const [showUnderThreshold, setShowUnderThreshold] = useState(false);
 
   const [selectedRow, setSelectedRow] = useState(null);
 
@@ -166,6 +167,14 @@ const TusList = () => {
     );
     return newStats;
   })();
+
+  const tmThreshold = projectConfig?.tmThreshold ?? 0;
+
+  const filteredTmInfo = useMemo(() => {
+    const info = selectedRow?.tmInfo ?? [];
+    if (showUnderThreshold) return info;
+    return info.filter((item) => item.tm_score >= tmThreshold);
+  }, [selectedRow?.tmInfo, showUnderThreshold, tmThreshold]);
 
   const handleSearch = (selectedKeys, confirm, dataIndex) => {
     confirm();
@@ -716,13 +725,14 @@ const TusList = () => {
               key: "1",
               label: (
                 <>
-                  <span>TMs</span> <Badge count={selectedRow?.tmInfo?.length} />
+                  <span>TMs</span> <Badge count={filteredTmInfo.length} />
                 </>
               ),
               children: (
                 <TmTool
-                  tmInfo={selectedRow?.tmInfo}
-                  threshold={projectConfig?.tmThreshold}
+                  filteredTmInfo={filteredTmInfo}
+                  showUnderThreshold={showUnderThreshold}
+                  onShowUnderThresholdChange={setShowUnderThreshold}
                 />
               ),
             },

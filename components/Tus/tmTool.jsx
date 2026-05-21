@@ -1,16 +1,20 @@
 "use client";
 
-import { Button, Table, Tag } from "antd";
+import { ColumnHeightOutlined } from "@ant-design/icons";
+import { Button, Switch, Table, Tag } from "antd";
+import PropTypes from "prop-types";
 import { Resizable } from "re-resizable";
 import { useState } from "react";
-import { ColumnHeightOutlined } from "@ant-design/icons";
-import PropTypes from "prop-types";
 
 const style = {
   padding: "10px 5px",
 };
 
-const TmTool = ({ tmInfo, threshold }) => {
+const TmTool = ({
+  filteredTmInfo,
+  showUnderThreshold,
+  onShowUnderThresholdChange,
+}) => {
   const [height, setHeight] = useState(150);
 
   const columns = [
@@ -24,6 +28,7 @@ const TmTool = ({ tmInfo, threshold }) => {
       title: "Similarity",
       dataIndex: "tm_score",
       key: "tm_score",
+      width: "100px",
       render: (value) => {
         return (
           <Tag
@@ -81,14 +86,22 @@ const TmTool = ({ tmInfo, threshold }) => {
           ),
         }}
       >
-        <Table dataSource={tmInfo} columns={columns} size="small" />
+        <div className="flex items-center gap-2 mb-2">
+          <Switch
+            checked={showUnderThreshold}
+            size="small"
+            onChange={onShowUnderThresholdChange}
+          />
+          <span className="text-xs text-gray-500">under threshold</span>
+        </div>
+        <Table dataSource={filteredTmInfo} columns={columns} size="small" />
       </Resizable>
     </>
   );
 };
 
 TmTool.propTypes = {
-  tmInfo: PropTypes.arrayOf(
+  filteredTmInfo: PropTypes.arrayOf(
     PropTypes.shape({
       tm_item_id: PropTypes.string.isRequired,
       tm_score: PropTypes.number.isRequired,
@@ -98,6 +111,8 @@ TmTool.propTypes = {
       best: PropTypes.bool.isRequired,
     }),
   ).isRequired,
+  showUnderThreshold: PropTypes.bool.isRequired,
+  onShowUnderThresholdChange: PropTypes.func.isRequired,
 };
 
 export default TmTool;
