@@ -262,24 +262,19 @@ export default function TMView({ tmId }) {
           onPressEnter={handleSearch}
           aria-label="Search translation memory segments"
         />
-        <Space wrap>
-          <Button
-            type="primary"
-            icon={<SearchOutlined />}
-            onClick={handleSearch}
-            loading={tableLoading && isSearchMode}
-            disabled={!searchInput.trim()}
-          >
-            Search
-          </Button>
-          <Button
-            icon={<CloseCircleOutlined />}
-            onClick={handleClear}
-            disabled={!searchInput && !isSearchMode}
-          >
-            Clear
-          </Button>
-        </Space>
+
+        <Button
+          type="primary"
+          icon={<SearchOutlined />}
+          onClick={handleSearch}
+          loading={tableLoading && isSearchMode}
+          disabled={!searchInput.trim()}
+        />
+        <Button
+          icon={<CloseCircleOutlined />}
+          onClick={handleClear}
+          disabled={!searchInput && !isSearchMode}
+        />
       </div>
 
       {isSearchMode ? (
@@ -289,12 +284,7 @@ export default function TMView({ tmId }) {
       ) : null}
 
       {segmentsError ? (
-        <Alert
-          className="mb-4"
-          type="error"
-          message={segmentsError}
-          showIcon
-        />
+        <Alert className="mb-4" type="error" message={segmentsError} showIcon />
       ) : null}
 
       <Table
@@ -326,7 +316,9 @@ export default function TMView({ tmId }) {
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
               description={
-                isSearchMode ? "No segments match your search" : "No segments found"
+                isSearchMode
+                  ? "No segments match your search"
+                  : "No segments found"
               }
             />
           ),
