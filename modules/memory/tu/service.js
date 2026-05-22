@@ -12,6 +12,7 @@ import {
   listAllTus,
   listTus,
   listTusPage,
+  searchTus,
   updateTu,
   appendTu,
 } from "./repository";
@@ -50,6 +51,33 @@ function mapDaaitTu(unit, record) {
       domain: record.domain ?? null,
     },
   };
+}
+
+function normalizeSearchResponse(response) {
+  const items = response?.items ?? response?.docs ?? response?.results ?? [];
+  return {
+    items: Array.isArray(items) ? items : [],
+    total: response?.total ?? (Array.isArray(items) ? items.length : 0),
+  };
+}
+
+function mapSearchResultUnit(unit, record) {
+  const doc = mapDaaitTu(unit, record);
+  const score = unit.score ?? unit.similarity ?? unit.tm_score;
+
+  if (typeof unit.similarity === "object" && unit.similarity !== null) {
+    doc.similarity = unit.similarity;
+    return doc;
+  }
+
+  if (score != null && score !== "") {
+    const numeric = Number.parseFloat(String(score));
+    if (Number.isFinite(numeric)) {
+      doc.similarity = { levenshtein: numeric, jaccard: numeric };
+    }
+  }
+
+  return doc;
 }
 
 async function assertTranslationMemoryExists(translationMemoryId) {
@@ -139,6 +167,22 @@ export async function searchTranslationUnitsService(queryParams, actorUser) {
   });
 
   return { total: docs.length, docs };
+}
+
+export async function searchTranslationUnitsByQueryService(
+  { translation_memory_id, q },
+  actorUser,
+) {
+  const record = await assertTmAccessibleByActor(
+    translation_memory_id,
+    actorUser,
+  );
+
+  const response = await searchTus(translation_memory_id, q);
+  const { items, total } = normalizeSearchResponse(response);
+  const docs = items.map((unit) => mapSearchResultUnit(unit, record));
+
+  return { total, docs };
 }
 
 export async function listAllTranslationUnitsService(

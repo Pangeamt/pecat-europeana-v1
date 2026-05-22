@@ -1,5 +1,6 @@
 export {
   searchTranslationUnitsService,
+  searchTranslationUnitsByQueryService,
   listAllTranslationUnitsService,
   listTranslationUnitsPageService,
   createTranslationUnitService,
@@ -9,6 +10,7 @@ export {
 } from "./service";
 
 export {
+  tuGetAllQuerySchema,
   tuSearchQuerySchema,
   tuAllQuerySchema,
   createTuSchema,

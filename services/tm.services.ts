@@ -7,6 +7,7 @@ import type {
   TmListResponse,
   TranslationMemory,
   TuListResponse,
+  TuTextSearchQuery,
   UpdateTmPayload,
 } from "@/types/tm";
 
@@ -79,6 +80,15 @@ export const fetchTMTusRequest = async (
       page: pagination?.page,
       size: pagination?.size,
     },
+  });
+  return response.data;
+};
+
+export const searchTMTusRequest = async (
+  params: TuTextSearchQuery,
+): Promise<TuListResponse> => {
+  const response = await httpClient.get<TuListResponse>("/api/tu/search", {
+    params,
   });
   return response.data;
 };

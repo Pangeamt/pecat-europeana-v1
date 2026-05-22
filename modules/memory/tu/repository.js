@@ -3,6 +3,7 @@ import {
   deleteMemoryTu,
   getMemory,
   getMemoryTus,
+  searchMemoryTus,
   updateMemoryTu,
 } from "@/lib/daait";
 
@@ -49,6 +50,10 @@ export async function deleteTu(translationMemoryId, translationUnitId) {
 
 export async function getTmById(id) {
   return getMemory(id);
+}
+
+export async function searchTus(translationMemoryId, query) {
+  return searchMemoryTus(translationMemoryId, query);
 }
 
 export async function appendTu(tmId, source, target) {

@@ -5,7 +5,7 @@ import {
   deleteTranslationUnitService,
   deleteTuSchema,
   searchTranslationUnitsService,
-  tuSearchQuerySchema,
+  tuGetAllQuerySchema,
   updateTranslationUnitService,
   updateTuSchema,
 } from "@/modules/memory/tu";
@@ -14,7 +14,7 @@ export const GET = async (req) => {
   try {
     const actorUser = await requireAuthUser();
     const { searchParams } = new URL(req.url);
-    const query = await tuSearchQuerySchema.validateAsync({
+    const query = await tuGetAllQuerySchema.validateAsync({
       translation_memory_id: searchParams.get("translation_memory_id"),
       source_language: searchParams.get("source_language"),
       target_language: searchParams.get("target_language"),

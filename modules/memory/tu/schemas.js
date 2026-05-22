@@ -6,7 +6,7 @@ const boolString = Joi.boolean()
   .falsy("false")
   .falsy("0");
 
-export const tuSearchQuerySchema = Joi.object({
+export const tuGetAllQuerySchema = Joi.object({
   translation_memory_id: Joi.string().required(),
   source_language: Joi.string().required(),
   target_language: Joi.string().required(),
@@ -22,6 +22,11 @@ export const tuAllQuerySchema = Joi.object({
   translation_memory_id: Joi.string().required(),
   page: Joi.number().integer().min(1).optional().default(1),
   size: Joi.number().integer().min(1).max(500).optional().default(100),
+});
+
+export const tuSearchQuerySchema = Joi.object({
+  translation_memory_id: Joi.string().required(),
+  q: Joi.string().trim().min(1).required(),
 });
 
 export const createTuSchema = Joi.object({

@@ -104,6 +104,11 @@ export type SearchTuQuery = {
   minSimilarity?: number;
 };
 
+export type TuTextSearchQuery = {
+  translation_memory_id: string;
+  query: string;
+};
+
 export type ProjectLogsStats = {
   projectId: string;
   tmId: string;
