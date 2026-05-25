@@ -1,91 +1,80 @@
 "use client";
-import {
-  Button,
-  Form,
-  Input,
-  Modal,
-  Upload,
-  message,
-  Select,
-} from "antd";
+
+import { Button, Form, Input, Modal, Upload, message, Select } from "antd";
 import locales from "@/lib/locales.json";
-import { FileTextOutlined, PlusOutlined, UploadOutlined } from "@ant-design/icons";
-import React, { useState } from "react";
+import {
+  FileTextOutlined,
+  PlusOutlined,
+  UploadOutlined,
+} from "@ant-design/icons";
+import { useCallback, useState } from "react";
 import { tmStore } from "@/store";
 
-const languages = locales;
 const { Dragger } = Upload;
 
-const languageOptions = Object.keys(languages).map((code) => ({
-  value: languages[code][0],
-  label: languages[code][0],
+const languageOptions = Object.keys(locales).map((code) => ({
+  value: code,
+  label: locales[code][0],
 }));
-
-const getLocaleCode = (locale) => {
-  const language = Object.keys(languages).find(
-    (key) => languages[key][0] === locale,
-  );
-  return language;
-};
 
 const checkFile = (file) => {
   const fileName = file.name.trim().replace(/\s+/g, "");
   const fileExtension = fileName.split(".").pop().toLowerCase();
-
-  if (fileExtension === "tmx") return true;
-  return false;
+  return fileExtension === "tmx";
 };
 
-const ImportTmButton = ({ refetch, user }) => {
+const getTargetOptions = (source) => {
+  if (!source) return languageOptions;
+  return languageOptions.filter((option) => option.value !== source);
+};
+
+const isUploadReady = ({ name, source, target }) =>
+  Boolean(name?.trim() && source && target && source !== target);
+
+const ImportTmButton = ({ refetch }) => {
   const tmSt = tmStore();
   const { tm } = tmSt;
   const [form] = Form.useForm();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [adding, setAdding] = useState(false);
-  const requiredValues = Form.useWatch(["name", "source", "target"], form);
-  const isUploadEnabled = Boolean(
-    requiredValues?.[0] && requiredValues?.[1] && requiredValues?.[2],
-  );
+
+  const resetFormState = useCallback(() => {
+    form.resetFields();
+  }, [form]);
 
   const showModal = () => {
     setIsModalOpen(true);
   };
+
   const handleCancel = () => {
-    form.resetFields();
+    resetFormState();
     setIsModalOpen(false);
   };
 
-  const handleOk = async () => {
-    try {
-      form.resetFields();
-      setIsModalOpen(false);
-    } catch (errorInfo) {
-      console.log("Failed:", errorInfo);
-      setAdding(false);
+  const handleSourceChange = (value) => {
+    if (form.getFieldValue("target") === value) {
+      form.setFieldValue("target", undefined);
     }
   };
 
-  const props = {
+  const uploadProps = {
     multiple: true,
     name: "file",
     action: "/api/tm/import",
-    headers: {
-      authorization: "authorization-text",
-    },
-    data: (file) => ({
+    accept: ".tmx",
+    data: () => ({
       tm: tm?.id || 0,
       name: form.getFieldValue("name"),
       project: form.getFieldValue("project") ?? "",
       domain: form.getFieldValue("domain") ?? "",
-      source: getLocaleCode(form.getFieldValue("source")),
-      target: getLocaleCode(form.getFieldValue("target")),
+      source: form.getFieldValue("source"),
+      target: form.getFieldValue("target"),
     }),
     onChange: async (info) => {
       if (info.file.status === "done") {
         message.success(`${info.file.name} file uploaded successfully`);
         await refetch();
         setIsModalOpen(false);
-        form.resetFields();
+        resetFormState();
       } else if (info.file.status === "error") {
         message.error(`${info.file.name} file upload failed.`);
       }
@@ -94,22 +83,29 @@ const ImportTmButton = ({ refetch, user }) => {
       try {
         await form.validateFields(["name", "source", "target"]);
       } catch {
-        return false;
+        message.error("Complete name, source and target before uploading.");
+        return Upload.LIST_IGNORE;
+      }
+
+      const { source, target } = form.getFieldsValue(["source", "target"]);
+      if (source === target) {
+        message.error("Source and target must be different.");
+        return Upload.LIST_IGNORE;
       }
 
       const isLt = file.size / 1024 / 1024 < 15;
       if (!isLt) {
         message.error("Files must smaller than 15MB");
-        return false;
+        return Upload.LIST_IGNORE;
       }
 
       if (!checkFile(file)) {
         message.error("File type not supported");
-        return false;
+        return Upload.LIST_IGNORE;
       }
+
       return true;
     },
-    disabled: !isUploadEnabled,
   };
 
   return (
@@ -129,12 +125,11 @@ const ImportTmButton = ({ refetch, user }) => {
       <Modal
         title="Import TM"
         open={isModalOpen}
-        onOk={handleOk}
         onCancel={handleCancel}
-        confirmLoading={adding}
         footer={null}
         width={760}
         centered
+        destroyOnHidden
         styles={{ body: { padding: 0, overflow: "hidden" } }}
       >
         <div className="relative overflow-hidden rounded-lg bg-slate-950 px-5 py-4 text-white">
@@ -160,7 +155,9 @@ const ImportTmButton = ({ refetch, user }) => {
                   <FileTextOutlined />
                 </div>
                 <div>
-                  <div className="font-semibold text-slate-900">Memory details</div>
+                  <div className="font-semibold text-slate-900">
+                    Memory details
+                  </div>
                   <div className="text-xs text-slate-500">
                     Name, context and optional metadata.
                   </div>
@@ -169,7 +166,9 @@ const ImportTmButton = ({ refetch, user }) => {
               <Form.Item
                 label="Name"
                 name="name"
-                rules={[{ required: true, message: "Please introduce a name!" }]}
+                rules={[
+                  { required: true, message: "Please introduce a name!" },
+                ]}
               >
                 <Input placeholder="Memory name" />
               </Form.Item>
@@ -197,7 +196,10 @@ const ImportTmButton = ({ refetch, user }) => {
                   label="Source"
                   name="source"
                   rules={[
-                    { required: true, message: "Please select a source language" },
+                    {
+                      required: true,
+                      message: "Please select a source language",
+                    },
                   ]}
                 >
                   <Select
@@ -205,46 +207,100 @@ const ImportTmButton = ({ refetch, user }) => {
                     placeholder="Select source"
                     optionFilterProp="label"
                     options={languageOptions}
+                    onChange={handleSourceChange}
                   />
                 </Form.Item>
-                <Form.Item
-                  name="target"
-                  label="Target"
-                  rules={[
-                    { required: true, message: "Please select a target language" },
-                  ]}
-                >
-                  <Select
-                    showSearch
-                    placeholder="Select target"
-                    optionFilterProp="label"
-                    options={languageOptions}
-                  />
+                <Form.Item noStyle shouldUpdate>
+                  {({ getFieldValue }) => {
+                    const source = getFieldValue("source");
+
+                    return (
+                      <Form.Item
+                        name="target"
+                        label="Target"
+                        dependencies={["source"]}
+                        rules={[
+                          {
+                            required: true,
+                            message: "Please select a target language",
+                          },
+                          ({ getFieldValue: getDependencyValue }) => ({
+                            validator(_, value) {
+                              const sourceValue = getDependencyValue("source");
+                              if (
+                                !value ||
+                                !sourceValue ||
+                                value !== sourceValue
+                              ) {
+                                return Promise.resolve();
+                              }
+
+                              return Promise.reject(
+                                new Error("Target must differ from source"),
+                              );
+                            },
+                          }),
+                        ]}
+                      >
+                        <Select
+                          showSearch
+                          placeholder="Select target"
+                          optionFilterProp="label"
+                          options={getTargetOptions(source)}
+                          disabled={!source}
+                        />
+                      </Form.Item>
+                    );
+                  }}
                 </Form.Item>
               </div>
             </section>
 
-            <section
-              className={`rounded-xl border border-dashed bg-white p-4 shadow-sm ${
-                isUploadEnabled ? "border-blue-200" : "border-slate-200 opacity-60"
-              }`}
-            >
-              <Dragger {...props}>
-                <p className="ant-upload-drag-icon">
-                  <UploadOutlined />
-                </p>
-                <p className="ant-upload-text">
-                  {isUploadEnabled
-                    ? "Drop TMX file or browse"
-                    : "Complete required fields to upload"}
-                </p>
-                <p className="ant-upload-hint">
-                  {isUploadEnabled
-                    ? "TMX only. Maximum file size 15MB."
-                    : "Name, source and target are required."}
-                </p>
-              </Dragger>
-            </section>
+            <Form.Item noStyle shouldUpdate>
+              {({ getFieldsValue }) => {
+                const ready = isUploadReady(getFieldsValue([
+                  "name",
+                  "source",
+                  "target",
+                ]));
+
+                return (
+                  <section
+                    className={`rounded-xl border border-dashed bg-white p-4 shadow-sm transition-opacity ${
+                      ready
+                        ? "border-blue-200 opacity-100"
+                        : "border-slate-200 opacity-60"
+                    }`}
+                  >
+                    {ready ? (
+                      <Dragger key="tm-upload-enabled" {...uploadProps}>
+                        <p className="ant-upload-drag-icon">
+                          <UploadOutlined />
+                        </p>
+                        <p className="ant-upload-text">
+                          Drop TMX file or browse
+                        </p>
+                        <p className="ant-upload-hint">
+                          TMX only. Maximum file size 15MB.
+                        </p>
+                      </Dragger>
+                    ) : (
+                      <div className="py-4 text-center">
+                        <p className="ant-upload-drag-icon">
+                          <UploadOutlined />
+                        </p>
+                        <p className="ant-upload-text">
+                          Complete required fields to upload
+                        </p>
+                        <p className="ant-upload-hint">
+                          Name, source and target are required (and must differ).
+                        </p>
+                      </div>
+                    )}
+                  </section>
+                );
+              }}
+            </Form.Item>
           </div>
         </Form>
       </Modal>
