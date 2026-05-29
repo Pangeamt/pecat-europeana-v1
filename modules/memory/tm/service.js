@@ -166,8 +166,10 @@ export async function listTranslationMemoriesService(queryParams, actorUser) {
 }
 
 export async function getTranslationMemoryService(id, actorUser) {
-  const record = await assertTmInWorkspace(id, actorUser);
-  const daaitMemory = await getTmDaait(id);
+  const [record, daaitMemory] = await Promise.all([
+    assertTmInWorkspace(id, actorUser),
+    getTmDaait(id),
+  ]);
   return toTmDoc(record, daaitMemory);
 }
 

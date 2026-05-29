@@ -1,7 +1,7 @@
 "use client";
 import { AuditOutlined, CloseCircleTwoTone } from "@ant-design/icons";
 import { Button, message } from "antd";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { tmStore, userStore } from "@/store";
 import { deleteTMRequest, exportTMRequest } from "@/services/tm.services";
 import { useTmList } from "./hooks/use-tm-list";
@@ -23,9 +23,13 @@ const TM = ({ project, tmRequesting }) => {
   const showModal = () => setIsModalOpen(true);
   const handleCancel = () => setIsModalOpen(false);
 
-  useEffect(() => {
-    if (!tmRequesting) handleCancel();
-  }, [tmRequesting]);
+  const [prevTmRequesting, setPrevTmRequesting] = useState(tmRequesting);
+  if (tmRequesting !== prevTmRequesting) {
+    setPrevTmRequesting(tmRequesting);
+    if (!tmRequesting && isModalOpen) {
+      setIsModalOpen(false);
+    }
+  }
 
   const openModalEdit = (record) => {
     setIsModalOpen(false);

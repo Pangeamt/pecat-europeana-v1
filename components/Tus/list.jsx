@@ -29,7 +29,8 @@ import Highlighter from "react-highlight-words";
 import { useHotkeys } from "react-hotkeys-hook";
 import XMLViewer from "react-xml-viewer";
 
-import { StatsTus, TmTool } from "@/components/Tus";
+import StatsTus from "@/components/Tus/statsTus";
+import TmTool from "@/components/Tus/tmTool";
 import { getProject } from "@/services/project.services";
 import { appendTu, confirmTu, getTus } from "@/services/tus.services";
 import { userStore } from "@/store";

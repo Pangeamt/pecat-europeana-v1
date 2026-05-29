@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 
 import { Row, Tag, Col, Table, Typography, Divider } from "antd";
 
@@ -30,19 +30,20 @@ const TusTM = ({
   selectedText,
   tmRequesting,
 }) => {
-  useEffect(() => {
-    if (query && query.length) {
-      setSelectedTmTu(query[0]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, query?.length]);
+  const queryHeadId = query?.[0]?.id ?? null;
+  const queryTextHeadId = queryText?.[0]?.id ?? null;
+  const [prevQueryHeadId, setPrevQueryHeadId] = useState(queryHeadId);
+  const [prevQueryTextHeadId, setPrevQueryTextHeadId] = useState(queryTextHeadId);
 
-  useEffect(() => {
-    if (queryText && queryText.length) {
-      setSelectedTmTu(queryText[0]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryText, queryText?.length]);
+  if (queryHeadId !== prevQueryHeadId) {
+    setPrevQueryHeadId(queryHeadId);
+    if (query?.length) setSelectedTmTu(query[0]);
+  }
+
+  if (queryTextHeadId !== prevQueryTextHeadId) {
+    setPrevQueryTextHeadId(queryTextHeadId);
+    if (queryText?.length) setSelectedTmTu(queryText[0]);
+  }
 
   const columns = [
     {

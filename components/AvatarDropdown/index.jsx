@@ -54,28 +54,30 @@ const AvatarDropdown = () => {
   const [requesting, setRequesting] = useState(true);
 
   useEffect(() => {
-    if (session && session.user) {
-      start();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session]);
+    if (!session?.user) return undefined;
 
-  const start = async () => {
-    await save(session.user);
-    await fetchUser(session.user.id);
-  };
+    let cancelled = false;
 
-  const fetchUser = async (id) => {
-    try {
-      setRequesting(true);
-      const { data } = await getUser(id);
-      save(data.user);
-      setRequesting(false);
-    } catch (error) {
-      console.error(error);
-      setRequesting(false);
-    }
-  };
+    const loadUser = async () => {
+      try {
+        setRequesting(true);
+        await save(session.user);
+        const { data } = await getUser(session.user.id);
+        if (cancelled) return;
+        save(data.user);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        if (!cancelled) setRequesting(false);
+      }
+    };
+
+    void loadUser();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session, save]);
 
   const getImages = (userData) => {
     if (requesting) return null;

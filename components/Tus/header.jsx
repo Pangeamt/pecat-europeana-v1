@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Badge,
   Button,
@@ -38,8 +38,8 @@ const HeaderTus = ({
   const { tm, tu: tmTu, saveTu } = tmSt;
   const [manualView, setManualView] = useState("tms");
   const view = selectedText ? "tus" : manualView;
-  const [dataSource, setDataSource] = useState([
-    {
+  const loadingRow = useMemo(
+    () => ({
       key: "1",
       edited: <LoadingOutlined />,
       originalAccepted: <LoadingOutlined />,
@@ -49,22 +49,12 @@ const HeaderTus = ({
       progress: (
         <Progress className="px-4" percent={0} size="small" status="active" />
       ),
-    },
-  ]);
-
-  const [tmTus, setTmTus] = useState([]);
-  const [tmTusText, setTmTusText] = useState([]);
-  const [tmRequesting, setTmRequesting] = useState(false);
-  const onChange = ({ target: { value } }) => {
-    setManualView(value);
-  };
-  const getCount = (value) => {
-    return value.length;
-  };
-
-  useEffect(() => {
-    if (!requesting) {
-      setDataSource([
+    }),
+    [],
+  );
+  const dataSource = requesting
+    ? [loadingRow]
+    : [
         {
           key: "1",
           edited: stats.edited,
@@ -81,23 +71,64 @@ const HeaderTus = ({
             />
           ),
         },
-      ]);
+      ];
+
+  const [tmTus, setTmTus] = useState([]);
+  const [tmTusText, setTmTusText] = useState([]);
+  const [tmRequesting, setTmRequesting] = useState(false);
+  const onChange = ({ target: { value } }) => {
+    setManualView(value);
+  };
+  const getCount = (value) => {
+    return value.length;
+  };
+
+  const queryTmTus = useCallback(async () => {
+    try {
+      setTmRequesting(true);
+      if (tm?.id) {
+        const { data } = await getTmTus({
+          translation_memory_id: tm.id,
+          source_language: tm.context.source,
+          target_language: tm.context.target,
+          source_text: selectedRow.srcLiteral,
+          user: user ? user?.email : null,
+        });
+        setTmTus(data.docs);
+        setTmRequesting(false);
+        return data;
+      }
+      return null;
+    } catch (error) {
+      console.error(error);
+      setTmRequesting(false);
     }
-  }, [
-    percentage,
-    requesting,
-    stats.edited,
-    stats.notReviewed,
-    stats.originalAccepted,
-    stats.rejected,
-    stats.translated_mt,
-  ]);
+  }, [selectedRow?.srcLiteral, tm, user]);
+
+  const queryTmTusText = useCallback(async () => {
+    try {
+      setTmRequesting(true);
+      const { data } = await getTmTus({
+        translation_memory_id: tm.id,
+        source_language: tm.context.source,
+        target_language: tm.context.target,
+        source_text: selectedText,
+        user: user ? user?.email : null,
+        perTerm: true,
+      });
+      setTmTusText(data.docs);
+      setTmRequesting(false);
+      return data;
+    } catch (error) {
+      console.error(error);
+      setTmRequesting(false);
+    }
+  }, [selectedText, tm, user]);
 
   useEffect(() => {
-    if (view === "tms") queryTmTus();
-    if (view === "tus") queryTmTusText();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, tm?.id, selectedRow?.srcLiteral]);
+    if (view === "tms") void queryTmTus();
+    if (view === "tus") void queryTmTusText();
+  }, [view, queryTmTus, queryTmTusText]);
 
   const columns = [
     {
@@ -127,48 +158,6 @@ const HeaderTus = ({
       key: "progress",
     },
   ];
-
-  const queryTmTus = async () => {
-    try {
-      setTmRequesting(true);
-      if (tm?.id) {
-        const { data } = await getTmTus({
-          translation_memory_id: tm.id,
-          source_language: tm.context.source,
-          target_language: tm.context.target,
-          source_text: selectedRow.srcLiteral,
-          user: user ? user?.email : null,
-        });
-        setTmTus(data.docs);
-        setTmRequesting(false);
-        return data;
-      }
-      return null;
-    } catch (error) {
-      console.error(error);
-      setTmRequesting(false);
-    }
-  };
-
-  const queryTmTusText = async () => {
-    try {
-      setTmRequesting(true);
-      const { data } = await getTmTus({
-        translation_memory_id: tm.id,
-        source_language: tm.context.source,
-        target_language: tm.context.target,
-        source_text: selectedText,
-        user: user ? user?.email : null,
-        perTerm: true,
-      });
-      setTmTusText(data.docs);
-      setTmRequesting(false);
-      return data;
-    } catch (error) {
-      console.error(error);
-      setTmRequesting(false);
-    }
-  };
 
   const storeTmTu = (value) => {
     saveTu(value);

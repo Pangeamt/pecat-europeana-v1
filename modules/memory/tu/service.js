@@ -173,12 +173,10 @@ export async function searchTranslationUnitsByQueryService(
   { translation_memory_id, q },
   actorUser,
 ) {
-  const record = await assertTmAccessibleByActor(
-    translation_memory_id,
-    actorUser,
-  );
-
-  const response = await searchTus(translation_memory_id, q);
+  const [record, response] = await Promise.all([
+    assertTmAccessibleByActor(translation_memory_id, actorUser),
+    searchTus(translation_memory_id, q),
+  ]);
   const { items, total } = normalizeSearchResponse(response);
   const docs = items.map((unit) => mapSearchResultUnit(unit, record));
 

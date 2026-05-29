@@ -15,32 +15,26 @@ import {
 import {
   ArrowRightOutlined,
   CloseCircleOutlined,
-  DatabaseOutlined,
-  FileTextOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
 import {
-  fetchTMByIdRequest,
-  fetchTMTusRequest,
-  searchTMTusRequest,
-} from "@/services/tm.services";
+  fetchGlossaryByIdRequest,
+  fetchGlossaryEntriesRequest,
+} from "@/services/glossary.services";
 import { useMemoryDetailView } from "@/components/shared/useMemoryDetailView";
 
 const { Text } = Typography;
 
-export default function TMView({ tmId }) {
-  const fetchResource = useCallback((id) => fetchTMByIdRequest(id), []);
+export default function GlossaryView({ glossaryId }) {
+  const fetchResource = useCallback(
+    (id) => fetchGlossaryByIdRequest(id),
+    [],
+  );
 
-  const fetchEntries = useCallback(async (id, { page, size, filter }) => {
-    if (filter) {
-      return searchTMTusRequest({
-        translation_memory_id: id,
-        query: filter,
-      });
-    }
-
-    return fetchTMTusRequest(id, { page, size });
-  }, []);
+  const fetchEntries = useCallback(
+    (id, pagination) => fetchGlossaryEntriesRequest(id, pagination),
+    [],
+  );
 
   const {
     state,
@@ -50,12 +44,12 @@ export default function TMView({ tmId }) {
     handleSearchInputChange,
     handlePaginationChange,
   } = useMemoryDetailView({
-    resourceId: tmId,
+    resourceId: glossaryId,
     fetchResource,
     fetchEntries,
   });
 
-  const tm = state.resource;
+  const glossary = state.resource;
 
   const columns = [
     {
@@ -83,7 +77,7 @@ export default function TMView({ tmId }) {
       dataIndex: "translated_text",
       key: "translated_text",
       render: (text) => (
-        <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3 text-sm leading-relaxed text-blue-950">
+        <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3 text-sm leading-relaxed text-emerald-950">
           <Text style={{ whiteSpace: "pre-wrap" }}>{text || "-"}</Text>
         </div>
       ),
@@ -95,57 +89,55 @@ export default function TMView({ tmId }) {
   }
 
   return (
-    <Card loading={state.loading && !tm} className="overflow-hidden">
+    <Card loading={state.loading && !glossary} className="overflow-hidden">
       <div className="mb-5 rounded-2xl bg-slate-950 p-5 text-white">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-200">
-              Translation memory
+            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200">
+              Glossary
             </div>
             <h2 className="mb-1 mt-2 text-2xl font-semibold">
-              {tm?.name || "Translation Memory"}
+              {glossary?.name || "Glossary"}
             </h2>
             <p className="m-0 text-sm text-slate-300">
-              Review the segments stored in this memory.
+              Review the terms stored in this glossary.
             </p>
           </div>
-          {tm ? (
+          {glossary ? (
             <Space>
               <Tag color="geekblue" className="rounded-full uppercase">
-                {tm.context?.source}
+                {glossary.context?.source}
               </Tag>
               <ArrowRightOutlined className="text-slate-400" />
               <Tag color="cyan" className="rounded-full uppercase">
-                {tm.context?.target}
+                {glossary.context?.target}
               </Tag>
             </Space>
           ) : null}
         </div>
       </div>
 
-      {tm ? (
+      {glossary ? (
         <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
           <div className="rounded-xl border border-slate-200 bg-white p-4">
-            <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-slate-400">
-              <DatabaseOutlined />
+            <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
               Domain
             </div>
-            <div className="truncate font-semibold text-slate-900">
-              {tm.context?.domain || "-"}
-            </div>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
-            <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-slate-400">
-              <FileTextOutlined />
-              Project
-            </div>
-            <div className="truncate font-semibold text-slate-900">
-              {tm.context?.project || "-"}
+            <div className="mt-2 truncate font-semibold text-slate-900">
+              {glossary.context?.domain || "-"}
             </div>
           </div>
           <div className="rounded-xl border border-slate-200 bg-white p-4">
             <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
-              {isSearchMode ? "Search results" : "Total segments"}
+              Project
+            </div>
+            <div className="mt-2 truncate font-semibold text-slate-900">
+              {glossary.context?.project || "-"}
+            </div>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
+              {isSearchMode ? "Search results" : "Total entries"}
             </div>
             <div className="mt-2 text-2xl font-semibold text-slate-900">
               {state.total}
@@ -158,10 +150,10 @@ export default function TMView({ tmId }) {
         <Input
           allowClear={false}
           value={state.searchInput}
-          placeholder="Search segments..."
+          placeholder="Search terms..."
           onChange={(event) => handleSearchInputChange(event.target.value)}
           onPressEnter={handleSearch}
-          aria-label="Search translation memory segments"
+          aria-label="Search glossary entries"
         />
 
         <Button
@@ -180,7 +172,9 @@ export default function TMView({ tmId }) {
 
       {isSearchMode ? (
         <div className="mb-3">
-          <Tag color="blue">Showing results for &quot;{state.searchQuery}&quot;</Tag>
+          <Tag color="green">
+            Showing results for &quot;{state.searchQuery}&quot;
+          </Tag>
         </div>
       ) : null}
 
@@ -214,7 +208,7 @@ export default function TMView({ tmId }) {
                 current: state.page,
                 pageSize: state.pageSize,
                 showSizeChanger: true,
-                showTotal: (total) => `${total} segments`,
+                showTotal: (total) => `${total} entries`,
                 total: state.total,
               }
         }
@@ -224,8 +218,8 @@ export default function TMView({ tmId }) {
               image={Empty.PRESENTED_IMAGE_SIMPLE}
               description={
                 isSearchMode
-                  ? "No segments match your search"
-                  : "No segments found"
+                  ? "No terms match your search"
+                  : "No entries found"
               }
             />
           ),

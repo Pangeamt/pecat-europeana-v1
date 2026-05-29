@@ -39,22 +39,23 @@ model Session {
 }
 
 model User {
-  id            String     @id @default(cuid())
-  name          String
-  email         String     @unique
-  salt          String?
-  hash          String?
-  emailVerified DateTime?
-  image         Bytes?
-  role          Role       @default(USER)
-  provider      String?
-  workspaceId   String?
-  deletedAt     DateTime?
-  accounts      Account[]
-  projects      Project[]
-  sessions      Session[]
-  workspace     Workspace? @relation("WorkspaceMembers", fields: [workspaceId], references: [id])
-  createdTms    Tm[]       @relation("TmCreatedBy")
+  id                String     @id @default(cuid())
+  name              String
+  email             String     @unique
+  salt              String?
+  hash              String?
+  emailVerified     DateTime?
+  image             Bytes?
+  role              Role       @default(USER)
+  provider          String?
+  workspaceId       String?
+  deletedAt         DateTime?
+  accounts          Account[]
+  projects          Project[]
+  sessions          Session[]
+  workspace         Workspace? @relation("WorkspaceMembers", fields: [workspaceId], references: [id])
+  createdTms        Tm[]       @relation("TmCreatedBy")
+  createdGlossaries Glossary[] @relation("GlossaryCreatedBy")
 
   @@index([workspaceId], map: "users_workspaceId_fkey")
   @@index([deletedAt], map: "users_deletedAt_idx")
@@ -62,41 +63,43 @@ model User {
 }
 
 model Workspace {
-  id        String    @id @default(cuid())
-  name      String
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  members   User[]    @relation("WorkspaceMembers")
-  projects  Project[]
-  tms       Tm[]
+  id         String     @id @default(cuid())
+  name       String
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  members    User[]     @relation("WorkspaceMembers")
+  projects   Project[]
+  tms        Tm[]
+  glossaries Glossary[]
 
   @@map("workspaces")
 }
 
 model Project {
-  id             String    @id @default(cuid())
-  label          String?
-  filename       String
-  filePath       String
-  uuid           String?   @unique
-  accessDeadline DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  userId         String
-  workspaceId    String
-  deletedAt      DateTime?
-  mt             Boolean   @default(false)
-  tmMode         String    @default("standard")
-  tmThreshold    Float     @default(0)
-  extension      String    @default("json")
-  sourceLanguage String?
-  targetLanguage String?
-  exampleXml     String?
-  status         ProjectStatus @default(UPLOADED)
-  User           User      @relation(fields: [userId], references: [id])
-  workspace      Workspace @relation(fields: [workspaceId], references: [id])
-  tus            Tu[]
-  projectTms     ProjectTm[]
+  id                String            @id @default(cuid())
+  label             String?
+  filename          String
+  filePath          String
+  uuid              String?           @unique
+  accessDeadline    DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  userId            String
+  workspaceId       String
+  deletedAt         DateTime?
+  mt                Boolean           @default(false)
+  tmMode            String            @default("standard")
+  tmThreshold       Float             @default(0)
+  extension         String            @default("json")
+  sourceLanguage    String?
+  targetLanguage    String?
+  exampleXml        String?
+  status            ProjectStatus     @default(UPLOADED)
+  User              User              @relation(fields: [userId], references: [id])
+  workspace         Workspace         @relation(fields: [workspaceId], references: [id])
+  tus               Tu[]
+  projectTms        ProjectTm[]
+  projectGlossaries ProjectGlossary[]
 
   @@index([userId], map: "projects_userId_fkey")
   @@index([workspaceId], map: "projects_workspaceId_fkey")
@@ -133,24 +136,45 @@ model Tu {
 }
 
 model Tm {
-  id              String    @id @default(cuid())
+  id              String      @id @default(cuid())
   name            String
   domain          String?
   sourceLanguage  String
   targetLanguage  String
   createdByUserId String
   workspaceId     String
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
   deletedAt       DateTime?
-  createdBy       User      @relation("TmCreatedBy", fields: [createdByUserId], references: [id])
-  workspace       Workspace @relation(fields: [workspaceId], references: [id])
+  createdBy       User        @relation("TmCreatedBy", fields: [createdByUserId], references: [id])
+  workspace       Workspace   @relation(fields: [workspaceId], references: [id])
   projectTms      ProjectTm[]
 
   @@index([workspaceId], map: "tms_workspaceId_fkey")
   @@index([createdByUserId], map: "tms_createdByUserId_fkey")
   @@index([deletedAt], map: "tms_deletedAt_idx")
   @@map("tms")
+}
+
+model Glossary {
+  id                String            @id @default(cuid())
+  name              String
+  domain            String?
+  sourceLanguage    String
+  targetLanguage    String
+  createdByUserId   String
+  workspaceId       String
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  deletedAt         DateTime?
+  createdBy         User              @relation("GlossaryCreatedBy", fields: [createdByUserId], references: [id])
+  workspace         Workspace         @relation(fields: [workspaceId], references: [id])
+  projectGlossaries ProjectGlossary[]
+
+  @@index([workspaceId], map: "glossaries_workspaceId_fkey")
+  @@index([createdByUserId], map: "glossaries_createdByUserId_fkey")
+  @@index([deletedAt], map: "glossaries_deletedAt_idx")
+  @@map("glossaries")
 }
 
 model ProjectTm {
@@ -164,6 +188,19 @@ model ProjectTm {
   @@id([projectId, tmId])
   @@index([tmId], map: "project_tms_tmId_idx")
   @@map("project_tms")
+}
+
+model ProjectGlossary {
+  projectId  String
+  glossaryId String
+  createdAt  DateTime @default(now())
+
+  project  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  glossary Glossary @relation(fields: [glossaryId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, glossaryId])
+  @@index([glossaryId], map: "project_glossaries_glossaryId_idx")
+  @@map("project_glossaries")
 }
 
 model VerificationToken {

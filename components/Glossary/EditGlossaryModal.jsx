@@ -1,15 +1,15 @@
 "use client";
 import { Button, Form, Input, Modal, message } from "antd";
-import { updateTMRequest } from "@/services/tm.services";
+import { updateGlossaryRequest } from "@/services/glossary.services";
 
-function EditTmForm({ tm, onClose, onUpdated }) {
+function EditGlossaryForm({ glossary, onClose, onUpdated }) {
   const [form] = Form.useForm();
 
   const handleFinish = async (values) => {
     try {
-      message.loading({ content: "Updating TM...", key: "edit-tm" });
-      await updateTMRequest({
-        id: tm.id,
+      message.loading({ content: "Updating glossary...", key: "edit-glossary" });
+      await updateGlossaryRequest({
+        id: glossary.id,
         name: values.name,
         project: values.project,
         domain: values.domain,
@@ -17,10 +17,10 @@ function EditTmForm({ tm, onClose, onUpdated }) {
       onClose?.();
       await onUpdated?.();
       form.resetFields();
-      message.success({ content: "TM updated!", key: "edit-tm" });
+      message.success({ content: "Glossary updated!", key: "edit-glossary" });
     } catch (error) {
       console.error("Failed:", error);
-      message.error({ content: "Error updating TM", key: "edit-tm" });
+      message.error({ content: "Error updating glossary", key: "edit-glossary" });
     }
   };
 
@@ -31,9 +31,9 @@ function EditTmForm({ tm, onClose, onUpdated }) {
       wrapperCol={{ span: 20 }}
       layout="horizontal"
       initialValues={{
-        name: tm.name || "",
-        project: tm.context?.project || "",
-        domain: tm.context?.domain || "",
+        name: glossary.name || "",
+        project: glossary.context?.project || "",
+        domain: glossary.context?.domain || "",
       }}
       onFinish={handleFinish}
     >
@@ -60,17 +60,22 @@ function EditTmForm({ tm, onClose, onUpdated }) {
   );
 }
 
-export default function EditTmModal({ open, tm, onClose, onUpdated }) {
+export default function EditGlossaryModal({ open, glossary, onClose, onUpdated }) {
   return (
     <Modal
-      title="Edit TM"
+      title="Edit Glossary"
       open={open}
       onCancel={onClose}
       destroyOnHidden
       footer={null}
     >
-      {open && tm ? (
-        <EditTmForm key={tm.id} tm={tm} onClose={onClose} onUpdated={onUpdated} />
+      {open && glossary ? (
+        <EditGlossaryForm
+          key={glossary.id}
+          glossary={glossary}
+          onClose={onClose}
+          onUpdated={onUpdated}
+        />
       ) : null}
     </Modal>
   );

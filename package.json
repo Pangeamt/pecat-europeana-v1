@@ -42,6 +42,7 @@
     "eslint-config-next": "16.1.6",
     "postcss": "8",
     "prisma": "5.18.0",
+    "react-doctor": "^0.2.11",
     "semantic-release": "25.0.3",
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3"
@@ -75,7 +76,8 @@
     "dev": "next dev --turbopack",
     "lint": "eslint .",
     "release": "semantic-release",
-    "start": "next start"
+    "start": "next start",
+    "doctor": "npx react-doctor@latest"
   },
   "version": "1.0.0"
 }
