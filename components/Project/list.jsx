@@ -15,6 +15,13 @@ import {
   DownloadOutlined,
   UserOutlined,
 } from "@ant-design/icons";
+import { StatCard, StatCardGrid } from "@/components/shared/StatCard";
+import {
+  Building2,
+  CircleCheck,
+  FolderKanban,
+  Loader2,
+} from "lucide-react";
 import {
   Avatar,
   Button,
@@ -164,6 +171,8 @@ const ProjectList = () => {
       project.workspace?.id ? [project.workspace.id] : [],
     ),
   ).size;
+  const readyPercent =
+    data.length > 0 ? Math.round((readyProjects / data.length) * 100) : 0;
 
   const columns = [
     {
@@ -336,41 +345,49 @@ const ProjectList = () => {
         </div>
       </div>
 
-      <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
-            Total
-          </div>
-          <div className="mt-2 text-2xl font-semibold text-slate-900">
-            {data.length}
-          </div>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
-            Workspaces
-          </div>
-          <div className="mt-2 text-2xl font-semibold text-slate-900">
-            {workspaceCount}
-          </div>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
-            Ready
-          </div>
-          <div className="mt-2 text-2xl font-semibold text-emerald-600">
-            {readyProjects}
-          </div>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
-            Processing / deleted
-          </div>
-          <div className="mt-2 text-2xl font-semibold text-blue-600">
-            {pendingProjects}
-            <span className="ml-2 text-sm text-red-500">/ {deletedProjects}</span>
-          </div>
-        </div>
-      </div>
+      <StatCardGrid ariaLabel="Project statistics">
+        <StatCard
+          label="Total"
+          value={loading ? "—" : data.length}
+          hint="All uploaded projects"
+          icon={FolderKanban}
+          theme="slate"
+        />
+        <StatCard
+          label="Workspaces"
+          value={loading ? "—" : workspaceCount}
+          hint="Distinct workspaces in use"
+          icon={Building2}
+          theme="violet"
+        />
+        <StatCard
+          label="Ready"
+          value={loading ? "—" : readyProjects}
+          hint={
+            loading || data.length === 0
+              ? "Available for translation"
+              : `${readyPercent}% ready to open`
+          }
+          icon={CircleCheck}
+          theme="emerald"
+        />
+        <StatCard
+          label="Processing"
+          value={loading ? "—" : pendingProjects}
+          hint="Pending pipeline jobs"
+          icon={Loader2}
+          theme="sky"
+          iconSpin={!loading && pendingProjects > 0}
+          badges={[
+            ...(errorProjects > 0
+              ? [{ label: `${errorProjects} errors`, tone: "warning" }]
+              : []),
+            ...(deletedProjects > 0
+              ? [{ label: `${deletedProjects} deleted`, tone: "danger" }]
+              : []),
+          ]}
+        />
+      </StatCardGrid>
 
       <Table
         loading={loading}

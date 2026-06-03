@@ -21,6 +21,11 @@ export async function findAllUsers(where = {}) {
 export async function findUserById(id) {
   return prisma.user.findFirst({
     where: { id, ...activeFilter },
+    include: {
+      workspace: {
+        select: { id: true, name: true },
+      },
+    },
   });
 }
 

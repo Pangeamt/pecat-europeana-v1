@@ -26,13 +26,18 @@ import {
   exportGlossaryRequest,
   fetchGlossariesRequest,
 } from "@/services/glossary.services";
+import { StatCard, StatCardGrid } from "@/components/shared/StatCard";
+import { useWorkspaceScopeLabel } from "@/components/shared/useWorkspaceScopeLabel";
 import { userStore } from "@/store";
+import { BookMarked, Building2, Languages } from "lucide-react";
 import CreateGlossaryForm from "./CreateGlossaryForm";
 import EditGlossaryModal from "./EditGlossaryModal";
 import ImportGlossaryButton from "./importGlossary";
 
 const GlossaryList = () => {
   const { user } = userStore();
+  const { label: workspaceLabel, loading: workspaceLabelLoading } =
+    useWorkspaceScopeLabel(user);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [glossaryEdit, setGlossaryEdit] = useState(null);
@@ -118,6 +123,10 @@ const GlossaryList = () => {
       (item) => `${item.context?.source || "-"}-${item.context?.target || "-"}`,
     ),
   ).size;
+  const totalEntries = glossaries.reduce(
+    (sum, item) => sum + (Number(item.total_entries) || 0),
+    0,
+  );
 
   const columns = [
     {
@@ -271,32 +280,38 @@ const GlossaryList = () => {
           </div>
         </div>
 
-        <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
-            <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
-              Total glossaries
-            </div>
-            <div className="mt-2 text-2xl font-semibold text-slate-900">
-              {glossaries.length}
-            </div>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
-            <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
-              Language pairs
-            </div>
-            <div className="mt-2 text-2xl font-semibold text-slate-900">
-              {languagePairs}
-            </div>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
-            <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
-              Workspace
-            </div>
-            <div className="mt-2 truncate text-sm font-semibold text-slate-900">
-              {user?.workspaceId || "All workspaces"}
-            </div>
-          </div>
-        </div>
+        <StatCardGrid columns={3} ariaLabel="Glossary statistics">
+          <StatCard
+            label="Total glossaries"
+            value={loading ? "—" : glossaries.length}
+            hint={
+              totalEntries > 0
+                ? `${totalEntries.toLocaleString()} total entries`
+                : "Workspace glossary assets"
+            }
+            icon={BookMarked}
+            theme="slate"
+          />
+          <StatCard
+            label="Language pairs"
+            value={loading ? "—" : languagePairs}
+            hint="Source-target combinations"
+            icon={Languages}
+            theme="violet"
+          />
+          <StatCard
+            label="Workspace"
+            value={loading || workspaceLabelLoading ? "—" : workspaceLabel}
+            hint={
+              user?.role === "SUPER"
+                ? "Super admin view"
+                : "Current workspace scope"
+            }
+            icon={Building2}
+            theme="emerald"
+            compactValue
+          />
+        </StatCardGrid>
 
         <Table
           dataSource={glossaries}

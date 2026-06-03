@@ -80,8 +80,12 @@ const HEADER_STYLE = {
   position: "sticky",
   top: 0,
   zIndex: 10,
-  background: "rgba(255, 255, 255, 0.9)",
-  backdropFilter: "blur(8px)",
+  height: 64,
+  lineHeight: "64px",
+  paddingInline: 20,
+  background: "rgba(255, 255, 255, 0.92)",
+  backdropFilter: "blur(10px)",
+  borderBottom: "1px solid rgba(226, 232, 240, 0.9)",
   boxShadow:
     "0 1px 2px 0 rgba(0, 0, 0, 0.03), 0 1px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px 0 rgba(0, 0, 0, 0.02)",
 };
@@ -128,7 +132,7 @@ const DashboardShell = ({ initialUser, children }) => {
   return (
     <Layout style={{ minHeight: "100vh" }}>
       <Header style={HEADER_STYLE}>
-        <div className="flex justify-between">
+        <div className="flex h-full items-center justify-between gap-4">
           <Logo />
           <AvatarDropdown />
         </div>

@@ -20,7 +20,9 @@ import {
   saveUser,
 } from "@/services/user.services";
 import { getMembersOfWorkspace } from "@/services/workspace.services";
+import { StatCard, StatCardGrid } from "@/components/shared/StatCard";
 import { DeleteOutlined } from "@ant-design/icons";
+import { ShieldCheck, UserCircle, UserCog, Users } from "lucide-react";
 import { useEffect } from "react";
 import { userStore } from "@/store";
 import UserAdd from "./add";
@@ -210,40 +212,36 @@ const UserList = () => {
         </div>
       </div>
 
-      <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
-            Total
-          </div>
-          <div className="mt-2 text-2xl font-semibold text-slate-900">
-            {users.length}
-          </div>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
-            Super
-          </div>
-          <div className="mt-2 text-2xl font-semibold text-purple-600">
-            {superUsers}
-          </div>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
-            Admins
-          </div>
-          <div className="mt-2 text-2xl font-semibold text-blue-600">
-            {adminUsers}
-          </div>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
-            Users
-          </div>
-          <div className="mt-2 text-2xl font-semibold text-slate-900">
-            {regularUsers}
-          </div>
-        </div>
-      </div>
+      <StatCardGrid ariaLabel="User statistics">
+        <StatCard
+          label="Total"
+          value={requesting ? "—" : users.length}
+          hint="Registered accounts in view"
+          icon={Users}
+          theme="slate"
+        />
+        <StatCard
+          label="Super"
+          value={requesting ? "—" : superUsers}
+          hint="Platform administrators"
+          icon={ShieldCheck}
+          theme="purple"
+        />
+        <StatCard
+          label="Admins"
+          value={requesting ? "—" : adminUsers}
+          hint="Workspace administrators"
+          icon={UserCog}
+          theme="sky"
+        />
+        <StatCard
+          label="Users"
+          value={requesting ? "—" : regularUsers}
+          hint="Standard workspace members"
+          icon={UserCircle}
+          theme="emerald"
+        />
+      </StatCardGrid>
 
       <Table
         loading={requesting}

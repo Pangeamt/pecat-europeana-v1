@@ -100,6 +100,22 @@ export async function findValidTmIdsInWorkspace(tmIds, workspaceId) {
   return rows.map((row) => row.id);
 }
 
+export async function findValidGlossaryIdsInWorkspace(glossaryIds, workspaceId) {
+  if (!Array.isArray(glossaryIds) || glossaryIds.length === 0) return [];
+  if (!workspaceId) return [];
+
+  const rows = await prisma.glossary.findMany({
+    where: {
+      id: { in: glossaryIds },
+      workspaceId,
+      deletedAt: null,
+    },
+    select: { id: true },
+  });
+
+  return rows.map((row) => row.id);
+}
+
 export async function findTusByProjectId(projectId) {
   return prisma.tu.findMany({
     where: { projectId },

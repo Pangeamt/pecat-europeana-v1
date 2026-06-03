@@ -14,7 +14,7 @@ import {
   translateTexts,
 } from "../../lib/utils";
 import { HttpError } from "../shared/http-error";
-import { findValidTmIdsInWorkspace } from "./repository";
+import { findValidGlossaryIdsInWorkspace, findValidTmIdsInWorkspace } from "./repository";
 import oxigenResponse from "@/oxigen_response.json";
 
 const pump = promisify(pipeline);
@@ -69,6 +69,23 @@ function parseProjectTmSettings(formData) {
   };
 }
 
+function parseProjectGlossarySettings(formData) {
+  const rawGlossaryIds = formData.get("glossary_ids");
+  let glossaryIds = [];
+
+  if (rawGlossaryIds) {
+    try {
+      glossaryIds = JSON.parse(rawGlossaryIds);
+    } catch {
+      throw new HttpError(400, "glossary_ids must be a valid JSON array");
+    }
+  }
+
+  return {
+    glossaryIds: Array.isArray(glossaryIds) ? glossaryIds : [],
+  };
+}
+
 function normalizeTmIds(tmIds) {
   if (!Array.isArray(tmIds)) return [];
   return [...new Set(tmIds.filter((tmId) => typeof tmId === "string" && tmId))];
@@ -80,6 +97,27 @@ async function linkProjectTms(projectId, tmIds) {
 
   await prisma.projectTm.createMany({
     data: normalized.map((tmId) => ({ projectId, tmId })),
+    skipDuplicates: true,
+  });
+}
+
+function normalizeGlossaryIds(glossaryIds) {
+  if (!Array.isArray(glossaryIds)) return [];
+  return [
+    ...new Set(
+      glossaryIds.filter(
+        (glossaryId) => typeof glossaryId === "string" && glossaryId,
+      ),
+    ),
+  ];
+}
+
+async function linkProjectGlossaries(projectId, glossaryIds) {
+  const normalized = normalizeGlossaryIds(glossaryIds);
+  if (normalized.length === 0) return;
+
+  await prisma.projectGlossary.createMany({
+    data: normalized.map((glossaryId) => ({ projectId, glossaryId })),
     skipDuplicates: true,
   });
 }
@@ -500,8 +538,13 @@ export async function importProjectsFromUploadService({
   const src = formData.get("src");
   const tgt = formData.get("tgt");
   const tmSettings = parseProjectTmSettings(formData);
+  const glossarySettings = parseProjectGlossarySettings(formData);
   const validTmIds = await findValidTmIdsInWorkspace(
     tmSettings.tmIds,
+    workspaceId,
+  );
+  const validGlossaryIds = await findValidGlossaryIdsInWorkspace(
+    glossarySettings.glossaryIds,
     workspaceId,
   );
 
@@ -540,6 +583,7 @@ export async function importProjectsFromUploadService({
     });
 
     await linkProjectTms(createdProject.id, validTmIds);
+    await linkProjectGlossaries(createdProject.id, validGlossaryIds);
 
     createdProjectIds.push(createdProject.id);
     void processUploadedProjectInBackground({
