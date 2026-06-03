@@ -45,4 +45,12 @@ next-env.d.ts
 
 .agents/*
 skills-lock.json
+.claude/*
+.cursor/*
 
+.idea/*
+.vscode/*
+.history/*
+.cursor/*
+.claude/*
+.cursor/*
