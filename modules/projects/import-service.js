@@ -539,14 +539,10 @@ export async function importProjectsFromUploadService({
   const tgt = formData.get("tgt");
   const tmSettings = parseProjectTmSettings(formData);
   const glossarySettings = parseProjectGlossarySettings(formData);
-  const validTmIds = await findValidTmIdsInWorkspace(
-    tmSettings.tmIds,
-    workspaceId,
-  );
-  const validGlossaryIds = await findValidGlossaryIdsInWorkspace(
-    glossarySettings.glossaryIds,
-    workspaceId,
-  );
+  const [validTmIds, validGlossaryIds] = await Promise.all([
+    findValidTmIdsInWorkspace(tmSettings.tmIds, workspaceId),
+    findValidGlossaryIdsInWorkspace(glossarySettings.glossaryIds, workspaceId),
+  ]);
 
   if (files.length === 0) {
     throw new HttpError(400, "No file uploaded");

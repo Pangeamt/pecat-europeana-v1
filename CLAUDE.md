@@ -9,9 +9,11 @@ This project is managed with **pnpm** (version pinned to `10.20.0` in `packageMa
 - **Development**: `pnpm dev` – starts Next.js dev server with Turbopack
 - **Build**: `pnpm build`
 - **Production**: `pnpm start` – PM2 is used in production (`ecosystem.config.cjs`); deploy via `./devops.sh`
-- **Lint**: `pnpm lint` – ESLint Next.js config
-- **Release**: `pnpm release` – semantic-release on `main`
+- **Lint**: `pnpm lint` – runs `eslint .` (flat config in `eslint.config.mjs`)
+- **Release**: `pnpm release` – semantic-release on `main` (conventional commits drive versioning + `CHANGELOG.md`)
 - **React diagnostics**: `pnpm doctor`
+
+> **No test infrastructure exists** – there is no jest/vitest/playwright config, no test scripts, and no `*.test.*` / `*.spec.*` files. Do not assume a test runner is available; verify changes manually or via `pnpm lint` / `pnpm build`.
 
 ### Database
 
@@ -25,6 +27,10 @@ This project is managed with **pnpm** (version pinned to `10.20.0` in `packageMa
 2. Create upload directory: `mkdir -p public/files && chmod -R 755 public/files`
 3. Run Prisma generate, then migrations
 4. `pnpm dev` (app runs on `NEXTAUTH_URL`, default 3000)
+
+### Production deployment
+
+Deploy with `./devops.sh`, which: requires `.env`, runs `git pull --ff-only` (fast-forward only — no merge commits), `pnpm install`, `prisma generate` + `prisma migrate deploy`, ensures `public/files` (755), `pnpm build`, then `pm2 startOrRestart ecosystem.config.cjs --update-env`. The PM2 app is named `pecat-e` (fork mode, port 3000).
 
 ## High-level architecture
 
@@ -95,7 +101,17 @@ All route handlers should follow this pattern:
 - `modules/memory/tu` – DAAIT-backed, associated to a TM
 - `modules/tus` – Prisma-backed (`model Tu`), associated to a Project
 
+### Data model (`prisma/schema.prisma`, MySQL)
+
+Core models: `User`, `Account`, `Session`, `VerificationToken` (NextAuth), `Workspace` (org unit owning projects/TMs/glossaries/members), `Project`, `Tu` (project TU), `Tm` / `Glossary` (DAAIT-backed metadata mirrored locally), and the `ProjectTm` / `ProjectGlossary` join tables. Note: `Tm` and `Glossary` rows hold local metadata only — the actual TUs/entries live in DAAIT.
+
+Key enums: `Role` (SUPER, ADMIN, USER), `Status` (segment review state: EDITED, ACCEPTED, TRANSLATED_MT, NOT_REVIEWED, REJECTED), `ProjectStatus` (UPLOADED, PROCESSING, OXIGEN_PROCESSING, MTQE_PROCESSING, READY, OXIGEN_ERROR, MTQE_ERROR).
+
 ### Environment variables
 
 Required (app fails to start without): `DATABASE_URL` (must be a MySQL URI), `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `NEXT_PUBLIC_API_BASE_URL`.
-Optional: `DAAIT_API_HOST`, `SEGMENTED_TEXTS_HOST`, `MT_TEXTS_HOST`, `OXIGEN_API_HOST`, `MINT_CLIENT_ID`, `MINT_CLIENT_SECRET`, `MTQE`.
+Optional: `DAAIT_API_HOST` (defaults to `https://api-priv.pangeanic.com/service/autope2`), `SEGMENTED_TEXTS_HOST`, `MT_TEXTS_HOST`, `OXIGEN_API_HOST`, `MINT_CLIENT_ID`, `MINT_CLIENT_SECRET`, `MTQE`.
+
+### Further reading
+
+`README-architecture.md` (Spanish) contains a deeper walkthrough of the modular design, the two distinct TU concepts, and the internal API route map.

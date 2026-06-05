@@ -16,10 +16,12 @@ const languageOptions = Object.keys(locales).map((code) => ({
   label: locales[code][0],
 }));
 
+const ALLOWED_IMPORT_EXTENSIONS = ["tmx", "csv", "tsv"];
+
 const checkFile = (file) => {
   const fileName = file.name.trim().replace(/\s+/g, "");
   const fileExtension = fileName.split(".").pop().toLowerCase();
-  return fileExtension === "xlsx";
+  return ALLOWED_IMPORT_EXTENSIONS.includes(fileExtension);
 };
 
 const getTargetOptions = (source) => {
@@ -57,7 +59,7 @@ const ImportGlossaryButton = ({ refetch }) => {
     multiple: false,
     name: "file",
     action: "/api/glossaries/import",
-    accept: ".xlsx",
+    accept: ".tmx,.csv,.tsv",
     data: () => ({
       glossary: 0,
       name: form.getFieldValue("name"),
@@ -97,7 +99,7 @@ const ImportGlossaryButton = ({ refetch }) => {
       }
 
       if (!checkFile(file)) {
-        message.error("File type not supported");
+        message.error("Only TMX, CSV and TSV files are supported");
         return Upload.LIST_IGNORE;
       }
 
@@ -136,7 +138,7 @@ const ImportGlossaryButton = ({ refetch }) => {
               Import glossary
             </div>
             <div className="mt-1 text-sm text-slate-300">
-              Define metadata and upload an XLSX file.
+              Define metadata and upload a TMX, CSV or TSV file.
             </div>
           </div>
         </div>
@@ -269,10 +271,10 @@ const ImportGlossaryButton = ({ refetch }) => {
                           <UploadOutlined />
                         </p>
                         <p className="ant-upload-text">
-                          Drop XLSX file or browse
+                          Drop TMX, CSV or TSV file, or browse
                         </p>
                         <p className="ant-upload-hint">
-                          XLSX only. Maximum file size 15MB.
+                          TMX, CSV and TSV only. Maximum file size 15MB.
                         </p>
                       </Dragger>
                     ) : (

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 
 import {
   Button,
@@ -48,8 +48,12 @@ const UserEdit = ({ user, save }) => {
   const [activeTab, setActiveTab] = useState(INFO_TAB);
   const [fileList, setFileList] = useState([]);
 
-  useEffect(() => {
-    if (!isModalOpen) return;
+  const onChange = ({ fileList: newFileList }) => {
+    setFileList(newFileList.length > 0 ? [newFileList[0]] : []);
+    return false;
+  };
+
+  const showModal = () => {
     infoForm.setFieldsValue({
       name: user.name,
       email: user.email,
@@ -58,14 +62,8 @@ const UserEdit = ({ user, save }) => {
     passwordForm.resetFields();
     setFileList([]);
     setActiveTab(INFO_TAB);
-  }, [isModalOpen, user, infoForm, passwordForm]);
-
-  const onChange = ({ fileList: newFileList }) => {
-    setFileList(newFileList.length > 0 ? [newFileList[0]] : []);
-    return false;
+    setIsModalOpen(true);
   };
-
-  const showModal = () => setIsModalOpen(true);
 
   const handleCancel = () => setIsModalOpen(false);
 

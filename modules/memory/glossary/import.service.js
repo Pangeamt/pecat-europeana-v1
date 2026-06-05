@@ -3,6 +3,8 @@ import { deleteGlossaryDaait, importGlossaryDaait } from "./repository";
 import { resolveGlossaryForImportService } from "./service";
 import { hardDeleteGlossaryRecord } from "./prisma-repository";
 
+const ALLOWED_IMPORT_EXTENSIONS = ["tmx", "csv", "tsv"];
+
 export async function importGlossaryFromFilesService({
   files,
   glossaryId,
@@ -14,8 +16,11 @@ export async function importGlossaryFromFilesService({
 
     const fileName = file.name.trim().replace(/\s+/g, "");
     const fileExtension = fileName.split(".").pop().toLowerCase();
-    if (fileExtension !== "xlsx") {
-      throw new HttpError(400, "The file type is not allowed");
+    if (!ALLOWED_IMPORT_EXTENSIONS.includes(fileExtension)) {
+      throw new HttpError(
+        400,
+        "The file type is not allowed. Use TMX, CSV or TSV.",
+      );
     }
 
     const { record, created } = await resolveGlossaryForImportService({

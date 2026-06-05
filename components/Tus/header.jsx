@@ -78,6 +78,7 @@ const HeaderTus = ({
   const [tmRequesting, setTmRequesting] = useState(false);
   const onChange = ({ target: { value } }) => {
     setManualView(value);
+    setTmRequesting(true);
   };
   const getCount = (value) => {
     return value.length;
@@ -85,35 +86,31 @@ const HeaderTus = ({
 
   const queryTmTus = useCallback(async () => {
     try {
-      setTmRequesting(true);
-      if (tm?.id) {
-        const { data } = await getTmTus({
-          translation_memory_id: tm.id,
-          source_language: tm.context.source,
-          target_language: tm.context.target,
-          source_text: selectedRow.srcLiteral,
-          user: user ? user?.email : null,
-        });
-        setTmTus(data.docs);
-        setTmRequesting(false);
-        return data;
-      }
-      return null;
+      if (!tm?.id) return null;
+      const { data } = await getTmTus({
+        translation_memory_id: tm.id,
+        source_language: tm.context.source,
+        target_language: tm.context.target,
+        source_text: selectedRow.srcLiteral,
+        user: user ? user.email : null,
+      });
+      setTmTus(data.docs);
+      setTmRequesting(false);
+      return data;
     } catch (error) {
       console.error(error);
       setTmRequesting(false);
     }
-  }, [selectedRow?.srcLiteral, tm, user]);
+  }, [selectedRow, tm, user]);
 
   const queryTmTusText = useCallback(async () => {
     try {
-      setTmRequesting(true);
       const { data } = await getTmTus({
         translation_memory_id: tm.id,
         source_language: tm.context.source,
         target_language: tm.context.target,
         source_text: selectedText,
-        user: user ? user?.email : null,
+        user: user ? user.email : null,
         perTerm: true,
       });
       setTmTusText(data.docs);
@@ -126,6 +123,7 @@ const HeaderTus = ({
   }, [selectedText, tm, user]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (view === "tms") void queryTmTus();
     if (view === "tus") void queryTmTusText();
   }, [view, queryTmTus, queryTmTusText]);

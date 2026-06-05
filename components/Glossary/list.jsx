@@ -80,7 +80,10 @@ const GlossaryList = () => {
 
   const handleExport = async (id) => {
     try {
-      message.loading({ content: "Exporting glossary...", key: "export-glossary" });
+      message.loading({
+        content: "Exporting glossary...",
+        key: "export-glossary",
+      });
       await exportGlossaryRequest(id);
       message.success({
         content: "Glossary exported successfully!",
@@ -97,7 +100,10 @@ const GlossaryList = () => {
 
   const handleDelete = async (id) => {
     try {
-      message.loading({ content: "Deleting glossary...", key: "delete-glossary" });
+      message.loading({
+        content: "Deleting glossary...",
+        key: "delete-glossary",
+      });
       await deleteGlossaryRequest(id);
       await fetchGlossaries();
       message.success({
@@ -197,7 +203,13 @@ const GlossaryList = () => {
       key: "entries",
       render: (record) => (
         <span className="font-medium text-slate-700">
-          {record.total_entries ?? "-"}
+          {record.total_entries === -1 ? (
+            <span className="text-slate-400 font-normal italic">
+              Processing…
+            </span>
+          ) : (
+            (record.total_entries ?? "-")
+          )}
         </span>
       ),
     },
@@ -269,7 +281,8 @@ const GlossaryList = () => {
                 type="primary"
                 onClick={() => setIsCreateOpen(true)}
                 style={{
-                  background: "linear-gradient(135deg, #111827 0%, #059669 100%)",
+                  background:
+                    "linear-gradient(135deg, #111827 0%, #059669 100%)",
                   border: 0,
                 }}
               >

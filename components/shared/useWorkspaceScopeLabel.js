@@ -4,74 +4,32 @@ import { getWorkspace } from "@/services/workspace.services";
 import { useEffect, useState } from "react";
 
 export function useWorkspaceScopeLabel(user) {
-  const [resolvedName, setResolvedName] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [fetched, setFetched] = useState({ userId: null, name: null });
 
   useEffect(() => {
-    if (!user) {
-      setResolvedName(null);
-      setLoading(false);
-      return undefined;
-    }
-
-    if (user.role === "SUPER") {
-      setResolvedName("All workspaces");
-      setLoading(false);
-      return undefined;
-    }
-
-    if (!user.workspaceId) {
-      setResolvedName("No workspace");
-      setLoading(false);
-      return undefined;
-    }
-
-    if (user.workspace?.name) {
-      setResolvedName(user.workspace.name);
-      setLoading(false);
-      return undefined;
-    }
+    if (!user || user.role === "SUPER" || !user.workspaceId || user.workspace?.name) return;
 
     let cancelled = false;
-    setLoading(true);
-
     getWorkspace(user.workspaceId)
       .then((data) => {
-        if (cancelled) return;
-        setResolvedName(data.workspace?.name ?? "No workspace");
+        if (!cancelled)
+          setFetched({ userId: user.id, name: data.workspace?.name ?? "No workspace" });
       })
       .catch(() => {
-        if (cancelled) return;
-        setResolvedName("No workspace");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setFetched({ userId: user.id, name: "No workspace" });
       });
 
     return () => {
       cancelled = true;
     };
-  }, [user?.id, user?.role, user?.workspaceId, user?.workspace?.name]);
+  }, [user]);
 
-  if (!user) {
-    return { label: "—", loading: false };
-  }
+  if (!user) return { label: "—", loading: false };
+  if (user.role === "SUPER") return { label: "All workspaces", loading: false };
+  if (!user.workspaceId) return { label: "No workspace", loading: false };
+  if (user.workspace?.name) return { label: user.workspace.name, loading: false };
 
-  if (user.role === "SUPER") {
-    return { label: "All workspaces", loading: false };
-  }
-
-  if (!user.workspaceId) {
-    return { label: "No workspace", loading: false };
-  }
-
-  if (user.workspace?.name) {
-    return { label: user.workspace.name, loading: false };
-  }
-
-  if (loading || !resolvedName) {
-    return { label: "—", loading: true };
-  }
-
+  const resolvedName = fetched.userId === user.id ? fetched.name : null;
+  if (!resolvedName) return { label: "—", loading: true };
   return { label: resolvedName, loading: false };
 }

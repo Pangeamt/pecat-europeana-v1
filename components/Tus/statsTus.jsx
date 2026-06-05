@@ -325,7 +325,6 @@ const StatsTus = ({
 
           <span
             className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-700"
-            role="mode"
             aria-label={`Mode ${mode}`}
           >
             <span>Mode: </span>
@@ -336,7 +335,6 @@ const StatsTus = ({
 
           <span
             className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-700"
-            role="tmThreshold"
             aria-label={`Threshold ${Math.round(tmThreshold * 100)}%`}
           >
             <span>Threshold: </span>
@@ -345,7 +343,6 @@ const StatsTus = ({
 
           <span
             className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-700"
-            role="tms"
             aria-label={`TMS ${tms}`}
             title={
               Array.isArray(tmNames) && tmNames.length ? tmNames.join(", ") : ""
