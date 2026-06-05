@@ -54,3 +54,5 @@ skills-lock.json
 .cursor/*
 .claude/*
 .cursor/*
+graphify-out/**
+graphify-out
