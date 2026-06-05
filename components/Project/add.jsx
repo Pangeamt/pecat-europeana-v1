@@ -25,7 +25,7 @@ import {
   FileUp,
   Languages,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import locales from "@/lib/locales.json";
 import { checkFile } from "@/lib/utils";
@@ -88,21 +88,23 @@ const ProjectAdd = ({ add, refetch }) => {
 
   const filteredTms = useMemo(() => {
     if (!src || !tgt) return [];
-
+    const srcPfx = src.substring(0, 2);
+    const tgtPfx = tgt.substring(0, 2);
     return tms.filter((tm) => {
       const tmSource = tm.sourceLanguage ?? tm.context?.source;
       const tmTarget = tm.targetLanguage ?? tm.context?.target;
-      return tmSource === src && tmTarget === tgt;
+      return tmSource?.substring(0, 2) === srcPfx && tmTarget?.substring(0, 2) === tgtPfx;
     });
   }, [src, tgt, tms]);
 
   const filteredGlossaries = useMemo(() => {
     if (!src || !tgt) return [];
-
+    const srcPfx = src.substring(0, 2);
+    const tgtPfx = tgt.substring(0, 2);
     return glossaries.filter((glossary) => {
       const glossarySource = glossary.context?.source;
       const glossaryTarget = glossary.context?.target;
-      return glossarySource === src && glossaryTarget === tgt;
+      return glossarySource?.substring(0, 2) === srcPfx && glossaryTarget?.substring(0, 2) === tgtPfx;
     });
   }, [src, tgt, glossaries]);
 
@@ -122,16 +124,27 @@ const ProjectAdd = ({ add, refetch }) => {
     [filteredGlossaries, glossaryIds],
   );
 
-  useEffect(() => {
-    if (!isModalOpen || !user) return;
+  const resetWizard = () => {
+    form.resetFields();
+    setCurrentStep(0);
+    setSrc(null);
+    setTgt(null);
+    setTmIds([]);
+    setGlossaryIds([]);
+    setTmMode("standard");
+    setTmThreshold(0.75);
+  };
 
+  const showModal = () => {
+    setIsModalOpen(true);
+
+    if (!user) return;
     const query =
       user.role === "SUPER"
         ? { size: 1000 }
         : user.workspaceId
           ? { workspaceId: user.workspaceId, size: 1000 }
           : null;
-
     if (!query) return;
 
     setLoadingAssets(true);
@@ -146,21 +159,6 @@ const ProjectAdd = ({ add, refetch }) => {
         setGlossaries([]);
       })
       .finally(() => setLoadingAssets(false));
-  }, [isModalOpen, user]);
-
-  const resetWizard = () => {
-    form.resetFields();
-    setCurrentStep(0);
-    setSrc(null);
-    setTgt(null);
-    setTmIds([]);
-    setGlossaryIds([]);
-    setTmMode("standard");
-    setTmThreshold(0.75);
-  };
-
-  const showModal = () => {
-    setIsModalOpen(true);
   };
 
   const handleCancel = () => {
@@ -169,11 +167,13 @@ const ProjectAdd = ({ add, refetch }) => {
   };
 
   const syncTmSelection = (nextSrc, nextTgt) => {
+    const srcPfx = nextSrc?.substring(0, 2);
+    const tgtPfx = nextTgt?.substring(0, 2);
     const validTmIds = new Set(
       tms.reduce((ids, tm) => {
         const tmSource = tm.sourceLanguage ?? tm.context?.source;
         const tmTarget = tm.targetLanguage ?? tm.context?.target;
-        if (nextSrc && nextTgt && tmSource === nextSrc && tmTarget === nextTgt) {
+        if (nextSrc && nextTgt && tmSource?.substring(0, 2) === srcPfx && tmTarget?.substring(0, 2) === tgtPfx) {
           ids.push(tm.id);
         }
         return ids;
@@ -185,13 +185,15 @@ const ProjectAdd = ({ add, refetch }) => {
   };
 
   const syncGlossarySelection = (nextSrc, nextTgt) => {
+    const srcPfx = nextSrc?.substring(0, 2);
+    const tgtPfx = nextTgt?.substring(0, 2);
     const validGlossaryIds = new Set(
       glossaries.reduce((ids, glossary) => {
         if (
           nextSrc &&
           nextTgt &&
-          glossary.context?.source === nextSrc &&
-          glossary.context?.target === nextTgt
+          glossary.context?.source?.substring(0, 2) === srcPfx &&
+          glossary.context?.target?.substring(0, 2) === tgtPfx
         ) {
           ids.push(glossary.id);
         }

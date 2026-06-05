@@ -3,6 +3,7 @@ import { useState } from "react";
 import { PlusOutlined } from "@ant-design/icons";
 import { Button, Divider, Form, Input, Modal, Select, Upload, message } from "antd";
 import ImgCrop from "antd-img-crop";
+import { userStore } from "@/store";
 
 const getCompressedDataUrlFromFile = (file) => {
   return new Promise((resolve) => {
@@ -30,6 +31,7 @@ const UserAdd = ({ add }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [fileList, setFileList] = useState([]);
+  const { user } = userStore();
 
   const onChange = ({ fileList: newFileList }) => {
     if (newFileList.length > 0) {
@@ -170,7 +172,9 @@ const UserAdd = ({ add }) => {
             ]}
           >
             <Select>
-              <Select.Option value="SUPER">Super</Select.Option>
+              {user?.role !== "ADMIN" && (
+                <Select.Option value="SUPER">Super</Select.Option>
+              )}
               <Select.Option value="ADMIN">Admin</Select.Option>
               <Select.Option value="USER">User</Select.Option>
             </Select>

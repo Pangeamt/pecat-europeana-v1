@@ -36,7 +36,7 @@ import {
   Tooltip,
 } from "antd";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL;
 const READY_PROJECT_STATUS = "READY";
@@ -153,6 +153,15 @@ const ProjectList = () => {
     }
   };
 
+  const labelFilters = useMemo(
+    () =>
+      [...new Set(data.map((p) => p.label).filter(Boolean))].map((l) => ({
+        text: l,
+        value: l,
+      })),
+    [data],
+  );
+
   const readyProjects = data.filter(
     (project) => project.status === READY_PROJECT_STATUS,
   ).length;
@@ -208,6 +217,8 @@ const ProjectList = () => {
       title: "Label",
       dataIndex: "label",
       key: "label",
+      filters: labelFilters,
+      onFilter: (value, record) => record.label === value,
       render: (label) =>
         label ? (
           <Tag className="rounded-full">{label}</Tag>
@@ -245,6 +256,7 @@ const ProjectList = () => {
       title: "Created At",
       dataIndex: "createdAt",
       key: "createdAt",
+      sorter: (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
       render: (text) => (
         <span className="text-sm text-slate-600">{formatDate(text)}</span>
       ),
