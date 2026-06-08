@@ -131,5 +131,8 @@ export async function getMembersOfWorkspaceService(workspaceId, actorUser) {
     throw new HttpError(403, "You cannot access this workspace");
   }
 
-  return findMembersOfWorkspaceByWorkspaceId(workspaceId);
+  const members = await findMembersOfWorkspaceByWorkspaceId(workspaceId);
+  return members.map((m) =>
+    m.image ? { ...m, image: m.image.toString("utf-8") } : m,
+  );
 }

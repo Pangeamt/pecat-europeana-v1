@@ -80,6 +80,7 @@ export async function findMembersOfWorkspaceByWorkspaceId(workspaceId) {
       name: true,
       email: true,
       role: true,
+      image: true,
     },
   });
 }
