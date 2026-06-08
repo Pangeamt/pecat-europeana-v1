@@ -29,6 +29,7 @@ import Highlighter from "react-highlight-words";
 import { useHotkeys } from "react-hotkeys-hook";
 import XMLViewer from "react-xml-viewer";
 
+import GlossaryTool from "@/components/Tus/glossaryTool";
 import StatsTus from "@/components/Tus/statsTus";
 import TmTool from "@/components/Tus/tmTool";
 import { getProject } from "@/services/project.services";
@@ -176,6 +177,12 @@ const TusList = () => {
     if (showUnderThreshold) return info;
     return info.filter((item) => item.tm_score >= tmThreshold);
   }, [selectedRow?.tmInfo, showUnderThreshold, tmThreshold]);
+
+  const glossaryInfo = useMemo(() => {
+    const info = selectedRow?.glossaryInfo;
+    if (!Array.isArray(info)) return [];
+    return info;
+  }, [selectedRow?.glossaryInfo]);
 
   const handleSearch = (selectedKeys, confirm, dataIndex) => {
     confirm();
@@ -729,6 +736,8 @@ const TusList = () => {
           tmThreshold={projectConfig?.tmThreshold}
           tms={projectConfig?.tmNames?.length ?? projectConfig?.tmIds?.length}
           tmNames={projectConfig?.tmNames}
+          glossaries={projectConfig?.glossaryNames?.length ?? projectConfig?.glossaryIds?.length}
+          glossaryNames={projectConfig?.glossaryNames}
         />
       </div>
 
@@ -756,6 +765,16 @@ const TusList = () => {
                   onShowUnderThresholdChange={setShowUnderThreshold}
                 />
               ),
+            },
+            {
+              key: "2",
+              label: (
+                <>
+                  <span>Glossaries</span>{" "}
+                  <Badge count={glossaryInfo.length} />
+                </>
+              ),
+              children: <GlossaryTool glossaryInfo={glossaryInfo} />,
             },
           ]}
         />

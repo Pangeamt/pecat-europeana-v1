@@ -54,11 +54,6 @@ const UserEdit = ({ user, save }) => {
   };
 
   const showModal = () => {
-    infoForm.setFieldsValue({
-      name: user.name,
-      email: user.email,
-      role: user.role,
-    });
     passwordForm.resetFields();
     setFileList([]);
     setActiveTab(INFO_TAB);
@@ -128,7 +123,12 @@ const UserEdit = ({ user, save }) => {
       key: INFO_TAB,
       label: "Change Info",
       children: (
-        <Form form={infoForm} layout="horizontal" {...layout} preserve={false}>
+        <Form
+          form={infoForm}
+          layout="horizontal"
+          {...layout}
+          initialValues={{ name: user.name, email: user.email, role: user.role }}
+        >
           <Form.Item label="Avatar">
             <ImgCrop showGrid rotationSlider aspectSlider showReset>
               <Upload
@@ -174,7 +174,7 @@ const UserEdit = ({ user, save }) => {
       key: PASSWORD_TAB,
       label: "Change Password",
       children: (
-        <Form form={passwordForm} layout="horizontal" {...layout} preserve={false}>
+        <Form form={passwordForm} layout="horizontal" {...layout}>
           <Form.Item
             name="password"
             label="Password"

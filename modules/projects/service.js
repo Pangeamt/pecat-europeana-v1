@@ -23,10 +23,21 @@ export async function getProjectByIdService(projectId, actorUser) {
     }
   }
 
+  const glossaryIds = [];
+  const glossaryNames = [];
+  for (const link of project.projectGlossaries) {
+    glossaryIds.push(link.glossaryId);
+    if (typeof link.glossary?.name === "string") {
+      glossaryNames.push(link.glossary.name);
+    }
+  }
+
   return {
     ...project,
     tmIds,
     tmNames,
+    glossaryIds,
+    glossaryNames,
   };
 }
 

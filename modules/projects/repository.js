@@ -80,6 +80,17 @@ export async function findProjectWithTmsForActor(projectId, actorUser) {
           },
         },
       },
+      projectGlossaries: {
+        select: {
+          glossaryId: true,
+          glossary: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      },
     },
   });
 }

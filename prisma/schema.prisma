@@ -121,6 +121,7 @@ model Tu {
   targetLanguage          String
   translationScorePercent Float?
   tmInfo                  Json?
+  glossaryInfo            Json?
   createdAt               DateTime @default(now())
   exampleXml              String?  @db.VarChar(500)
   updatedAt               DateTime @updatedAt

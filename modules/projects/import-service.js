@@ -277,6 +277,7 @@ async function processNonJsonFile({
   tmMode,
   tmThreshold,
   tmIds,
+  glossaryIds,
   userId,
   workspaceId,
 }) {
@@ -288,6 +289,7 @@ async function processNonJsonFile({
     tm_mode: tmMode,
     tm_threshold: tmThreshold,
     tm_ids: tmIds,
+    glossary_ids: glossaryIds,
     user_id: userId,
     workspace_id: workspaceId,
   };
@@ -309,6 +311,7 @@ async function processNonJsonFile({
     translatedLiteral: item.tgt ?? item.source_segment ?? null,
     translationScorePercent: item.mtqe_score ?? null,
     tmInfo: item.tm_info ?? item.tmInfo ?? null,
+    glossaryInfo: item.glossary_info ?? item.glossaryInfo ?? null,
     block: (() => {
       const tmInfoArray = item.tm_info ?? item.tmInfo ?? [];
       if (Array.isArray(tmInfoArray)) {
@@ -378,6 +381,11 @@ function toTusData(result, projectId) {
       data.tmInfo = tmInfo;
     }
 
+    const glossaryInfo = item.glossaryInfo ?? item.glossary_info ?? null;
+    if (glossaryInfo !== null && glossaryInfo !== undefined) {
+      data.glossaryInfo = glossaryInfo;
+    }
+
     return data;
   });
 }
@@ -398,6 +406,7 @@ async function processUploadedProjectInBackground({
   tmMode,
   tmThreshold,
   tmIds,
+  glossaryIds,
   userId,
   workspaceId,
 }) {
@@ -417,6 +426,7 @@ async function processUploadedProjectInBackground({
         tmMode,
         tmThreshold,
         tmIds,
+        glossaryIds,
         userId,
         workspaceId,
       });
@@ -592,6 +602,7 @@ export async function importProjectsFromUploadService({
       tmMode: tmSettings.tmMode,
       tmThreshold: tmSettings.tmThreshold,
       tmIds: validTmIds,
+      glossaryIds: validGlossaryIds,
       userId,
       workspaceId,
     });
