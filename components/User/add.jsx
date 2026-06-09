@@ -1,7 +1,16 @@
 "use client";
 import { useState } from "react";
 import { PlusOutlined } from "@ant-design/icons";
-import { Button, Divider, Form, Input, Modal, Select, Upload, message } from "antd";
+import {
+  Button,
+  Divider,
+  Form,
+  Input,
+  Modal,
+  Select,
+  Upload,
+  message,
+} from "antd";
 import ImgCrop from "antd-img-crop";
 import { userStore } from "@/store";
 
@@ -14,7 +23,11 @@ const getCompressedDataUrlFromFile = (file) => {
       image.onload = () => {
         const canvas = document.createElement("canvas");
         const maxSize = 256;
-        const ratio = Math.min(maxSize / image.width, maxSize / image.height, 1);
+        const ratio = Math.min(
+          maxSize / image.width,
+          maxSize / image.height,
+          1,
+        );
         canvas.width = Math.round(image.width * ratio);
         canvas.height = Math.round(image.height * ratio);
         const context = canvas.getContext("2d");
@@ -69,7 +82,6 @@ const UserAdd = ({ add }) => {
       const errorMessage =
         errorInfo?.response?.data?.message || "Failed to add user";
       message.error(errorMessage);
-      console.log("Failed:", errorInfo);
       setAdding(false);
     }
   };
@@ -210,7 +222,9 @@ const UserAdd = ({ add }) => {
                     return Promise.resolve();
                   }
                   return Promise.reject(
-                    new Error("The new password that you entered do not match!")
+                    new Error(
+                      "The new password that you entered do not match!",
+                    ),
                   );
                 },
               }),

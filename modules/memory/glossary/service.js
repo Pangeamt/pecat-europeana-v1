@@ -51,14 +51,19 @@ function toGlossaryDoc(record, daaitGlossary = null) {
   };
 }
 
-function mapDaaitEntry(entry, record) {
+function mapDaaitEntry(entry, record, index) {
   return {
-    id: entry.id,
+    id: entry.id ?? entry._id ?? `${record.id}-${index}`,
     glossary_id: record.id,
     source_language: record.sourceLanguage,
     target_language: record.targetLanguage,
-    source_text: entry.source ?? entry.source_text ?? "",
-    translated_text: entry.target ?? entry.translated_text ?? "",
+    source_text: entry.source ?? entry.source_text ?? entry.sourceText ?? "",
+    translated_text:
+      entry.target ??
+      entry.translated_text ??
+      entry.translatedText ??
+      entry.translation ??
+      "",
   };
 }
 
@@ -172,10 +177,15 @@ export async function listGlossariesService(queryParams, actorUser) {
 }
 
 export async function getGlossaryService(id, actorUser) {
-  const [record, daaitGlossary] = await Promise.all([
-    assertGlossaryInWorkspace(id, actorUser),
-    getGlossaryDaait(id),
-  ]);
+  const record = await assertGlossaryInWorkspace(id, actorUser);
+
+  let daaitGlossary = null;
+  try {
+    daaitGlossary = await getGlossaryDaait(id);
+  } catch {
+    // DAAIT may not have the glossary metadata — return Prisma record only
+  }
+
   return toGlossaryDoc(record, daaitGlossary);
 }
 
@@ -238,7 +248,10 @@ export async function resolveGlossaryForImportService({
   actorUser,
 }) {
   if (hasValidGlossaryId(glossaryId)) {
-    const record = await assertGlossaryInWorkspace(String(glossaryId), actorUser);
+    const record = await assertGlossaryInWorkspace(
+      String(glossaryId),
+      actorUser,
+    );
     return { record, created: false };
   }
 
@@ -276,20 +289,37 @@ export async function listGlossaryEntriesService(
   actorUser,
   { page = 1, size = 100, filter } = {},
 ) {
-  const [record, response] = await Promise.all([
-    assertGlossaryInWorkspace(glossaryId, actorUser),
-    listGlossaryEntriesDaait(glossaryId, {
+  const record = await assertGlossaryInWorkspace(glossaryId, actorUser);
+
+  let response;
+  try {
+    const daaitParams = {
       page,
       size,
       filter: optionalText(filter) ?? undefined,
-    }),
-  ]);
-  const docs = (response?.items ?? []).map((entry) =>
-    mapDaaitEntry(entry, record),
-  );
+    };
+
+    response = await listGlossaryEntriesDaait(glossaryId, daaitParams);
+  } catch (error) {
+    if (error instanceof HttpError && error.status === 404) {
+      return { total: 0, page, size, docs: [] };
+    }
+    throw error;
+  }
+
+  // DAAIT /glossary/{id}/terms endpoint — response key may vary
+  const rawEntries =
+    response?.terms ??
+    response?.entries ??
+    response?.items ??
+    response?.docs ??
+    response?.results ??
+    (Array.isArray(response) ? response : []);
+
+  const docs = rawEntries.map((entry, index) => mapDaaitEntry(entry, record, index));
 
   return {
-    total: response?.total ?? docs.length,
+    total: response?.total ?? response?.total_entries ?? docs.length,
     page: response?.page ?? page,
     size: response?.size ?? size,
     docs,

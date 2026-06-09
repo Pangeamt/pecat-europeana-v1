@@ -100,7 +100,6 @@ const TusList = () => {
       try {
         setRequesting(true);
         const response = await getTus(projectId);
-        console.log("response", response);
         const docs = response.data.docs || [];
         setData(docs);
         setSelectedRow((prev) => prev || docs[0] || null);
@@ -736,7 +735,10 @@ const TusList = () => {
           tmThreshold={projectConfig?.tmThreshold}
           tms={projectConfig?.tmNames?.length ?? projectConfig?.tmIds?.length}
           tmNames={projectConfig?.tmNames}
-          glossaries={projectConfig?.glossaryNames?.length ?? projectConfig?.glossaryIds?.length}
+          glossaries={
+            projectConfig?.glossaryNames?.length ??
+            projectConfig?.glossaryIds?.length
+          }
           glossaryNames={projectConfig?.glossaryNames}
         />
       </div>
@@ -770,8 +772,7 @@ const TusList = () => {
               key: "2",
               label: (
                 <>
-                  <span>Glossaries</span>{" "}
-                  <Badge count={glossaryInfo.length} />
+                  <span>Glossaries</span> <Badge count={glossaryInfo.length} />
                 </>
               ),
               children: <GlossaryTool glossaryInfo={glossaryInfo} />,

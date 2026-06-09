@@ -14,6 +14,7 @@ export const GET = async (req, { params }) => {
       size: searchParams.get("size"),
       filter: searchParams.get("filter"),
     });
+
     const data = await listGlossaryEntriesService(id, actorUser, query);
     return Response.json(data);
   } catch (error) {
