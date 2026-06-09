@@ -157,7 +157,7 @@ const TmList = () => {
       ),
     },
     {
-      title: "Project",
+      title: "Document",
       key: "project",
       render: (record) =>
         record.context.project ? (

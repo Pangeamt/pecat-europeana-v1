@@ -43,6 +43,7 @@ const METRICS = [
 const EFFORT_BUCKETS = [
   {
     key: "notMatch",
+    wordsKey: "notMatchWords",
     label: "No match",
     range: "< 50%",
     hint: "Full translation",
@@ -52,9 +53,10 @@ const EFFORT_BUCKETS = [
     weight: 1,
   },
   {
-    key: "fuzzy50",
+    key: "mtqe50",
+    wordsKey: "mtqe50Words",
     label: "50% – 74%",
-    range: "Low fuzzy",
+    range: "Low QE",
     hint: "Heavy review",
     bar: "from-orange-500 to-amber-400",
     ring: "ring-orange-200",
@@ -62,9 +64,10 @@ const EFFORT_BUCKETS = [
     weight: 0.82,
   },
   {
-    key: "fuzzy75",
+    key: "mtqe75",
+    wordsKey: "mtqe75Words",
     label: "75% – 84%",
-    range: "Medium fuzzy",
+    range: "Medium QE",
     hint: "Moderate review",
     bar: "from-amber-500 to-yellow-400",
     ring: "ring-amber-200",
@@ -72,9 +75,10 @@ const EFFORT_BUCKETS = [
     weight: 0.62,
   },
   {
-    key: "fuzzy85",
+    key: "mtqe85",
+    wordsKey: "mtqe85Words",
     label: "85% – 94%",
-    range: "High fuzzy",
+    range: "High QE",
     hint: "Minor adjustments",
     bar: "from-lime-500 to-green-400",
     ring: "ring-lime-200",
@@ -82,7 +86,8 @@ const EFFORT_BUCKETS = [
     weight: 0.4,
   },
   {
-    key: "fuzzy95",
+    key: "mtqe95",
+    wordsKey: "mtqe95Words",
     label: "95% – 99%",
     range: "Near exact",
     hint: "Light review",
@@ -92,7 +97,8 @@ const EFFORT_BUCKETS = [
     weight: 0.18,
   },
   {
-    key: "fuzzy100",
+    key: "mtqe100",
+    wordsKey: "mtqe100Words",
     label: "100%",
     range: "Exact match",
     hint: "No effort",
@@ -108,20 +114,25 @@ const EffortModal = ({ open, onClose, stats, requesting, totalSegments }) => {
     const buckets = EFFORT_BUCKETS.map((bucket) => ({
       ...bucket,
       count: Number(stats[bucket.key] ?? 0),
+      words: Number(stats[bucket.wordsKey] ?? 0),
     }));
 
-    const total = buckets.reduce((sum, b) => sum + b.count, 0);
+    const totalWords = buckets.reduce((sum, b) => sum + b.words, 0);
+    const totalCount = buckets.reduce((sum, b) => sum + b.count, 0);
+
+    // Effort index weighted by source word count per MTQE bucket:
+    // E = Σ(words_i × α_i) / totalWords × 100
     const weighted =
-      total > 0
-        ? buckets.reduce((sum, b) => sum + b.count * b.weight, 0) / total
+      totalWords > 0
+        ? buckets.reduce((sum, b) => sum + b.words * b.weight, 0) / totalWords
         : 0;
 
     const effortIndex = Math.round(weighted * 100);
 
-    return { buckets, total, effortIndex };
+    return { buckets, totalWords, totalCount, effortIndex };
   }, [stats]);
 
-  const maxCount = Math.max(...effortSummary.buckets.map((b) => b.count), 1);
+  const maxWords = Math.max(...effortSummary.buckets.map((b) => b.words), 1);
 
   return (
     <Modal
@@ -161,20 +172,33 @@ const EffortModal = ({ open, onClose, stats, requesting, totalSegments }) => {
               Translation effort
             </h2>
             <p className="mt-1 max-w-sm text-sm text-slate-300">
-              TM similarity breakdown. Lower match scores mean more review work
-              required.
+              Word-weighted effort by MTQE range. Lower QE scores mean more
+              review work per source word.
             </p>
           </div>
 
-          <div className="shrink-0 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center backdrop-blur-sm">
-            <div className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-              Index
+          <div className="flex gap-3">
+            <div className="shrink-0 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center backdrop-blur-sm">
+              <div className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                Effort
+              </div>
+              <div className="mt-0.5 text-3xl font-bold tabular-nums leading-none">
+                {requesting ? "—" : `${effortSummary.effortIndex}%`}
+              </div>
+              <div className="mt-1 text-[11px] text-slate-400">
+                {requesting ? "…" : `${totalSegments} segments`}
+              </div>
             </div>
-            <div className="mt-0.5 text-3xl font-bold tabular-nums leading-none">
-              {requesting ? "—" : `${effortSummary.effortIndex}%`}
-            </div>
-            <div className="mt-1 text-[11px] text-slate-400">
-              {requesting ? "…" : `${totalSegments} segments`}
+            <div className="shrink-0 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center backdrop-blur-sm">
+              <div className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                Words
+              </div>
+              <div className="mt-0.5 text-3xl font-bold tabular-nums leading-none">
+                {requesting ? "—" : effortSummary.totalWords.toLocaleString()}
+              </div>
+              <div className="mt-1 text-[11px] text-slate-400">
+                {requesting ? "…" : "source words"}
+              </div>
             </div>
           </div>
         </div>
@@ -182,11 +206,15 @@ const EffortModal = ({ open, onClose, stats, requesting, totalSegments }) => {
 
       <div className="space-y-2.5 bg-slate-50 p-5">
         {effortSummary.buckets.map((bucket, index) => {
-          const pct =
-            effortSummary.total > 0
-              ? Math.round((bucket.count / effortSummary.total) * 100)
+          const segPct =
+            effortSummary.totalCount > 0
+              ? Math.round((bucket.count / effortSummary.totalCount) * 100)
               : 0;
-          const barWidth = Math.round((bucket.count / maxCount) * 100);
+          const wordPct =
+            effortSummary.totalWords > 0
+              ? Math.round((bucket.words / effortSummary.totalWords) * 100)
+              : 0;
+          const barWidth = Math.round((bucket.words / maxWords) * 100);
 
           return (
             <div
@@ -209,19 +237,41 @@ const EffortModal = ({ open, onClose, stats, requesting, totalSegments }) => {
                   <p className="mt-0.5 text-xs text-slate-500">{bucket.hint}</p>
                 </div>
 
-                <div className="shrink-0 text-right">
-                  <div className="text-2xl font-bold tabular-nums leading-none text-slate-900">
-                    {requesting ? (
-                      <LoadingOutlined spin className="text-base" />
-                    ) : (
-                      bucket.count
+                <div className="shrink-0 flex gap-4 text-right">
+                  <div>
+                    <div className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                      Segments
+                    </div>
+                    <div className="text-xl font-bold tabular-nums leading-none text-slate-900">
+                      {requesting ? (
+                        <LoadingOutlined spin className="text-base" />
+                      ) : (
+                        bucket.count
+                      )}
+                    </div>
+                    {!requesting && (
+                      <div className="mt-0.5 text-[11px] tabular-nums text-slate-400">
+                        {segPct}%
+                      </div>
                     )}
                   </div>
-                  {!requesting && (
-                    <div className="mt-0.5 text-[11px] tabular-nums text-slate-400">
-                      {pct}% of total
+                  <div>
+                    <div className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                      Words
                     </div>
-                  )}
+                    <div className="text-xl font-bold tabular-nums leading-none text-slate-700">
+                      {requesting ? (
+                        <LoadingOutlined spin className="text-base" />
+                      ) : (
+                        bucket.words.toLocaleString()
+                      )}
+                    </div>
+                    {!requesting && (
+                      <div className="mt-0.5 text-[11px] tabular-nums text-slate-400">
+                        {wordPct}%
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -369,7 +419,12 @@ const StatsTus = ({
             }
           >
             <span>Glossaries: </span>
-            <Badge count={glossaries} size="small" className="text-sm" color="green" />
+            <Badge
+              count={glossaries}
+              size="small"
+              className="text-sm"
+              color="green"
+            />
             {Array.isArray(glossaryNames) && glossaryNames.length > 0 ? (
               <span className="max-w-60 truncate text-[11px] text-gray-500">
                 {glossaryNames.join(", ")}
@@ -399,11 +454,11 @@ StatsTus.propTypes = {
     translated_mt: PropTypes.number,
     porcent: PropTypes.number,
     notMatch: PropTypes.number,
-    fuzzy50: PropTypes.number,
-    fuzzy75: PropTypes.number,
-    fuzzy85: PropTypes.number,
-    fuzzy95: PropTypes.number,
-    fuzzy100: PropTypes.number,
+    mtqe50: PropTypes.number,
+    mtqe75: PropTypes.number,
+    mtqe85: PropTypes.number,
+    mtqe95: PropTypes.number,
+    mtqe100: PropTypes.number,
   }).isRequired,
   percentage: PropTypes.number,
   requesting: PropTypes.bool.isRequired,

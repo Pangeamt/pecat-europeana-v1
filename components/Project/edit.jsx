@@ -45,7 +45,7 @@ const ProjectEdit = ({ project, save }) => {
         />
       </Tooltip>
       <Modal
-        title="Edit Project"
+        title="Edit document label"
         open={isModalOpen}
         onOk={handleOk}
         onCancel={handleCancel}

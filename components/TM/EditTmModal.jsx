@@ -44,7 +44,7 @@ function EditTmForm({ tm, onClose, onUpdated }) {
       >
         <Input />
       </Form.Item>
-      <Form.Item label="Project" name="project">
+      <Form.Item label="Document" name="project">
         <Input />
       </Form.Item>
       <Form.Item label="Domain" name="domain">

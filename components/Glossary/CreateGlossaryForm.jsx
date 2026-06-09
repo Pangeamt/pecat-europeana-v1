@@ -68,7 +68,7 @@ export default function CreateGlossaryForm({ user, onBack, onCreated }) {
               <Input placeholder="Glossary name" />
             </Form.Item>
             <div className="grid grid-cols-2 gap-2">
-              <Form.Item label="Project" name="project">
+              <Form.Item label="Document" name="project">
                 <Input placeholder="Optional" />
               </Form.Item>
               <Form.Item label="Domain" name="domain">

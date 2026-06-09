@@ -51,11 +51,17 @@ const EMPTY_STATS = {
   translated_mt: 0,
   porcent: 0,
   notMatch: 0,
-  fuzzy100: 0,
-  fuzzy95: 0,
-  fuzzy85: 0,
-  fuzzy75: 0,
-  fuzzy50: 0,
+  mtqe100: 0,
+  mtqe95: 0,
+  mtqe85: 0,
+  mtqe75: 0,
+  mtqe50: 0,
+  notMatchWords: 0,
+  mtqe50Words: 0,
+  mtqe75Words: 0,
+  mtqe85Words: 0,
+  mtqe95Words: 0,
+  mtqe100Words: 0,
 };
 
 const TusList = () => {
@@ -154,13 +160,29 @@ const TusList = () => {
         totalStats += 1;
       }
 
-      const ld = doc.levenshteinDistance;
-      if (ld == null || ld < 0.5) newStats.notMatch += 1;
-      else if (ld >= 0.5 && ld < 0.75) newStats.fuzzy50 += 1;
-      else if (ld >= 0.75 && ld < 0.85) newStats.fuzzy75 += 1;
-      else if (ld >= 0.85 && ld < 0.95) newStats.fuzzy85 += 1;
-      else if (ld >= 0.95 && ld < 1) newStats.fuzzy95 += 1;
-      else if (ld === 1) newStats.fuzzy100 += 1;
+      const mtqe = doc.translationScorePercent;
+      const srcWords = doc.srcLiteral
+        ? doc.srcLiteral.trim().split(/\s+/).filter(Boolean).length
+        : 0;
+      if (mtqe == null || mtqe < 0.5) {
+        newStats.notMatch += 1;
+        newStats.notMatchWords += srcWords;
+      } else if (mtqe >= 0.5 && mtqe < 0.75) {
+        newStats.mtqe50 += 1;
+        newStats.mtqe50Words += srcWords;
+      } else if (mtqe >= 0.75 && mtqe < 0.85) {
+        newStats.mtqe75 += 1;
+        newStats.mtqe75Words += srcWords;
+      } else if (mtqe >= 0.85 && mtqe < 0.95) {
+        newStats.mtqe85 += 1;
+        newStats.mtqe85Words += srcWords;
+      } else if (mtqe >= 0.95 && mtqe < 1) {
+        newStats.mtqe95 += 1;
+        newStats.mtqe95Words += srcWords;
+      } else if (mtqe === 1) {
+        newStats.mtqe100 += 1;
+        newStats.mtqe100Words += srcWords;
+      }
     });
 
     newStats.porcent = parseFloat(

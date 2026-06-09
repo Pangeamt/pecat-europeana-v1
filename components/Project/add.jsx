@@ -552,7 +552,7 @@ const ProjectAdd = ({ add, refetch }) => {
           border: 0,
         }}
       >
-        Add Project
+        Add Document
       </Button>
       <Modal
         title={null}
@@ -598,9 +598,9 @@ const ProjectAdd = ({ add, refetch }) => {
           <div className="absolute -right-8 -top-8 size-28 rounded-full bg-[#98C441]/20 blur-3xl" />
           <div className="relative">
             <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#98C441]">
-              New project
+              New document
             </div>
-            <h2 className="mt-1 text-xl font-semibold">Create project</h2>
+            <h2 className="mt-1 text-xl font-semibold">Create document</h2>
             <p className="mt-1 text-sm text-slate-300">
               Configure languages, assets and upload in four guided steps.
             </p>

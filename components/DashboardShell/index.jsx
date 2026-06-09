@@ -43,7 +43,7 @@ const buildMenuItems = (role) => {
     {
       key: MENU_KEYS.projects,
       icon: <FileTextOutlined />,
-      label: <Link href="/dashboard">Projects</Link>,
+      label: <Link href="/dashboard">Documents</Link>,
     },
     {
       key: MENU_KEYS.tms,

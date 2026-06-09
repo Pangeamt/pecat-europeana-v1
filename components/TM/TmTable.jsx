@@ -27,7 +27,7 @@ const buildColumns = ({
     key: "name",
   },
   {
-    title: "Project",
+    title: "Document",
     key: "project",
     render: (record) => <code>{record.context.project}</code>,
   },

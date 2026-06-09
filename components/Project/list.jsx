@@ -16,12 +16,7 @@ import {
   UserOutlined,
 } from "@ant-design/icons";
 import { StatCard, StatCardGrid } from "@/components/shared/StatCard";
-import {
-  Building2,
-  CircleCheck,
-  FolderKanban,
-  Loader2,
-} from "lucide-react";
+import { Building2, CircleCheck, FolderKanban, Loader2 } from "lucide-react";
 import {
   Avatar,
   Button,
@@ -44,10 +39,10 @@ const READY_PROJECT_STATUS = "READY";
 const PROJECT_STATUS_CONFIG = {
   UPLOADED: { label: "Uploaded", color: "default" },
   PROCESSING: { label: "Processing", color: "blue" },
-  OXIGEN_PROCESSING: { label: "Oxigen", color: "geekblue" },
+  FILE_PROCESSING: { label: "File Processing", color: "geekblue" },
   MTQE_PROCESSING: { label: "MTQE", color: "cyan" },
   READY: { label: "Ready", color: "green" },
-  OXIGEN_ERROR: { label: "Oxigen Error", color: "red" },
+  FILE_ERROR: { label: "File Error", color: "red" },
   MTQE_ERROR: { label: "MTQE Error", color: "volcano" },
 };
 
@@ -189,10 +184,11 @@ const ProjectList = () => {
       dataIndex: "filename",
       key: "name",
       render: (text, record) => {
-        const isReady = record.status === READY_PROJECT_STATUS && !record.deletedAt;
+        const isReady =
+          record.status === READY_PROJECT_STATUS && !record.deletedAt;
         if (!isReady) {
           return (
-            <Tooltip title="Project is still processing">
+            <Tooltip title="Document is still processing">
               <div>
                 <span className="font-semibold text-slate-500">{text}</span>
                 <div className="mt-1 text-xs text-slate-400">{record.id}</div>
@@ -253,17 +249,6 @@ const ProjectList = () => {
         ),
     },
     {
-      title: "Created At",
-      dataIndex: "createdAt",
-      key: "createdAt",
-      sorter: (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-      render: (text) => (
-        <span className="text-sm text-slate-600">{formatDate(text)}</span>
-      ),
-      width: 180,
-    },
-
-    {
       title: "User",
       key: "user",
       render: (_, record) => (
@@ -274,6 +259,17 @@ const ProjectList = () => {
           </span>
         </Space>
       ),
+    },
+    {
+      title: "Created At",
+      dataIndex: "createdAt",
+      key: "createdAt",
+      sorter: (a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+      render: (text) => (
+        <span className="text-sm text-slate-600">{formatDate(text)}</span>
+      ),
+      width: 180,
     },
     {
       title: "Progress",
@@ -341,27 +337,30 @@ const ProjectList = () => {
   ];
 
   return (
-    <Card className="project-list-card overflow-hidden" style={{ marginLeft: 20 }}>
+    <Card
+      className="project-list-card overflow-hidden"
+      style={{ marginLeft: 20 }}
+    >
       <div className="mb-5 rounded-2xl bg-slate-950 p-5 text-white">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <div className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-200">
-              Project workspace
+              Document workspace
             </div>
-            <h2 className="mb-1 mt-2 text-2xl font-semibold">Projects</h2>
+            <h2 className="mb-1 mt-2 text-2xl font-semibold">Documents</h2>
             <p className="m-0 text-sm text-slate-300">
-              Upload, track and review translation projects.
+              Upload, track and review translation documents.
             </p>
           </div>
           <ProjectAdd add={add} refetch={fetchData} />
         </div>
       </div>
 
-      <StatCardGrid ariaLabel="Project statistics">
+      <StatCardGrid ariaLabel="Document statistics">
         <StatCard
           label="Total"
           value={loading ? "—" : data.length}
-          hint="All uploaded projects"
+          hint="All uploaded documents"
           icon={FolderKanban}
           theme="slate"
         />

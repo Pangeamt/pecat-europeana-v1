@@ -21,10 +21,10 @@ const pump = promisify(pipeline);
 const PROJECT_STATUS = {
   UPLOADED: "UPLOADED",
   PROCESSING: "PROCESSING",
-  OXIGEN_PROCESSING: "OXIGEN_PROCESSING",
+  FILE_PROCESSING: "FILE_PROCESSING",
   MTQE_PROCESSING: "MTQE_PROCESSING",
   READY: "READY",
-  OXIGEN_ERROR: "OXIGEN_ERROR",
+  FILE_ERROR: "FILE_ERROR",
   MTQE_ERROR: "MTQE_ERROR",
 };
 
@@ -297,7 +297,7 @@ async function processNonJsonFile({
   const tmp = await oxygenTranslateFile(objectOxigen);
   if (!tmp) {
     const error = new Error("Internal error with Oxigen");
-    error.code = "OXIGEN_ERROR";
+    error.code = "FILE_ERROR";
     throw error;
   }
 
@@ -393,7 +393,7 @@ function toTusData(result, projectId) {
 function resolveProjectErrorStatus(fileExtension, error) {
   if (error?.code === "MTQE_ERROR") return PROJECT_STATUS.MTQE_ERROR;
   if (fileExtension === "json") return PROJECT_STATUS.MTQE_ERROR;
-  return PROJECT_STATUS.OXIGEN_ERROR;
+  return PROJECT_STATUS.FILE_ERROR;
 }
 
 async function processUploadedProjectInBackground({
@@ -417,7 +417,7 @@ async function processUploadedProjectInBackground({
       const jsonData = JSON.parse(fs.readFileSync(filePath, "utf8"));
       result = await processJsonWithOptionalMt(jsonData, mt, { src, tgt });
     } else {
-      await setProjectStatus(projectId, PROJECT_STATUS.OXIGEN_PROCESSING);
+      await setProjectStatus(projectId, PROJECT_STATUS.FILE_PROCESSING);
       result = await processNonJsonFile({
         filePath,
         src,

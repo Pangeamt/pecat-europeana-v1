@@ -147,7 +147,7 @@ const WorkspaceList = () => {
       ),
     },
     {
-      title: "Projects",
+      title: "Documents",
       key: "projects",
       render: (record) => (
         <Tag color="geekblue">{record._count?.projects ?? 0}</Tag>
