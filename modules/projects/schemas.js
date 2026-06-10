@@ -13,3 +13,7 @@ export const deleteProjectSchema = Joi.object({
   projectId: Joi.string().required(),
 });
 
+export const updateProjectTmsSchema = Joi.object({
+  updateTmIds: Joi.array().items(Joi.string()).required(),
+});
+

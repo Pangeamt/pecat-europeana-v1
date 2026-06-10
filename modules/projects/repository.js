@@ -72,6 +72,7 @@ export async function findProjectWithTmsForActor(projectId, actorUser) {
       projectTms: {
         select: {
           tmId: true,
+          updateTm: true,
           tm: {
             select: {
               id: true,
@@ -153,5 +154,24 @@ export async function updateProjectById(id, data) {
     where: { id },
     data,
   });
+}
+
+export async function setProjectTmUpdateFlags(projectId, updateTmIds) {
+  const ids = Array.isArray(updateTmIds) ? updateTmIds : [];
+
+  await prisma.$transaction([
+    prisma.projectTm.updateMany({
+      where: { projectId },
+      data: { updateTm: false },
+    }),
+    ...(ids.length > 0
+      ? [
+          prisma.projectTm.updateMany({
+            where: { projectId, tmId: { in: ids } },
+            data: { updateTm: true },
+          }),
+        ]
+      : []),
+  ]);
 }
 

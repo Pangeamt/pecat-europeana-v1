@@ -40,6 +40,14 @@ export const getProject = async (projectId) => {
   });
 };
 
+export const updateProjectTms = async (projectId, updateTmIds) => {
+  return await httpClient({
+    method: "patch",
+    url: `/api/projects/${projectId}/tms`,
+    data: { updateTmIds },
+  });
+};
+
 export const getProjectShareLink = async (projectId, baseURL) => {
   const { data } = await httpClient.get(`${baseURL}/api/file/${projectId}`);
   return `${baseURL}/api/file?uuid=${data.uuid}&projectId=${projectId}`;

@@ -7,10 +7,21 @@ import {
   LoadingOutlined,
   PieChartOutlined,
 } from "@ant-design/icons";
-import { CircleCheck, Dumbbell } from "lucide-react";
+import { CircleCheck, Database, Dumbbell } from "lucide-react";
 import PropTypes from "prop-types";
-import { useMemo, useState } from "react";
-import { Badge, Button, Modal, Tag, Tooltip } from "antd";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Badge,
+  Button,
+  Empty,
+  Modal,
+  Switch,
+  Tag,
+  Tooltip,
+  message,
+} from "antd";
+
+import { updateProjectTms } from "@/services/project.services";
 
 const METRICS = [
   {
@@ -297,6 +308,109 @@ EffortModal.propTypes = {
   totalSegments: PropTypes.number.isRequired,
 };
 
+const TmUpdateModal = ({ open, onClose, projectId, projectTms, onSaved }) => {
+  const [updateMap, setUpdateMap] = useState({});
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const next = {};
+    for (const tm of projectTms) {
+      next[tm.id] = Boolean(tm.updateTm);
+    }
+    setUpdateMap(next);
+  }, [open, projectTms]);
+
+  const toggle = (tmId, checked) => {
+    setUpdateMap((prev) => ({ ...prev, [tmId]: checked }));
+  };
+
+  const handleSave = async () => {
+    if (!projectId) return;
+    try {
+      setSaving(true);
+      const updateTmIds = Object.entries(updateMap)
+        .filter(([, value]) => value)
+        .map(([tmId]) => tmId);
+      await updateProjectTms(projectId, updateTmIds);
+      message.success("TM update settings saved");
+      onSaved?.();
+      onClose();
+    } catch (error) {
+      console.error(error);
+      message.error(
+        error?.response?.data?.message || "Could not save TM settings",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal
+      open={open}
+      onCancel={onClose}
+      title="Translation memory updates"
+      okText="Save"
+      onOk={handleSave}
+      confirmLoading={saving}
+      okButtonProps={{ disabled: projectTms.length === 0 }}
+      width={480}
+      centered
+      destroyOnHidden
+    >
+      <p className="mb-4 text-sm text-slate-500">
+        Choose which memories should be updated with the accepted translations
+        of this document.
+      </p>
+      {projectTms.length === 0 ? (
+        <Empty
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          description="This document has no linked memories"
+        />
+      ) : (
+        <div className="flex flex-col gap-2">
+          {projectTms.map((tm) => (
+            <div
+              key={tm.id}
+              className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-white px-3 py-2"
+            >
+              <span className="truncate text-sm font-medium text-slate-700">
+                {tm.name ?? tm.id}
+              </span>
+              <Switch
+                size="small"
+                checked={Boolean(updateMap[tm.id])}
+                onChange={(checked) => toggle(tm.id, checked)}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </Modal>
+  );
+};
+
+TmUpdateModal.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  projectId: PropTypes.string,
+  projectTms: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string,
+      name: PropTypes.string,
+      updateTm: PropTypes.bool,
+    }),
+  ),
+  onSaved: PropTypes.func,
+};
+
+TmUpdateModal.defaultProps = {
+  projectId: undefined,
+  projectTms: [],
+  onSaved: undefined,
+};
+
 const StatsTus = ({
   stats,
   percentage = 0,
@@ -308,8 +422,12 @@ const StatsTus = ({
   glossaries = 0,
   glossaryNames = [],
   totalSegments = 0,
+  projectId,
+  projectTms = [],
+  onTmsUpdated,
 }) => {
   const [showEffortModal, setShowEffortModal] = useState(false);
+  const [showTmModal, setShowTmModal] = useState(false);
   const pct = Math.min(100, Math.max(0, Number(percentage) || 0));
 
   return (
@@ -372,6 +490,16 @@ const StatsTus = ({
               }}
             >
               <Dumbbell size={16} />
+            </Button>
+          </Tooltip>
+
+          <Tooltip title="Configure TM updates">
+            <Button
+              size="small"
+              aria-label="Configure TM updates"
+              onClick={() => setShowTmModal(true)}
+            >
+              <Database size={16} />
             </Button>
           </Tooltip>
 
@@ -441,6 +569,14 @@ const StatsTus = ({
         requesting={requesting}
         totalSegments={totalSegments}
       />
+
+      <TmUpdateModal
+        open={showTmModal}
+        onClose={() => setShowTmModal(false)}
+        projectId={projectId}
+        projectTms={projectTms}
+        onSaved={onTmsUpdated}
+      />
     </>
   );
 };
@@ -469,6 +605,15 @@ StatsTus.propTypes = {
   glossaries: PropTypes.number,
   glossaryNames: PropTypes.arrayOf(PropTypes.string),
   totalSegments: PropTypes.number,
+  projectId: PropTypes.string,
+  projectTms: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string,
+      name: PropTypes.string,
+      updateTm: PropTypes.bool,
+    }),
+  ),
+  onTmsUpdated: PropTypes.func,
 };
 
 export default StatsTus;

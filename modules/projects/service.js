@@ -5,6 +5,7 @@ import {
   findProjects,
   findProjectWithTmsForActor,
   getProjectStatusCounts,
+  setProjectTmUpdateFlags,
   updateProjectById,
 } from "./repository";
 
@@ -16,11 +17,17 @@ export async function getProjectByIdService(projectId, actorUser) {
 
   const tmIds = [];
   const tmNames = [];
+  const tms = [];
   for (const link of project.projectTms) {
     tmIds.push(link.tmId);
     if (typeof link.tm?.name === "string") {
       tmNames.push(link.tm.name);
     }
+    tms.push({
+      id: link.tmId,
+      name: link.tm?.name ?? null,
+      updateTm: Boolean(link.updateTm),
+    });
   }
 
   const glossaryIds = [];
@@ -36,9 +43,27 @@ export async function getProjectByIdService(projectId, actorUser) {
     ...project,
     tmIds,
     tmNames,
+    tms,
     glossaryIds,
     glossaryNames,
   };
+}
+
+export async function updateProjectTmsService(projectId, updateTmIds, actorUser) {
+  const project = await findProjectWithTmsForActor(projectId, actorUser);
+  if (!project) {
+    throw new HttpError(404, "Project not found");
+  }
+
+  const projectTmIds = new Set(project.projectTms.map((link) => link.tmId));
+  const requested = Array.isArray(updateTmIds) ? updateTmIds : [];
+  const validUpdateTmIds = [
+    ...new Set(requested.filter((tmId) => projectTmIds.has(tmId))),
+  ];
+
+  await setProjectTmUpdateFlags(projectId, validUpdateTmIds);
+
+  return { updateTmIds: validUpdateTmIds };
 }
 
 export async function listProjectsService(actorUser) {

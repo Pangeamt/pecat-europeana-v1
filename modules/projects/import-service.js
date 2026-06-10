@@ -54,6 +54,17 @@ function parseProjectTmSettings(formData) {
     }
   }
 
+  const rawUpdateTmIds = formData.get("tm_update_ids");
+  let updateTmIds = [];
+
+  if (rawUpdateTmIds) {
+    try {
+      updateTmIds = JSON.parse(rawUpdateTmIds);
+    } catch {
+      throw new HttpError(400, "tm_update_ids must be a valid JSON array");
+    }
+  }
+
   return {
     tmMode,
     tmThreshold: Number.isFinite(parsedThreshold)
@@ -66,6 +77,7 @@ function parseProjectTmSettings(formData) {
         )
       : 0,
     tmIds: Array.isArray(tmIds) ? tmIds : [],
+    updateTmIds: Array.isArray(updateTmIds) ? updateTmIds : [],
   };
 }
 
@@ -91,12 +103,18 @@ function normalizeTmIds(tmIds) {
   return [...new Set(tmIds.filter((tmId) => typeof tmId === "string" && tmId))];
 }
 
-async function linkProjectTms(projectId, tmIds) {
+async function linkProjectTms(projectId, tmIds, updateTmIds = []) {
   const normalized = normalizeTmIds(tmIds);
   if (normalized.length === 0) return;
 
+  const updateSet = new Set(normalizeTmIds(updateTmIds));
+
   await prisma.projectTm.createMany({
-    data: normalized.map((tmId) => ({ projectId, tmId })),
+    data: normalized.map((tmId) => ({
+      projectId,
+      tmId,
+      updateTm: updateSet.has(tmId),
+    })),
     skipDuplicates: true,
   });
 }
@@ -588,7 +606,11 @@ export async function importProjectsFromUploadService({
       },
     });
 
-    await linkProjectTms(createdProject.id, validTmIds);
+    await linkProjectTms(
+      createdProject.id,
+      validTmIds,
+      tmSettings.updateTmIds,
+    );
     await linkProjectGlossaries(createdProject.id, validGlossaryIds);
 
     createdProjectIds.push(createdProject.id);

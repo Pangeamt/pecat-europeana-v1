@@ -24,7 +24,13 @@ import axios from "axios";
 import { CircleCheck, CircleX, LockIcon, UnlockIcon } from "lucide-react";
 import { useParams } from "next/navigation";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Highlighter from "react-highlight-words";
 import { useHotkeys } from "react-hotkeys-hook";
 import XMLViewer from "react-xml-viewer";
@@ -123,22 +129,25 @@ const TusList = () => {
     if (projectId) get();
   }, [projectId, messageApi]);
 
-  useEffect(() => {
-    const getProjectConfig = async () => {
-      try {
-        const response = await getProject(projectId);
-        setProjectConfig(response.data);
-      } catch (error) {
-        console.error(error);
-        messageApi.error(
-          error?.response?.data?.error?.message ||
-            "Error getting project config",
-        );
-        setProjectConfig(null);
-      }
-    };
-    getProjectConfig();
+  const getProjectConfig = useCallback(async () => {
+    try {
+      const response = await getProject(projectId);
+      setProjectConfig(response.data);
+    } catch (error) {
+      console.error(error);
+      messageApi.error(
+        error?.response?.data?.error?.message || "Error getting project config",
+      );
+      setProjectConfig(null);
+    }
   }, [projectId, messageApi]);
+
+  useEffect(() => {
+    const run = async () => {
+      await getProjectConfig();
+    };
+    run();
+  }, [getProjectConfig]);
 
   const stats = (() => {
     if (requesting || data.length === 0) return EMPTY_STATS;
@@ -646,14 +655,19 @@ const TusList = () => {
         moveNext({ skipBlocked: true });
 
         if (projectConfig?.tmIds?.length) {
-          appendTu({
-            tmIds: projectConfig.tmIds,
-            source: currentRow.srcLiteral,
-            target: reviewLiteral,
-          }).catch((appendError) => {
-            console.error(appendError);
-            messageApi.warning("Segment saved, but TM update failed");
-          });
+          const tmIds = projectConfig.tmIds.filter(
+            (tmId) => projectConfig.tms.find((tm) => tm.id === tmId)?.updateTm,
+          );
+          if (tmIds.length > 0) {
+            appendTu({
+              tmIds,
+              source: currentRow.srcLiteral,
+              target: reviewLiteral,
+            }).catch((appendError) => {
+              console.error(appendError);
+              messageApi.warning("Segment saved, but TM update failed");
+            });
+          }
         }
       } else {
         moveNext();
@@ -762,6 +776,9 @@ const TusList = () => {
             projectConfig?.glossaryIds?.length
           }
           glossaryNames={projectConfig?.glossaryNames}
+          projectId={projectId}
+          projectTms={projectConfig?.tms}
+          onTmsUpdated={getProjectConfig}
         />
       </div>
 

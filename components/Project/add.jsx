@@ -15,16 +15,12 @@ import {
   Select,
   Slider,
   Steps,
+  Switch,
   Tag,
   Upload,
   message,
 } from "antd";
-import {
-  BookMarked,
-  Database,
-  FileUp,
-  Languages,
-} from "lucide-react";
+import { BookMarked, Database, FileUp, Languages } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import locales from "@/lib/locales.json";
@@ -78,6 +74,7 @@ const ProjectAdd = ({ add, refetch }) => {
   const [tmMode, setTmMode] = useState("standard");
   const [tmThreshold, setTmThreshold] = useState(0.75);
   const [tmIds, setTmIds] = useState([]);
+  const [updateTmIds, setUpdateTmIds] = useState([]);
   const [glossaryIds, setGlossaryIds] = useState([]);
   const [tms, setTms] = useState([]);
   const [glossaries, setGlossaries] = useState([]);
@@ -93,7 +90,10 @@ const ProjectAdd = ({ add, refetch }) => {
     return tms.filter((tm) => {
       const tmSource = tm.sourceLanguage ?? tm.context?.source;
       const tmTarget = tm.targetLanguage ?? tm.context?.target;
-      return tmSource?.substring(0, 2) === srcPfx && tmTarget?.substring(0, 2) === tgtPfx;
+      return (
+        tmSource?.substring(0, 2) === srcPfx &&
+        tmTarget?.substring(0, 2) === tgtPfx
+      );
     });
   }, [src, tgt, tms]);
 
@@ -104,15 +104,16 @@ const ProjectAdd = ({ add, refetch }) => {
     return glossaries.filter((glossary) => {
       const glossarySource = glossary.context?.source;
       const glossaryTarget = glossary.context?.target;
-      return glossarySource?.substring(0, 2) === srcPfx && glossaryTarget?.substring(0, 2) === tgtPfx;
+      return (
+        glossarySource?.substring(0, 2) === srcPfx &&
+        glossaryTarget?.substring(0, 2) === tgtPfx
+      );
     });
   }, [src, tgt, glossaries]);
 
   const selectedTmNames = useMemo(
     () =>
-      filteredTms
-        .filter((tm) => tmIds.includes(tm.id))
-        .map((tm) => tm.name),
+      filteredTms.filter((tm) => tmIds.includes(tm.id)).map((tm) => tm.name),
     [filteredTms, tmIds],
   );
 
@@ -130,6 +131,7 @@ const ProjectAdd = ({ add, refetch }) => {
     setSrc(null);
     setTgt(null);
     setTmIds([]);
+    setUpdateTmIds([]);
     setGlossaryIds([]);
     setTmMode("standard");
     setTmThreshold(0.75);
@@ -173,7 +175,12 @@ const ProjectAdd = ({ add, refetch }) => {
       tms.reduce((ids, tm) => {
         const tmSource = tm.sourceLanguage ?? tm.context?.source;
         const tmTarget = tm.targetLanguage ?? tm.context?.target;
-        if (nextSrc && nextTgt && tmSource?.substring(0, 2) === srcPfx && tmTarget?.substring(0, 2) === tgtPfx) {
+        if (
+          nextSrc &&
+          nextTgt &&
+          tmSource?.substring(0, 2) === srcPfx &&
+          tmTarget?.substring(0, 2) === tgtPfx
+        ) {
           ids.push(tm.id);
         }
         return ids;
@@ -181,7 +188,23 @@ const ProjectAdd = ({ add, refetch }) => {
     );
     const nextTmIds = tmIds.filter((id) => validTmIds.has(id));
     setTmIds(nextTmIds);
+    setUpdateTmIds((prev) => prev.filter((id) => validTmIds.has(id)));
     form.setFieldsValue({ tm_ids: nextTmIds });
+  };
+
+  const handleTmIdsChange = (nextTmIds) => {
+    setTmIds(nextTmIds);
+    const selected = new Set(nextTmIds);
+    setUpdateTmIds((prev) => prev.filter((id) => selected.has(id)));
+  };
+
+  const toggleUpdateTm = (tmId, shouldUpdate) => {
+    setUpdateTmIds((prev) => {
+      if (shouldUpdate) {
+        return prev.includes(tmId) ? prev : [...prev, tmId];
+      }
+      return prev.filter((id) => id !== tmId);
+    });
   };
 
   const syncGlossarySelection = (nextSrc, nextTgt) => {
@@ -200,7 +223,9 @@ const ProjectAdd = ({ add, refetch }) => {
         return ids;
       }, []),
     );
-    const nextGlossaryIds = glossaryIds.filter((id) => validGlossaryIds.has(id));
+    const nextGlossaryIds = glossaryIds.filter((id) =>
+      validGlossaryIds.has(id),
+    );
     setGlossaryIds(nextGlossaryIds);
     form.setFieldsValue({ glossary_ids: nextGlossaryIds });
   };
@@ -247,6 +272,7 @@ const ProjectAdd = ({ add, refetch }) => {
       tm_mode: tmMode,
       tm_threshold: tmThreshold,
       tm_ids: JSON.stringify(tmIds),
+      tm_update_ids: JSON.stringify(updateTmIds),
       glossary_ids: JSON.stringify(glossaryIds),
     }),
     onChange(info) {
@@ -379,13 +405,43 @@ const ProjectAdd = ({ add, refetch }) => {
                   : undefined
               }
               optionFilterProp="label"
-              onChange={setTmIds}
+              onChange={handleTmIdsChange}
               options={filteredTms.map((tm) => ({
                 value: tm.id,
                 label: tm.name,
               }))}
             />
           </Form.Item>
+          {tmIds.length > 0 ? (
+            <div className="mb-4 rounded-xl border border-slate-200 bg-white/70 p-3">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Update on review
+              </div>
+              <p className="mb-3 text-xs text-slate-500">
+                Choose which memories should be updated with the accepted
+                translations of this document.
+              </p>
+              <div className="flex flex-col gap-2">
+                {filteredTms
+                  .filter((tm) => tmIds.includes(tm.id))
+                  .map((tm) => (
+                    <div
+                      key={tm.id}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-white px-3 py-2"
+                    >
+                      <span className="truncate text-sm font-medium text-slate-700">
+                        {tm.name}
+                      </span>
+                      <Switch
+                        size="small"
+                        checked={updateTmIds.includes(tm.id)}
+                        onChange={(checked) => toggleUpdateTm(tm.id, checked)}
+                      />
+                    </div>
+                  ))}
+              </div>
+            </div>
+          ) : null}
           {filteredTms.length === 0 ? (
             <Alert
               type="info"
@@ -618,7 +674,11 @@ const ProjectAdd = ({ add, refetch }) => {
           />
         </div>
 
-        <Form form={form} layout="vertical" className="max-h-[58vh] overflow-y-auto p-6">
+        <Form
+          form={form}
+          layout="vertical"
+          className="max-h-[58vh] overflow-y-auto p-6"
+        >
           {renderStepContent()}
         </Form>
       </Modal>

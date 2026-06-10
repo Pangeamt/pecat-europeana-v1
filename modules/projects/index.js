@@ -3,6 +3,7 @@ export {
   listProjectsService,
   updateProjectLabelService,
   softDeleteProjectService,
+  updateProjectTmsService,
 } from "./service";
 
 export {
@@ -16,4 +17,5 @@ export {
   importByUrlSchema,
   updateProjectSchema,
   deleteProjectSchema,
+  updateProjectTmsSchema,
 } from "./schemas";
