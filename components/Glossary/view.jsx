@@ -22,6 +22,7 @@ import {
   fetchGlossaryEntriesRequest,
 } from "@/services/glossary.services";
 import { useMemoryDetailView } from "@/components/shared/useMemoryDetailView";
+import { getTextDirection } from "@/lib/locale-direction";
 
 const { Text } = Typography;
 
@@ -51,6 +52,9 @@ export default function GlossaryView({ glossaryId }) {
 
   const glossary = state.resource;
 
+  const sourceDir = getTextDirection(glossary?.context?.source);
+  const targetDir = getTextDirection(glossary?.context?.target);
+
   const columns = [
     {
       title: "No.",
@@ -68,7 +72,16 @@ export default function GlossaryView({ glossaryId }) {
       key: "source_text",
       render: (text) => (
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm leading-relaxed text-slate-800">
-          <Text style={{ whiteSpace: "pre-wrap" }}>{text}</Text>
+          <Text
+            dir={sourceDir}
+            style={{
+              whiteSpace: "pre-wrap",
+              display: "block",
+              textAlign: sourceDir === "rtl" ? "right" : "left",
+            }}
+          >
+            {text}
+          </Text>
         </div>
       ),
     },
@@ -78,7 +91,16 @@ export default function GlossaryView({ glossaryId }) {
       key: "translated_text",
       render: (text) => (
         <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3 text-sm leading-relaxed text-emerald-950">
-          <Text style={{ whiteSpace: "pre-wrap" }}>{text || "-"}</Text>
+          <Text
+            dir={targetDir}
+            style={{
+              whiteSpace: "pre-wrap",
+              display: "block",
+              textAlign: targetDir === "rtl" ? "right" : "left",
+            }}
+          >
+            {text || "-"}
+          </Text>
         </div>
       ),
     },

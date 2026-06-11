@@ -12,6 +12,8 @@ export async function findProjects(where) {
       createdAt: true,
       deletedAt: true,
       label: true,
+      sourceLanguage: true,
+      targetLanguage: true,
       User: {
         select: {
           name: true,

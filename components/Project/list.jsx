@@ -2,6 +2,7 @@
 import ProjectAdd from "@/components/Project/add";
 import ProjectEdit from "@/components/Project/edit";
 import { formatDate } from "@/lib/utils";
+import { getLocaleName } from "@/lib/locale-direction";
 import {
   addProject,
   getProjects,
@@ -11,6 +12,7 @@ import {
 } from "@/services/project.services";
 import { tmStore } from "@/store";
 import {
+  ArrowRightOutlined,
   DeleteOutlined,
   DownloadOutlined,
   UserOutlined,
@@ -235,6 +237,32 @@ const ProjectList = () => {
         ),
     },
     {
+      title: "Language pair",
+      key: "languagePair",
+      width: 170,
+      render: (_, record) => {
+        const { sourceLanguage, targetLanguage } = record;
+        if (!sourceLanguage && !targetLanguage) {
+          return <span className="text-slate-400">-</span>;
+        }
+        return (
+          <Space size={6} wrap>
+            <Tooltip title={getLocaleName(sourceLanguage)}>
+              <Tag color="geekblue" className="rounded-full uppercase">
+                {sourceLanguage || "?"}
+              </Tag>
+            </Tooltip>
+            <ArrowRightOutlined className="text-slate-400" />
+            <Tooltip title={getLocaleName(targetLanguage)}>
+              <Tag color="cyan" className="rounded-full uppercase">
+                {targetLanguage || "?"}
+              </Tag>
+            </Tooltip>
+          </Space>
+        );
+      },
+    },
+    {
       title: "Status",
       dataIndex: "status",
       key: "status",
@@ -264,6 +292,7 @@ const ProjectList = () => {
       title: "Created At",
       dataIndex: "createdAt",
       key: "createdAt",
+      defaultSortOrder: "descend",
       sorter: (a, b) =>
         new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
       render: (text) => (
@@ -407,6 +436,7 @@ const ProjectList = () => {
         rowKey={(record) => record.id}
         size="small"
         scroll={{ x: 800 }}
+        showSorterTooltip={false}
         locale={{
           emptyText: (
             <Empty

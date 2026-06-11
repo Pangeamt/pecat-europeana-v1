@@ -41,6 +41,7 @@ import TmTool from "@/components/Tus/tmTool";
 import { getProject } from "@/services/project.services";
 import { appendTu, confirmTu, getTus } from "@/services/tus.services";
 import { userStore } from "@/store";
+import { getTextDirection } from "@/lib/locale-direction";
 import CustomTextArea from "../../components/CustomTextArea";
 
 const stripHTML = (html) => {
@@ -329,6 +330,9 @@ const TusList = () => {
       ),
   });
 
+  const sourceDir = getTextDirection(projectConfig?.sourceLanguage);
+  const targetDir = getTextDirection(projectConfig?.targetLanguage);
+
   const columns = [
     {
       title: "No.",
@@ -359,7 +363,14 @@ const TusList = () => {
       textWrap: "word-break",
       ...getColumnSearchProps("srcLiteral"),
       render: (text) => (
-        <div style={{ wordWrap: "break-word", wordBreak: "break-word" }}>
+        <div
+          dir={sourceDir}
+          style={{
+            wordWrap: "break-word",
+            wordBreak: "break-word",
+            textAlign: sourceDir === "rtl" ? "right" : "left",
+          }}
+        >
           {text}
         </div>
       ),
@@ -377,7 +388,12 @@ const TusList = () => {
           return (
             <div
               className="text-gray-500"
-              style={{ wordWrap: "break-word", wordBreak: "break-word" }}
+              dir={targetDir}
+              style={{
+                wordWrap: "break-word",
+                wordBreak: "break-word",
+                textAlign: targetDir === "rtl" ? "right" : "left",
+              }}
             >
               {aux}
             </div>
@@ -386,6 +402,7 @@ const TusList = () => {
         if (selectedRow && record.id === selectedRow.id) {
           return (
             <CustomTextArea
+              dir={targetDir}
               value={selectedRow.reviewLiteral || selectedRow.translatedLiteral}
               setValue={changeTextInTextarea}
               onKeyDown={async (e) => {
@@ -414,7 +431,14 @@ const TusList = () => {
           );
         } else {
           const reviewLiteral = getColumnSearchProps("reviewLiteral");
-          return reviewLiteral.render(aux);
+          return (
+            <div
+              dir={targetDir}
+              style={{ textAlign: targetDir === "rtl" ? "right" : "left" }}
+            >
+              {reviewLiteral.render(aux)}
+            </div>
+          );
         }
       },
     },

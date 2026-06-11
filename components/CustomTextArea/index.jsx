@@ -21,7 +21,7 @@ const modules = {
   },
 };
 
-const CustomTextArea = ({ value, setValue, onKeyDown }) => {
+const CustomTextArea = ({ value, setValue, onKeyDown, dir = "ltr" }) => {
   const quillRef = useRef(null);
   const [editorReady, setEditorReady] = useState(false);
 
@@ -45,6 +45,15 @@ const CustomTextArea = ({ value, setValue, onKeyDown }) => {
     };
   }, []);
 
+  useEffect(() => {
+    if (!editorReady) return;
+    const quill = quillRef.current?.getEditor();
+    if (quill?.root) {
+      quill.root.setAttribute("dir", dir);
+      quill.root.style.textAlign = dir === "rtl" ? "right" : "left";
+    }
+  }, [editorReady, dir]);
+
   const forceSpellCheck = useCallback(() => {
     const quill = quillRef.current?.getEditor();
     if (quill) {
@@ -62,7 +71,12 @@ const CustomTextArea = ({ value, setValue, onKeyDown }) => {
         <ReactQuill
           ref={quillRef}
           className="custom-text-area word-wrap-break-word break-words"
-          style={{ wordWrap: "break-word", wordBreak: "break-word" }}
+          style={{
+            wordWrap: "break-word",
+            wordBreak: "break-word",
+            direction: dir,
+            textAlign: dir === "rtl" ? "right" : "left",
+          }}
           theme="snow"
           value={`${value}`}
           onChange={setValue}

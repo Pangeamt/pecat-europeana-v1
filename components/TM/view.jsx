@@ -25,6 +25,7 @@ import {
   searchTMTusRequest,
 } from "@/services/tm.services";
 import { useMemoryDetailView } from "@/components/shared/useMemoryDetailView";
+import { getTextDirection } from "@/lib/locale-direction";
 
 const { Text } = Typography;
 
@@ -57,6 +58,9 @@ export default function TMView({ tmId }) {
 
   const tm = state.resource;
 
+  const sourceDir = getTextDirection(tm?.context?.source);
+  const targetDir = getTextDirection(tm?.context?.target);
+
   const columns = [
     {
       title: "No.",
@@ -74,7 +78,16 @@ export default function TMView({ tmId }) {
       key: "source_text",
       render: (text) => (
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm leading-relaxed text-slate-800">
-          <Text style={{ whiteSpace: "pre-wrap" }}>{text}</Text>
+          <Text
+            dir={sourceDir}
+            style={{
+              whiteSpace: "pre-wrap",
+              display: "block",
+              textAlign: sourceDir === "rtl" ? "right" : "left",
+            }}
+          >
+            {text}
+          </Text>
         </div>
       ),
     },
@@ -84,7 +97,16 @@ export default function TMView({ tmId }) {
       key: "translated_text",
       render: (text) => (
         <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3 text-sm leading-relaxed text-blue-950">
-          <Text style={{ whiteSpace: "pre-wrap" }}>{text || "-"}</Text>
+          <Text
+            dir={targetDir}
+            style={{
+              whiteSpace: "pre-wrap",
+              display: "block",
+              textAlign: targetDir === "rtl" ? "right" : "left",
+            }}
+          >
+            {text || "-"}
+          </Text>
         </div>
       ),
     },
