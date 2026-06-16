@@ -8,6 +8,7 @@ import {
   ApartmentOutlined,
   BookOutlined,
   FileTextOutlined,
+  IdcardOutlined,
   LeftOutlined,
   RightOutlined,
   UserOutlined,
@@ -16,6 +17,7 @@ import {
 
 import AvatarDropdown from "@/components/AvatarDropdown";
 import Logo from "@/components/Logo";
+import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { userStore } from "@/store";
 
 const { Header, Sider, Content } = Layout;
@@ -26,11 +28,13 @@ const MENU_KEYS = {
   glossaries: "glossaries",
   users: "users",
   workspaces: "workspaces",
+  profile: "profile",
 };
 
 const isTusRoute = (pathname) => /^\/dashboard\/[^/]+\/tus$/.test(pathname);
 
 const getSelectedKey = (pathname) => {
+  if (pathname.startsWith("/dashboard/profile")) return MENU_KEYS.profile;
   if (pathname.startsWith("/dashboard/users")) return MENU_KEYS.users;
   if (pathname.startsWith("/dashboard/workspaces")) return MENU_KEYS.workspaces;
   if (pathname.startsWith("/dashboard/tms")) return MENU_KEYS.tms;
@@ -38,22 +42,22 @@ const getSelectedKey = (pathname) => {
   return MENU_KEYS.projects;
 };
 
-const buildMenuItems = (role) => {
+const buildMenuItems = (role, t) => {
   const items = [
     {
       key: MENU_KEYS.projects,
       icon: <FileTextOutlined />,
-      label: <Link href="/dashboard">Documents</Link>,
+      label: <Link href="/dashboard">{t("nav.documents")}</Link>,
     },
     {
       key: MENU_KEYS.tms,
       icon: <DatabaseOutlined />,
-      label: <Link href="/dashboard/tms">TMs</Link>,
+      label: <Link href="/dashboard/tms">{t("nav.tms")}</Link>,
     },
     {
       key: MENU_KEYS.glossaries,
       icon: <BookOutlined />,
-      label: <Link href="/dashboard/glossaries">Glossaries</Link>,
+      label: <Link href="/dashboard/glossaries">{t("nav.glossaries")}</Link>,
     },
   ];
 
@@ -61,7 +65,7 @@ const buildMenuItems = (role) => {
     items.push({
       key: MENU_KEYS.users,
       icon: <UserOutlined />,
-      label: <Link href="/dashboard/users">Users</Link>,
+      label: <Link href="/dashboard/users">{t("nav.users")}</Link>,
     });
   }
 
@@ -69,9 +73,16 @@ const buildMenuItems = (role) => {
     items.push({
       key: MENU_KEYS.workspaces,
       icon: <ApartmentOutlined />,
-      label: <Link href="/dashboard/workspaces">Workspaces</Link>,
+      label: <Link href="/dashboard/workspaces">{t("nav.workspaces")}</Link>,
     });
   }
+
+  // Always available, regardless of role.
+  items.push({
+    key: MENU_KEYS.profile,
+    icon: <IdcardOutlined />,
+    label: <Link href="/dashboard/profile">{t("account.profile")}</Link>,
+  });
 
   return items;
 };
@@ -102,6 +113,7 @@ const MENU_STYLE = {
 
 const DashboardShell = ({ initialUser, children }) => {
   const pathname = usePathname();
+  const { t } = useTranslation();
   const storeUser = userStore((state) => state.user);
   const user = storeUser ?? initialUser;
 
@@ -126,7 +138,10 @@ const DashboardShell = ({ initialUser, children }) => {
     }));
   };
 
-  const menuItems = useMemo(() => buildMenuItems(user?.role), [user?.role]);
+  const menuItems = useMemo(
+    () => buildMenuItems(user?.role, t),
+    [user?.role, t],
+  );
   const selectedKeys = useMemo(() => [getSelectedKey(pathname)], [pathname]);
 
   return (

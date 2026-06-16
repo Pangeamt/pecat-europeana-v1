@@ -1,4 +1,4 @@
-import { generateSaltAndHash } from "../../lib/utils";
+import { generateSaltAndHash, validatePassword } from "../../lib/utils";
 import { HttpError } from "../shared/http-error";
 import {
   createUser,
@@ -156,6 +156,10 @@ export async function updateUserService(actorUser, payload) {
     data.image = Buffer.from(payload.image, "utf-8");
   }
 
+  if (payload.language !== undefined) {
+    data.language = payload.language;
+  }
+
   if (payload.password) {
     const { salt, hash } = generateSaltAndHash({ password: payload.password });
     data.salt = salt;
@@ -167,6 +171,49 @@ export async function updateUserService(actorUser, payload) {
   }
 
   await updateUserById(payload.userId, data);
+}
+
+export async function updateProfileService(actorUser, payload) {
+  const current = await findUserById(actorUser.id);
+  if (!current) {
+    throw new HttpError(404, "User not found");
+  }
+
+  const data = {};
+
+  if (payload.name !== undefined) data.name = payload.name;
+  if (payload.language !== undefined) data.language = payload.language;
+
+  if (payload.password) {
+    if (!current.salt || !current.hash) {
+      throw new HttpError(400, "This account has no password set");
+    }
+
+    const isValidCurrent = validatePassword({
+      user: { salt: current.salt, hash: current.hash },
+      inputPassword: payload.currentPassword,
+    });
+
+    if (!isValidCurrent) {
+      throw new HttpError(
+        400,
+        "Your current password is incorrect",
+        "INVALID_CURRENT_PASSWORD",
+      );
+    }
+
+    const { salt, hash } = generateSaltAndHash({ password: payload.password });
+    data.salt = salt;
+    data.hash = hash;
+  }
+
+  if (Object.keys(data).length === 0) {
+    throw new HttpError(400, "No fields to update");
+  }
+
+  await updateUserById(actorUser.id, data);
+
+  return { language: data.language ?? current.language };
 }
 
 export async function deleteUserService(actorUser, userId) {

@@ -30,3 +30,16 @@ export const getUsers = async () => {
     url: "/api/users",
   });
 };
+
+export const updateProfile = async (payload: {
+  name?: string;
+  language?: string;
+  currentPassword?: string;
+  password?: string;
+}) => {
+  return await httpClient({
+    method: "patch",
+    url: "/api/profile",
+    data: payload,
+  });
+};

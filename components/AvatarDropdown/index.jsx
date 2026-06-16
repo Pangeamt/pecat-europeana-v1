@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { LoadingOutlined } from "@ant-design/icons";
 import { Avatar, Dropdown } from "antd";
 import axios from "axios";
-import { Building2, ChevronDown, LogOut } from "lucide-react";
+import { Building2, ChevronDown, LogOut, UserRound } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
 
+import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { useWorkspaceScopeLabel } from "@/components/shared/useWorkspaceScopeLabel";
 import { userStore } from "@/store";
 
@@ -50,6 +52,7 @@ const UserMenuSkeleton = () => (
 const AvatarDropdown = () => {
   const { data: session } = useSession();
   const { save, user } = userStore();
+  const { t } = useTranslation();
   const [requesting, setRequesting] = useState(true);
   const [open, setOpen] = useState(false);
   const { label: workspaceLabel, loading: workspaceLoading } =
@@ -91,7 +94,9 @@ const AvatarDropdown = () => {
   }
 
   const workspaceHint =
-    workspaceLoading || workspaceLabel === "—" ? "Loading workspace…" : workspaceLabel;
+    workspaceLoading || workspaceLabel === "—"
+      ? t("account.loadingWorkspace")
+      : workspaceLabel;
 
   const dropdownContent = (
     <div className="w-72 overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-lg shadow-slate-200/50">
@@ -118,6 +123,14 @@ const AvatarDropdown = () => {
         </div>
       </div>
       <div className="p-2">
+        <Link
+          href="/dashboard/profile"
+          onClick={() => setOpen(false)}
+          className="flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition-colors duration-200 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 motion-reduce:transition-none"
+        >
+          <UserRound size={16} strokeWidth={2} />
+          {t("account.profile")}
+        </Link>
         <button
           type="button"
           onClick={() => {
@@ -127,7 +140,7 @@ const AvatarDropdown = () => {
           className="flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-rose-600 transition-colors duration-200 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200 motion-reduce:transition-none"
         >
           <LogOut size={16} strokeWidth={2} />
-          Sign out
+          {t("account.signOut")}
         </button>
       </div>
     </div>
@@ -146,7 +159,7 @@ const AvatarDropdown = () => {
         type="button"
         aria-expanded={open}
         aria-haspopup="menu"
-        aria-label={`Open account menu for ${user.name}`}
+        aria-label={t("account.openMenu", { name: user.name })}
         className={`group flex cursor-pointer items-center gap-2.5 rounded-full bg-transparent px-2 py-1.5 pl-1.5 transition-colors duration-200 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#98C441]/40 ${
           open ? "bg-slate-50" : "hover:bg-slate-50"
         }`}

@@ -27,6 +27,7 @@ import {
   fetchGlossariesRequest,
 } from "@/services/glossary.services";
 import { StatCard, StatCardGrid } from "@/components/shared/StatCard";
+import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { useWorkspaceScopeLabel } from "@/components/shared/useWorkspaceScopeLabel";
 import { userStore } from "@/store";
 import { BookMarked, Building2, Languages } from "lucide-react";
@@ -35,6 +36,7 @@ import EditGlossaryModal from "./EditGlossaryModal";
 import ImportGlossaryButton from "./importGlossary";
 
 const GlossaryList = () => {
+  const { t } = useTranslation();
   const { user } = userStore();
   const { label: workspaceLabel, loading: workspaceLabelLoading } =
     useWorkspaceScopeLabel(user);
@@ -68,11 +70,11 @@ const GlossaryList = () => {
       setGlossaries(response?.docs ?? []);
     } catch (error) {
       console.error(error);
-      message.error("Error fetching glossaries");
+      message.error(t("glossaries.messages.fetchError"));
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, t]);
 
   useEffect(() => {
     void fetchGlossaries();
@@ -81,18 +83,18 @@ const GlossaryList = () => {
   const handleExport = async (id) => {
     try {
       message.loading({
-        content: "Exporting glossary...",
+        content: t("glossaries.messages.exporting"),
         key: "export-glossary",
       });
       await exportGlossaryRequest(id);
       message.success({
-        content: "Glossary exported successfully!",
+        content: t("glossaries.messages.exported"),
         key: "export-glossary",
       });
     } catch (error) {
       console.error(error);
       message.error({
-        content: error?.message || "Error exporting glossary",
+        content: error?.message || t("glossaries.messages.exportError"),
         key: "export-glossary",
       });
     }
@@ -101,19 +103,20 @@ const GlossaryList = () => {
   const handleDelete = async (id) => {
     try {
       message.loading({
-        content: "Deleting glossary...",
+        content: t("glossaries.messages.deleting"),
         key: "delete-glossary",
       });
       await deleteGlossaryRequest(id);
       await fetchGlossaries();
       message.success({
-        content: "Glossary deleted successfully!",
+        content: t("glossaries.messages.deleted"),
         key: "delete-glossary",
       });
     } catch (error) {
       console.error(error);
       message.error({
-        content: error?.response?.data?.error || "Error deleting glossary",
+        content:
+          error?.response?.data?.error || t("glossaries.messages.deleteError"),
         key: "delete-glossary",
       });
     }
@@ -146,7 +149,7 @@ const GlossaryList = () => {
       ),
     },
     {
-      title: "Name",
+      title: t("table.name"),
       dataIndex: "name",
       key: "name",
       render: (name, record) => (
@@ -162,7 +165,7 @@ const GlossaryList = () => {
       ),
     },
     {
-      title: "Document",
+      title: t("table.project"),
       key: "project",
       render: (record) =>
         record.context.project ? (
@@ -172,7 +175,7 @@ const GlossaryList = () => {
         ),
     },
     {
-      title: "Domain",
+      title: t("table.domain"),
       key: "domain",
       render: (record) =>
         record.context.domain ? (
@@ -184,7 +187,7 @@ const GlossaryList = () => {
         ),
     },
     {
-      title: "Languages",
+      title: t("table.languages"),
       key: "languages",
       render: (record) => (
         <Space size={6}>
@@ -199,13 +202,13 @@ const GlossaryList = () => {
       ),
     },
     {
-      title: "Entries",
+      title: t("table.entries"),
       key: "entries",
       render: (record) => (
         <span className="font-medium text-slate-700">
           {record.total_entries === -1 ? (
             <span className="text-slate-400 font-normal italic">
-              Processing…
+              {t("glossaries.processingEntries")}
             </span>
           ) : (
             (record.total_entries ?? "-")
@@ -214,17 +217,17 @@ const GlossaryList = () => {
       ),
     },
     {
-      title: "Actions",
+      title: t("table.actions"),
       key: "actions",
       width: 180,
       render: (record) => (
         <Space size={6}>
-          <Tooltip title="View glossary">
+          <Tooltip title={t("glossaries.viewTooltip")}>
             <Link href={`/dashboard/glossaries/${record.id}`}>
               <Button icon={<EyeOutlined />} type="text" size="small" />
             </Link>
           </Tooltip>
-          <Tooltip title="Edit glossary">
+          <Tooltip title={t("glossaries.editTooltip")}>
             <Button
               icon={<EditOutlined />}
               type="text"
@@ -232,7 +235,7 @@ const GlossaryList = () => {
               size="small"
             />
           </Tooltip>
-          <Tooltip title="Export XLSX">
+          <Tooltip title={t("glossaries.exportTooltip")}>
             <Button
               type="text"
               icon={<DownloadOutlined />}
@@ -241,13 +244,13 @@ const GlossaryList = () => {
             />
           </Tooltip>
           <Popconfirm
-            title="Delete glossary"
-            description="Are you sure you want to delete this glossary?"
+            title={t("glossaries.deleteTitle")}
+            description={t("glossaries.deleteDescription")}
             onConfirm={() => handleDelete(record.id)}
-            okText="Yes"
-            cancelText="No"
+            okText={t("actions.yes")}
+            cancelText={t("actions.no")}
           >
-            <Tooltip title="Delete glossary">
+            <Tooltip title={t("glossaries.deleteTooltip")}>
               <Button
                 danger
                 type="text"
@@ -268,11 +271,13 @@ const GlossaryList = () => {
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200">
-                Translation assets
+                {t("glossaries.eyebrow")}
               </div>
-              <h2 className="mb-1 mt-2 text-2xl font-semibold">Glossaries</h2>
+              <h2 className="mb-1 mt-2 text-2xl font-semibold">
+                {t("glossaries.title")}
+              </h2>
               <p className="m-0 text-sm text-slate-300">
-                Manage workspace glossaries, imports and XLSX exports.
+                {t("glossaries.subtitle")}
               </p>
             </div>
             <Space wrap>
@@ -286,39 +291,41 @@ const GlossaryList = () => {
                   border: 0,
                 }}
               >
-                Create Glossary
+                {t("glossaries.createGlossary")}
               </Button>
               <ImportGlossaryButton refetch={fetchGlossaries} />
             </Space>
           </div>
         </div>
 
-        <StatCardGrid columns={3} ariaLabel="Glossary statistics">
+        <StatCardGrid columns={3} ariaLabel={t("glossaries.statsAria")}>
           <StatCard
-            label="Total glossaries"
+            label={t("glossaries.stats.total")}
             value={loading ? "—" : glossaries.length}
             hint={
               totalEntries > 0
-                ? `${totalEntries.toLocaleString()} total entries`
-                : "Workspace glossary assets"
+                ? t("glossaries.stats.totalEntriesHint", {
+                    count: totalEntries.toLocaleString(),
+                  })
+                : t("glossaries.stats.totalHint")
             }
             icon={BookMarked}
             theme="slate"
           />
           <StatCard
-            label="Language pairs"
+            label={t("glossaries.stats.pairs")}
             value={loading ? "—" : languagePairs}
-            hint="Source-target combinations"
+            hint={t("glossaries.stats.pairsHint")}
             icon={Languages}
             theme="violet"
           />
           <StatCard
-            label="Workspace"
+            label={t("glossaries.stats.workspace")}
             value={loading || workspaceLabelLoading ? "—" : workspaceLabel}
             hint={
               user?.role === "SUPER"
-                ? "Super admin view"
-                : "Current workspace scope"
+                ? t("glossaries.stats.workspaceSuperHint")
+                : t("glossaries.stats.workspaceScopeHint")
             }
             icon={Building2}
             theme="emerald"
@@ -337,7 +344,7 @@ const GlossaryList = () => {
             emptyText: (
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description="No glossaries yet"
+                description={t("glossaries.empty")}
               />
             ),
           }}
@@ -346,7 +353,7 @@ const GlossaryList = () => {
       </Card>
 
       <Modal
-        title="Create Glossary"
+        title={t("glossaries.createModalTitle")}
         open={isCreateOpen}
         onCancel={() => setIsCreateOpen(false)}
         footer={null}

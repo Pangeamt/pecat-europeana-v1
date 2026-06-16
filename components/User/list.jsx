@@ -24,11 +24,13 @@ import { StatCard, StatCardGrid } from "@/components/shared/StatCard";
 import { DeleteOutlined } from "@ant-design/icons";
 import { ShieldCheck, UserCircle, UserCog, Users } from "lucide-react";
 import { useEffect } from "react";
+import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { userStore } from "@/store";
 import UserAdd from "./add";
 import UserEdit from "./edit";
 
 const UserList = () => {
+  const { t } = useTranslation();
   const store = userStore();
   const { user: currentUser } = store;
   const [requesting, setRequesting] = useState(true);
@@ -59,11 +61,11 @@ const UserList = () => {
       setUsers(data?.members ?? []);
     } catch (error) {
       console.error(error);
-      message.error("Error loading users");
+      message.error(t("users.messages.loadError"));
     } finally {
       setRequesting(false);
     }
-  }, [currentUser]);
+  }, [currentUser, t]);
 
   useEffect(() => {
     void fetchData();
@@ -105,11 +107,13 @@ const UserList = () => {
   const remove = async (userId) => {
     try {
       await removeUser(userId);
-      message.success("User deleted");
+      message.success(t("users.messages.deleted"));
       await fetchData();
     } catch (error) {
       console.error(error);
-      message.error(error?.response?.data?.error || "Error deleting user");
+      message.error(
+        error?.response?.data?.error || t("users.messages.deleteError"),
+      );
     }
   };
 
@@ -131,7 +135,7 @@ const UserList = () => {
       ),
     },
     {
-      title: "Name",
+      title: t("table.name"),
       dataIndex: "name",
       key: "name",
       render: (name, record) => (
@@ -142,13 +146,13 @@ const UserList = () => {
       ),
     },
     {
-      title: "Email",
+      title: t("table.email"),
       dataIndex: "email",
       key: "email",
       render: (email) => <span className="text-slate-700">{email}</span>,
     },
     {
-      title: "Role",
+      title: t("table.role"),
       dataIndex: "role",
       key: "role",
       render: (role) => {
@@ -173,13 +177,13 @@ const UserList = () => {
 
             {deletable && (
               <Popconfirm
-                title="Delete user"
-                description="Are you sure you want to delete this user?"
+                title={t("users.deleteTitle")}
+                description={t("users.deleteDescription")}
                 onConfirm={() => remove(record.id)}
-                okText="Yes"
-                cancelText="No"
+                okText={t("actions.yes")}
+                cancelText={t("actions.no")}
               >
-                <Tooltip title="Remove">
+                <Tooltip title={t("users.removeTooltip")}>
                   <Button
                     size="small"
                     type="text"
@@ -201,43 +205,43 @@ const UserList = () => {
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <div className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-200">
-              Access control
+              {t("users.eyebrow")}
             </div>
-            <h2 className="mb-1 mt-2 text-2xl font-semibold">Users</h2>
-            <p className="m-0 text-sm text-slate-300">
-              Manage users, roles and workspace membership.
-            </p>
+            <h2 className="mb-1 mt-2 text-2xl font-semibold">
+              {t("users.title")}
+            </h2>
+            <p className="m-0 text-sm text-slate-300">{t("users.subtitle")}</p>
           </div>
           <UserAdd add={add} refetch={fetchData} />
         </div>
       </div>
 
-      <StatCardGrid ariaLabel="User statistics">
+      <StatCardGrid ariaLabel={t("users.statsAria")}>
         <StatCard
-          label="Total"
+          label={t("users.stats.total")}
           value={requesting ? "—" : users.length}
-          hint="Registered accounts in view"
+          hint={t("users.stats.totalHint")}
           icon={Users}
           theme="slate"
         />
         <StatCard
-          label="Super"
+          label={t("users.stats.super")}
           value={requesting ? "—" : superUsers}
-          hint="Platform administrators"
+          hint={t("users.stats.superHint")}
           icon={ShieldCheck}
           theme="purple"
         />
         <StatCard
-          label="Admins"
+          label={t("users.stats.admins")}
           value={requesting ? "—" : adminUsers}
-          hint="Workspace administrators"
+          hint={t("users.stats.adminsHint")}
           icon={UserCog}
           theme="sky"
         />
         <StatCard
-          label="Users"
+          label={t("users.stats.users")}
           value={requesting ? "—" : regularUsers}
-          hint="Standard workspace members"
+          hint={t("users.stats.usersHint")}
           icon={UserCircle}
           theme="emerald"
         />
@@ -254,7 +258,7 @@ const UserList = () => {
           emptyText: (
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description="No users found"
+              description={t("users.empty")}
             />
           ),
         }}

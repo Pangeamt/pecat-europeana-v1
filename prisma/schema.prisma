@@ -47,6 +47,7 @@ model User {
   emailVerified     DateTime?
   image             Bytes?
   role              Role       @default(USER)
+  language          String     @default("en")
   provider          String?
   workspaceId       String?
   deletedAt         DateTime?

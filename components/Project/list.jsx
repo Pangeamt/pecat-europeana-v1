@@ -18,6 +18,7 @@ import {
   UserOutlined,
 } from "@ant-design/icons";
 import { StatCard, StatCardGrid } from "@/components/shared/StatCard";
+import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { Building2, CircleCheck, FolderKanban, Loader2 } from "lucide-react";
 import {
   Avatar,
@@ -38,17 +39,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL;
 const READY_PROJECT_STATUS = "READY";
 
-const PROJECT_STATUS_CONFIG = {
-  UPLOADED: { label: "Uploaded", color: "default" },
-  PROCESSING: { label: "Processing", color: "blue" },
-  FILE_PROCESSING: { label: "File Processing", color: "geekblue" },
-  MTQE_PROCESSING: { label: "MTQE", color: "cyan" },
-  READY: { label: "Ready", color: "green" },
-  FILE_ERROR: { label: "File Error", color: "red" },
-  MTQE_ERROR: { label: "MTQE Error", color: "volcano" },
+const PROJECT_STATUS_COLORS = {
+  UPLOADED: "default",
+  PROCESSING: "blue",
+  FILE_PROCESSING: "geekblue",
+  MTQE_PROCESSING: "cyan",
+  READY: "green",
+  FILE_ERROR: "red",
+  MTQE_ERROR: "volcano",
 };
 
 const ProjectList = () => {
+  const { t } = useTranslation();
   const [requesting, setRequesting] = useState(true);
   const [data, setData] = useState([]);
   const clear = tmStore((state) => state.clear);
@@ -91,11 +93,11 @@ const ProjectList = () => {
   }, [data]);
 
   const getProjectStatusTag = (status) => {
-    const config = PROJECT_STATUS_CONFIG[status] ?? {
-      label: status || "Unknown",
-      color: "default",
-    };
-    return <Tag color={config.color}>{config.label}</Tag>;
+    const color = PROJECT_STATUS_COLORS[status] ?? "default";
+    const label = PROJECT_STATUS_COLORS[status]
+      ? t(`documents.status.${status}`)
+      : status || t("documents.unknown");
+    return <Tag color={color}>{label}</Tag>;
   };
 
   const save = async ({ ...values }) => {
@@ -145,7 +147,7 @@ const ProjectList = () => {
       setRequesting("");
     } catch (error) {
       console.error(error);
-      message.error("Could not download file");
+      message.error(t("documents.downloadError"));
       setRequesting("");
     }
   };
@@ -182,7 +184,7 @@ const ProjectList = () => {
 
   const columns = [
     {
-      title: "Filename",
+      title: t("table.filename"),
       dataIndex: "filename",
       key: "name",
       render: (text, record) => {
@@ -190,7 +192,7 @@ const ProjectList = () => {
           record.status === READY_PROJECT_STATUS && !record.deletedAt;
         if (!isReady) {
           return (
-            <Tooltip title="Document is still processing">
+            <Tooltip title={t("documents.stillProcessing")}>
               <div>
                 <span className="font-semibold text-slate-500">{text}</span>
                 <div className="mt-1 text-xs text-slate-400">{record.id}</div>
@@ -212,7 +214,7 @@ const ProjectList = () => {
       },
     },
     {
-      title: "Label",
+      title: t("table.label"),
       dataIndex: "label",
       key: "label",
       filters: labelFilters,
@@ -225,7 +227,7 @@ const ProjectList = () => {
         ),
     },
     {
-      title: "Workspace",
+      title: t("table.workspace"),
       key: "workspace",
       render: (record) =>
         record.workspace?.name ? (
@@ -237,7 +239,7 @@ const ProjectList = () => {
         ),
     },
     {
-      title: "Language pair",
+      title: t("table.languagePair"),
       key: "languagePair",
       width: 170,
       render: (_, record) => {
@@ -263,21 +265,21 @@ const ProjectList = () => {
       },
     },
     {
-      title: "Status",
+      title: t("table.status"),
       dataIndex: "status",
       key: "status",
       width: 150,
       render: (status, record) =>
         record.deletedAt ? (
           <Tag color="red" className="rounded-full">
-            Deleted
+            {t("documents.deleted")}
           </Tag>
         ) : (
           getProjectStatusTag(status)
         ),
     },
     {
-      title: "User",
+      title: t("table.user"),
       key: "user",
       render: (_, record) => (
         <Space size={8}>
@@ -289,7 +291,7 @@ const ProjectList = () => {
       ),
     },
     {
-      title: "Created At",
+      title: t("table.createdAt"),
       dataIndex: "createdAt",
       key: "createdAt",
       defaultSortOrder: "descend",
@@ -301,7 +303,7 @@ const ProjectList = () => {
       width: 180,
     },
     {
-      title: "Progress",
+      title: t("table.progress"),
       key: "progress",
       width: 120,
       render: (record) => {
@@ -332,7 +334,7 @@ const ProjectList = () => {
       render: (record) => {
         return (
           <Space size={6}>
-            <Tooltip title="Download file">
+            <Tooltip title={t("documents.downloadTooltip")}>
               <Button
                 size="small"
                 type="text"
@@ -344,13 +346,13 @@ const ProjectList = () => {
             <ProjectEdit key={record.label} project={record} save={save} />
 
             <Popconfirm
-              title="Delete the task"
-              description="Are you sure to delete this task?"
+              title={t("documents.deleteTitle")}
+              description={t("documents.deleteDescription")}
               onConfirm={() => remove(record.id)}
-              okText="Yes"
-              cancelText="No"
+              okText={t("actions.yes")}
+              cancelText={t("actions.no")}
             >
-              <Tooltip title="Remove">
+              <Tooltip title={t("documents.removeTooltip")}>
                 <Button
                   size="small"
                   type="text"
@@ -374,56 +376,72 @@ const ProjectList = () => {
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <div className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-200">
-              Document workspace
+              {t("documents.eyebrow")}
             </div>
-            <h2 className="mb-1 mt-2 text-2xl font-semibold">Documents</h2>
+            <h2 className="mb-1 mt-2 text-2xl font-semibold">
+              {t("documents.title")}
+            </h2>
             <p className="m-0 text-sm text-slate-300">
-              Upload, track and review translation documents.
+              {t("documents.subtitle")}
             </p>
           </div>
           <ProjectAdd add={add} refetch={fetchData} />
         </div>
       </div>
 
-      <StatCardGrid ariaLabel="Document statistics">
+      <StatCardGrid ariaLabel={t("documents.statsAria")}>
         <StatCard
-          label="Total"
+          label={t("documents.stats.total")}
           value={loading ? "—" : data.length}
-          hint="All uploaded documents"
+          hint={t("documents.stats.totalHint")}
           icon={FolderKanban}
           theme="slate"
         />
         <StatCard
-          label="Workspaces"
+          label={t("documents.stats.workspaces")}
           value={loading ? "—" : workspaceCount}
-          hint="Distinct workspaces in use"
+          hint={t("documents.stats.workspacesHint")}
           icon={Building2}
           theme="violet"
         />
         <StatCard
-          label="Ready"
+          label={t("documents.stats.ready")}
           value={loading ? "—" : readyProjects}
           hint={
             loading || data.length === 0
-              ? "Available for translation"
-              : `${readyPercent}% ready to open`
+              ? t("documents.stats.readyHint")
+              : t("documents.stats.readyPercentHint", { percent: readyPercent })
           }
           icon={CircleCheck}
           theme="emerald"
         />
         <StatCard
-          label="Processing"
+          label={t("documents.stats.processing")}
           value={loading ? "—" : pendingProjects}
-          hint="Pending pipeline jobs"
+          hint={t("documents.stats.processingHint")}
           icon={Loader2}
           theme="sky"
           iconSpin={!loading && pendingProjects > 0}
           badges={[
             ...(errorProjects > 0
-              ? [{ label: `${errorProjects} errors`, tone: "warning" }]
+              ? [
+                  {
+                    label: t("documents.stats.errorsBadge", {
+                      count: errorProjects,
+                    }),
+                    tone: "warning",
+                  },
+                ]
               : []),
             ...(deletedProjects > 0
-              ? [{ label: `${deletedProjects} deleted`, tone: "danger" }]
+              ? [
+                  {
+                    label: t("documents.stats.deletedBadge", {
+                      count: deletedProjects,
+                    }),
+                    tone: "danger",
+                  },
+                ]
               : []),
           ]}
         />
@@ -441,7 +459,7 @@ const ProjectList = () => {
           emptyText: (
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description="No projects yet"
+              description={t("documents.empty")}
             />
           ),
         }}

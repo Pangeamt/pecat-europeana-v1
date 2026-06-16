@@ -4,6 +4,8 @@ import "@ant-design/v5-patch-for-react-19";
 import { ConfigProvider } from "antd";
 import { SessionProvider } from "next-auth/react";
 
+import { LanguageProvider } from "@/components/i18n/LanguageProvider";
+
 export const NextAuthProvider = ({ children }) => {
   return (
     <SessionProvider>
@@ -14,7 +16,7 @@ export const NextAuthProvider = ({ children }) => {
           },
         }}
       >
-        {children}
+        <LanguageProvider>{children}</LanguageProvider>
       </ConfigProvider>
     </SessionProvider>
   );

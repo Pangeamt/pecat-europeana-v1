@@ -1,9 +1,12 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { Alert, Button, Card, Form, Input, Typography, Image } from "antd";
+import { Alert, Button, Card, Form, Input, Segmented, Typography, Image } from "antd";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
+
+import { useTranslation } from "@/components/i18n/LanguageProvider";
+import { SUPPORTED_LANGUAGES } from "@/lib/i18n";
 
 const AUTH_ERROR_MESSAGES = {
   CredentialsSignin: "Invalid credentials.",
@@ -21,6 +24,7 @@ const resolveAuthErrorMessage = (error) => {
 };
 
 const LoginContent = () => {
+  const { t, language, setLanguage } = useTranslation();
   const { push, refresh } = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
@@ -48,12 +52,11 @@ const LoginContent = () => {
       }
 
       setErrorMessage(
-        resolveAuthErrorMessage(result?.error) ||
-          "We couldn't sign you in. Please try again.",
+        resolveAuthErrorMessage(result?.error) || t("login.genericError"),
       );
     } catch (error) {
       console.error(error);
-      setErrorMessage("Connection error. Check your network and try again.");
+      setErrorMessage(t("login.connectionError"));
     } finally {
       setLoading(false);
     }
@@ -106,21 +109,24 @@ const LoginContent = () => {
         >
           <Form.Item
             name="email"
-            label="Email"
+            label={t("login.email")}
             rules={[
-              { required: true, message: "Please enter your email" },
-              { type: "email", message: "Please enter a valid email" },
+              { required: true, message: t("login.emailRequired") },
+              { type: "email", message: t("login.emailRequired") },
             ]}
           >
-            <Input autoComplete="email" />
+            <Input autoComplete="email" placeholder={t("login.emailPlaceholder")} />
           </Form.Item>
 
           <Form.Item
             name="password"
-            label="Password"
-            rules={[{ required: true, message: "Please enter your password" }]}
+            label={t("login.password")}
+            rules={[{ required: true, message: t("login.passwordRequired") }]}
           >
-            <Input.Password autoComplete="current-password" />
+            <Input.Password
+              autoComplete="current-password"
+              placeholder={t("login.passwordPlaceholder")}
+            />
           </Form.Item>
 
           <Button
@@ -130,9 +136,21 @@ const LoginContent = () => {
             block
             className="text-color-primary"
           >
-            Login
+            {loading ? t("login.submitting") : t("login.submit")}
           </Button>
         </Form>
+
+        <div className="mt-5 flex justify-center">
+          <Segmented
+            size="small"
+            value={language}
+            onChange={setLanguage}
+            options={SUPPORTED_LANGUAGES.map((code) => ({
+              label: t(`languages.${code}`),
+              value: code,
+            }))}
+          />
+        </div>
       </Card>
     </main>
   );

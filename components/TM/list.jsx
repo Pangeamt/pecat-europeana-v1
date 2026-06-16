@@ -27,6 +27,7 @@ import {
   fetchTMRequest,
 } from "@/services/tm.services";
 import { StatCard, StatCardGrid } from "@/components/shared/StatCard";
+import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { useWorkspaceScopeLabel } from "@/components/shared/useWorkspaceScopeLabel";
 import { tmStore, userStore } from "@/store";
 import { Building2, Database, Languages } from "lucide-react";
@@ -35,6 +36,7 @@ import EditTmModal from "./EditTmModal";
 import ImportTmButton from "./importTM";
 
 const TmList = () => {
+  const { t } = useTranslation();
   const { user } = userStore();
   const { label: workspaceLabel, loading: workspaceLabelLoading } =
     useWorkspaceScopeLabel(user);
@@ -69,11 +71,11 @@ const TmList = () => {
       setTms(response?.docs ?? []);
     } catch (error) {
       console.error(error);
-      message.error("Error fetching TMs");
+      message.error(t("tms.messages.fetchError"));
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, t]);
 
   useEffect(() => {
     void fetchTms();
@@ -81,16 +83,16 @@ const TmList = () => {
 
   const handleExport = async (id) => {
     try {
-      message.loading({ content: "Exporting TM...", key: "export-tm" });
+      message.loading({ content: t("tms.messages.exporting"), key: "export-tm" });
       await exportTMRequest(id);
       message.success({
-        content: "TM exported successfully!",
+        content: t("tms.messages.exported"),
         key: "export-tm",
       });
     } catch (error) {
       console.error(error);
       message.error({
-        content: error?.message || "Error exporting TM",
+        content: error?.message || t("tms.messages.exportError"),
         key: "export-tm",
       });
     }
@@ -98,18 +100,18 @@ const TmList = () => {
 
   const handleDelete = async (id) => {
     try {
-      message.loading({ content: "Deleting TM...", key: "delete-tm" });
+      message.loading({ content: t("tms.messages.deleting"), key: "delete-tm" });
       await deleteTMRequest(id);
       if (tm?.id === id) saveTm(null);
       await fetchTms();
       message.success({
-        content: "TM deleted successfully!",
+        content: t("tms.messages.deleted"),
         key: "delete-tm",
       });
     } catch (error) {
       console.error(error);
       message.error({
-        content: error?.response?.data?.error || "Error deleting TM",
+        content: error?.response?.data?.error || t("tms.messages.deleteError"),
         key: "delete-tm",
       });
     }
@@ -141,7 +143,7 @@ const TmList = () => {
       ),
     },
     {
-      title: "Name",
+      title: t("table.name"),
       dataIndex: "name",
       key: "name",
       render: (name, record) => (
@@ -157,7 +159,7 @@ const TmList = () => {
       ),
     },
     {
-      title: "Document",
+      title: t("table.project"),
       key: "project",
       render: (record) =>
         record.context.project ? (
@@ -167,7 +169,7 @@ const TmList = () => {
         ),
     },
     {
-      title: "Domain",
+      title: t("table.domain"),
       key: "domain",
       render: (record) =>
         record.context.domain ? (
@@ -179,7 +181,7 @@ const TmList = () => {
         ),
     },
     {
-      title: "Languages",
+      title: t("table.languages"),
       key: "languages",
       render: (record) => (
         <Space size={6}>
@@ -194,17 +196,17 @@ const TmList = () => {
       ),
     },
     {
-      title: "Actions",
+      title: t("table.actions"),
       key: "actions",
       width: 180,
       render: (record) => (
         <Space size={6}>
-          <Tooltip title="View memory">
+          <Tooltip title={t("tms.viewTooltip")}>
             <Link href={`/dashboard/tms/${record.id}`}>
               <Button icon={<EyeOutlined />} type="text" size="small" />
             </Link>
           </Tooltip>
-          <Tooltip title="Edit memory">
+          <Tooltip title={t("tms.editTooltip")}>
             <Button
               icon={<EditOutlined />}
               type="text"
@@ -212,7 +214,7 @@ const TmList = () => {
               size="small"
             />
           </Tooltip>
-          <Tooltip title="Export TMX">
+          <Tooltip title={t("tms.exportTooltip")}>
             <Button
               type="text"
               icon={<DownloadOutlined />}
@@ -221,13 +223,13 @@ const TmList = () => {
             />
           </Tooltip>
           <Popconfirm
-            title="Delete TM"
-            description="Are you sure you want to delete this TM?"
+            title={t("tms.deleteTitle")}
+            description={t("tms.deleteDescription")}
             onConfirm={() => handleDelete(record.id)}
-            okText="Yes"
-            cancelText="No"
+            okText={t("actions.yes")}
+            cancelText={t("actions.no")}
           >
-            <Tooltip title="Delete memory">
+            <Tooltip title={t("tms.deleteTooltip")}>
               <Button
                 danger
                 type="text"
@@ -248,14 +250,12 @@ const TmList = () => {
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <div className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-200">
-                Translation assets
+                {t("tms.eyebrow")}
               </div>
               <h2 className="mb-1 mt-2 text-2xl font-semibold">
-                Translation Memories
+                {t("tms.title")}
               </h2>
-              <p className="m-0 text-sm text-slate-300">
-                Manage workspace memories, imports and TMX exports.
-              </p>
+              <p className="m-0 text-sm text-slate-300">{t("tms.subtitle")}</p>
             </div>
             <Space wrap>
               <Button
@@ -263,39 +263,39 @@ const TmList = () => {
                 type="primary"
                 onClick={() => setIsCreateOpen(true)}
               >
-                Create TM
+                {t("tms.createTm")}
               </Button>
               <ImportTmButton refetch={fetchTms} user={user} />
             </Space>
           </div>
         </div>
 
-        <StatCardGrid columns={3} ariaLabel="Translation memory statistics">
+        <StatCardGrid columns={3} ariaLabel={t("tms.statsAria")}>
           <StatCard
-            label="Total memories"
+            label={t("tms.stats.total")}
             value={loading ? "—" : tms.length}
-            hint="Available translation memories"
+            hint={t("tms.stats.totalHint")}
             icon={Database}
             theme="slate"
           />
           <StatCard
-            label="Language pairs"
+            label={t("tms.stats.pairs")}
             value={loading ? "—" : languagePairs}
             hint={
               domainCount > 0
-                ? `${domainCount} domain${domainCount === 1 ? "" : "s"} covered`
-                : "Source-target combinations"
+                ? t("tms.stats.pairsDomainsHint", { count: domainCount })
+                : t("tms.stats.pairsHint")
             }
             icon={Languages}
             theme="violet"
           />
           <StatCard
-            label="Workspace"
+            label={t("tms.stats.workspace")}
             value={loading || workspaceLabelLoading ? "—" : workspaceLabel}
             hint={
               user?.role === "SUPER"
-                ? "Super admin view"
-                : "Current workspace scope"
+                ? t("tms.stats.workspaceSuperHint")
+                : t("tms.stats.workspaceScopeHint")
             }
             icon={Building2}
             theme="emerald"
@@ -314,7 +314,7 @@ const TmList = () => {
             emptyText: (
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description="No translation memories yet"
+                description={t("tms.empty")}
               />
             ),
           }}
@@ -323,7 +323,7 @@ const TmList = () => {
       </Card>
 
       <Modal
-        title="Create Translation Memory"
+        title={t("tms.createModalTitle")}
         open={isCreateOpen}
         onCancel={() => setIsCreateOpen(false)}
         footer={null}
