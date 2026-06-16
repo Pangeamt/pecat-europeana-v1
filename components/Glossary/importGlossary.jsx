@@ -16,7 +16,7 @@ const languageOptions = Object.keys(locales).map((code) => ({
   label: locales[code][0],
 }));
 
-const ALLOWED_IMPORT_EXTENSIONS = ["tmx", "csv", "tsv"];
+const ALLOWED_IMPORT_EXTENSIONS = ["txt", "csv", "tsv", "tbx"];
 
 const checkFile = (file) => {
   const fileName = file.name.trim().replace(/\s+/g, "");
@@ -59,7 +59,7 @@ const ImportGlossaryButton = ({ refetch }) => {
     multiple: false,
     name: "file",
     action: "/api/glossaries/import",
-    accept: ".tmx,.csv,.tsv",
+    accept: ".txt,.csv,.tsv,.tbx",
     data: () => ({
       glossary: 0,
       name: form.getFieldValue("name"),
@@ -92,14 +92,14 @@ const ImportGlossaryButton = ({ refetch }) => {
         return Upload.LIST_IGNORE;
       }
 
-      const isLt = file.size / 1024 / 1024 < 15;
+      const isLt = file.size / 1024 / 1024 < 100;
       if (!isLt) {
-        message.error("Files must smaller than 15MB");
+        message.error("Files must smaller than 100MB");
         return Upload.LIST_IGNORE;
       }
 
       if (!checkFile(file)) {
-        message.error("Only TMX, CSV and TSV files are supported");
+        message.error("Only TXT, CSV, TSV and TBX files are supported");
         return Upload.LIST_IGNORE;
       }
 
@@ -138,7 +138,7 @@ const ImportGlossaryButton = ({ refetch }) => {
               Import glossary
             </div>
             <div className="mt-1 text-sm text-slate-300">
-              Define metadata and upload a TMX, CSV or TSV file.
+              Define metadata and upload a TXT, CSV, TSV or TBX file.
             </div>
           </div>
         </div>
@@ -271,10 +271,10 @@ const ImportGlossaryButton = ({ refetch }) => {
                           <UploadOutlined />
                         </p>
                         <p className="ant-upload-text">
-                          Drop TMX, CSV or TSV file, or browse
+                          Drop TXT, CSV, TSV or TBX file, or browse
                         </p>
                         <p className="ant-upload-hint">
-                          TMX, CSV and TSV only. Maximum file size 15MB.
+                          TXT, CSV, TSV and TBX only. Maximum file size 100MB.
                         </p>
                       </Dragger>
                     ) : (

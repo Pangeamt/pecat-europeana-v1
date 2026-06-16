@@ -3,6 +3,7 @@
 import {
   ArrowLeftOutlined,
   ArrowRightOutlined,
+  CloseOutlined,
   PlusOutlined,
   UploadOutlined,
 } from "@ant-design/icons";
@@ -611,7 +612,7 @@ const ProjectAdd = ({ add, refetch }) => {
         Add Document
       </Button>
       <Modal
-        title={null}
+        title="New Document"
         open={isModalOpen}
         onCancel={handleCancel}
         footer={
@@ -650,12 +651,10 @@ const ProjectAdd = ({ add, refetch }) => {
         destroyOnHidden
         styles={{ body: { padding: 0, overflow: "hidden" } }}
       >
-        <div className="relative overflow-hidden bg-slate-950 px-6 py-5 text-white">
-          <div className="absolute -right-8 -top-8 size-28 rounded-full bg-[#98C441]/20 blur-3xl" />
+        <div className="relative overflow-hidden rounded-lg bg-slate-950 px-5 py-4 pr-12 text-white">
+          <div className="absolute -right-10 -top-10 size-28 rounded-full bg-blue-500/25 blur-3xl" />
           <div className="relative">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#98C441]">
-              New document
-            </div>
+
             <h2 className="mt-1 text-xl font-semibold">Create document</h2>
             <p className="mt-1 text-sm text-slate-300">
               Configure languages, assets and upload in four guided steps.

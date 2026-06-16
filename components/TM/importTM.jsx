@@ -93,9 +93,9 @@ const ImportTmButton = ({ refetch }) => {
         return Upload.LIST_IGNORE;
       }
 
-      const isLt = file.size / 1024 / 1024 < 15;
+      const isLt = file.size / 1024 / 1024 < 100;
       if (!isLt) {
-        message.error("Files must smaller than 15MB");
+        message.error("Files must smaller than 100MB");
         return Upload.LIST_IGNORE;
       }
 
@@ -281,7 +281,7 @@ const ImportTmButton = ({ refetch }) => {
                           Drop TMX file or browse
                         </p>
                         <p className="ant-upload-hint">
-                          TMX only. Maximum file size 15MB.
+                          TMX only. Maximum file size 100MB.
                         </p>
                       </Dragger>
                     ) : (
