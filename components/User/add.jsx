@@ -12,6 +12,7 @@ import {
   message,
 } from "antd";
 import ImgCrop from "antd-img-crop";
+import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { userStore } from "@/store";
 
 const getCompressedDataUrlFromFile = (file) => {
@@ -40,6 +41,7 @@ const getCompressedDataUrlFromFile = (file) => {
 };
 
 const UserAdd = ({ add }) => {
+  const { t } = useTranslation();
   const [form] = Form.useForm();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -70,9 +72,9 @@ const UserAdd = ({ add }) => {
 
       const response = await add(values);
       if (response?.status === 201) {
-        message.success("User added successfully");
+        message.success(t("users.add.addSuccess"));
       } else {
-        message.error("Failed to add user");
+        message.error(t("users.add.addError"));
       }
       setAdding(false);
       form.resetFields();
@@ -80,7 +82,7 @@ const UserAdd = ({ add }) => {
       clear();
     } catch (errorInfo) {
       const errorMessage =
-        errorInfo?.response?.data?.message || "Failed to add user";
+        errorInfo?.response?.data?.message || t("users.add.addError");
       message.error(errorMessage);
       setAdding(false);
     }
@@ -107,11 +109,11 @@ const UserAdd = ({ add }) => {
   const beforeUpload = (file) => {
     const isJpgOrPng = file.type === "image/jpeg" || file.type === "image/png";
     if (!isJpgOrPng) {
-      message.error("You can only upload JPG/PNG file!");
+      message.error(t("users.add.avatarTypeError"));
     }
     const isLt2M = file.size / 1024 / 1024 < 2;
     if (!isLt2M) {
-      message.error("Image must smaller than 2MB!");
+      message.error(t("users.add.avatarSizeError"));
     }
     if (!isJpgOrPng || !isLt2M) {
       return Upload.LIST_IGNORE;
@@ -124,10 +126,10 @@ const UserAdd = ({ add }) => {
   return (
     <>
       <Button icon={<PlusOutlined />} type="primary" onClick={showModal}>
-        Add User
+        {t("users.add.trigger")}
       </Button>
       <Modal
-        title="Add User"
+        title={t("users.add.modalTitle")}
         open={isModalOpen}
         onOk={handleOk}
         onCancel={handleCancel}
@@ -135,7 +137,10 @@ const UserAdd = ({ add }) => {
       >
         <Divider />
         <Form form={form} layout="horizontal" {...layout}>
-          <Form.Item label="Avatar" key={"empty" || fileList[0].uid}>
+          <Form.Item
+            label={t("users.add.avatarLabel")}
+            key={"empty" || fileList[0].uid}
+          >
             <ImgCrop showGrid rotationSlider aspectSlider showReset>
               <Upload
                 listType="picture-card"
@@ -144,14 +149,14 @@ const UserAdd = ({ add }) => {
                 multiple={false}
                 beforeUpload={beforeUpload}
               >
-                {fileList.length === 0 && "+ Upload"}
+                {fileList.length === 0 && t("users.add.uploadAvatar")}
               </Upload>
             </ImgCrop>
           </Form.Item>
 
           <Form.Item
             name="name"
-            label="Name"
+            label={t("users.add.nameLabel")}
             rules={[
               {
                 required: true,
@@ -163,7 +168,7 @@ const UserAdd = ({ add }) => {
 
           <Form.Item
             name="email"
-            label="Email"
+            label={t("users.add.emailLabel")}
             rules={[
               {
                 type: "email",
@@ -175,7 +180,7 @@ const UserAdd = ({ add }) => {
           </Form.Item>
 
           <Form.Item
-            label="Role"
+            label={t("users.add.roleLabel")}
             name="role"
             rules={[
               {
@@ -185,20 +190,26 @@ const UserAdd = ({ add }) => {
           >
             <Select>
               {user?.role !== "ADMIN" && (
-                <Select.Option value="SUPER">Super</Select.Option>
+                <Select.Option value="SUPER">
+                  {t("users.add.roleSuper")}
+                </Select.Option>
               )}
-              <Select.Option value="ADMIN">Admin</Select.Option>
-              <Select.Option value="USER">User</Select.Option>
+              <Select.Option value="ADMIN">
+                {t("users.add.roleAdmin")}
+              </Select.Option>
+              <Select.Option value="USER">
+                {t("users.add.roleUser")}
+              </Select.Option>
             </Select>
           </Form.Item>
 
           <Form.Item
             name="password"
-            label="Password"
+            label={t("users.add.passwordLabel")}
             rules={[
               {
                 required: true,
-                message: "Please input your password!",
+                message: t("users.add.passwordRequired"),
               },
             ]}
             hasFeedback
@@ -208,13 +219,13 @@ const UserAdd = ({ add }) => {
 
           <Form.Item
             name="confirm"
-            label="Confirm Password"
+            label={t("users.add.confirmLabel")}
             dependencies={["password"]}
             hasFeedback
             rules={[
               {
                 required: true,
-                message: "Please confirm your password!",
+                message: t("users.add.confirmRequired"),
               },
               ({ getFieldValue }) => ({
                 validator(_, value) {
@@ -222,9 +233,7 @@ const UserAdd = ({ add }) => {
                     return Promise.resolve();
                   }
                   return Promise.reject(
-                    new Error(
-                      "The new password that you entered do not match!",
-                    ),
+                    new Error(t("users.add.passwordMismatch")),
                   );
                 },
               }),

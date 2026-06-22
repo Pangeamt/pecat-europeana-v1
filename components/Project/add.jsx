@@ -25,6 +25,7 @@ import { BookMarked, Database, FileUp, Languages } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import locales from "@/lib/locales.json";
+import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { checkFile } from "@/lib/utils";
 import { fetchGlossariesRequest } from "@/services/glossary.services";
 import { fetchTMRequest } from "@/services/tm.services";
@@ -40,26 +41,26 @@ const languageOptions = Object.keys(locales).map((code) => ({
 const WIZARD_STEPS = [
   {
     key: "principal",
-    title: "Principal",
-    description: "Languages",
+    titleKey: "documents.add.steps.principal",
+    descKey: "documents.add.steps.principalDesc",
     icon: Languages,
   },
   {
     key: "tms",
-    title: "TMs",
-    description: "Memories",
+    titleKey: "documents.add.steps.tms",
+    descKey: "documents.add.steps.tmsDesc",
     icon: Database,
   },
   {
     key: "glossaries",
-    title: "Glossaries",
-    description: "Terms",
+    titleKey: "documents.add.steps.glossaries",
+    descKey: "documents.add.steps.glossariesDesc",
     icon: BookMarked,
   },
   {
     key: "file",
-    title: "File",
-    description: "Upload",
+    titleKey: "documents.add.steps.file",
+    descKey: "documents.add.steps.fileDesc",
     icon: FileUp,
   },
 ];
@@ -68,6 +69,7 @@ const getLanguageLabel = (code) =>
   languageOptions.find((option) => option.value === code)?.label ?? code;
 
 const ProjectAdd = ({ add, refetch }) => {
+  const { t } = useTranslation();
   const [form] = Form.useForm();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
@@ -278,23 +280,27 @@ const ProjectAdd = ({ add, refetch }) => {
     }),
     onChange(info) {
       if (info.file.status === "done") {
-        message.success(`${info.file.name} uploaded successfully`);
+        message.success(
+          t("documents.add.uploadSuccess", { name: info.file.name }),
+        );
         refetch();
         setIsModalOpen(false);
         resetWizard();
       } else if (info.file.status === "error") {
-        message.error(`${info.file.name} upload failed.`);
+        message.error(
+          t("documents.add.uploadError", { name: info.file.name }),
+        );
       }
     },
     beforeUpload: (file) => {
       const isLt = file.size / 1024 / 1024 < 500;
       if (!isLt) {
-        message.error("Files must be smaller than 500MB");
+        message.error(t("documents.add.tooLarge"));
         return false;
       }
       const extension = checkFile(file);
       if (!extension) {
-        message.error("File type not supported");
+        message.error(t("documents.add.invalidType"));
         return false;
       }
       return true;
@@ -315,49 +321,49 @@ const ProjectAdd = ({ add, refetch }) => {
         <section className="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-slate-50/80 to-white p-5">
           <div className="mb-4">
             <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-              Step 1
+              {t("documents.add.step1Eyebrow")}
             </div>
             <h3 className="mt-1 text-lg font-semibold text-slate-900">
-              Language pair
+              {t("documents.add.step1Title")}
             </h3>
             <p className="mt-1 text-sm text-slate-500">
-              Choose the source and target languages for this project.
+              {t("documents.add.step1Subtitle")}
             </p>
           </div>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <Form.Item
-              label="Source language"
+              label={t("documents.add.sourceLabel")}
               name="src"
               rules={[
                 {
                   required: true,
-                  message: "Please select a source language",
+                  message: t("documents.add.sourceRequired"),
                 },
               ]}
             >
               <Select
                 showSearch
                 size="large"
-                placeholder="Select source"
+                placeholder={t("documents.add.sourcePlaceholder")}
                 optionFilterProp="label"
                 onChange={onChangeSrc}
                 options={languageOptions}
               />
             </Form.Item>
             <Form.Item
-              label="Target language"
+              label={t("documents.add.targetLabel")}
               name="tgt"
               rules={[
                 {
                   required: true,
-                  message: "Please select a target language",
+                  message: t("documents.add.targetRequired"),
                 },
               ]}
             >
               <Select
                 showSearch
                 size="large"
-                placeholder="Select target"
+                placeholder={t("documents.add.targetPlaceholder")}
                 optionFilterProp="label"
                 onChange={onChangeTgt}
                 disabled={!src}
@@ -385,24 +391,28 @@ const ProjectAdd = ({ add, refetch }) => {
         <section className="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-sky-50/50 to-white p-5">
           <div className="mb-4">
             <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-600/80">
-              Step 2
+              {t("documents.add.step2Eyebrow")}
             </div>
             <h3 className="mt-1 text-lg font-semibold text-slate-900">
-              Translation memories
+              {t("documents.add.step2Title")}
             </h3>
             <p className="mt-1 text-sm text-slate-500">
-              Select matching TMs and configure matching mode and threshold.
+              {t("documents.add.step2Subtitle")}
             </p>
           </div>
-          <Form.Item name="tm_ids" label="Matching TMs" initialValue={tmIds}>
+          <Form.Item
+            name="tm_ids"
+            label={t("documents.add.matchingTms")}
+            initialValue={tmIds}
+          >
             <Select
               mode="multiple"
               size="large"
               loading={loadingAssets}
-              placeholder="Select translation memories"
+              placeholder={t("documents.add.selectTms")}
               notFoundContent={
                 filteredTms.length === 0
-                  ? "No matching memories for this language pair"
+                  ? t("documents.add.noMatchingTms")
                   : undefined
               }
               optionFilterProp="label"
@@ -416,11 +426,10 @@ const ProjectAdd = ({ add, refetch }) => {
           {tmIds.length > 0 ? (
             <div className="mb-4 rounded-xl border border-slate-200 bg-white/70 p-3">
               <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Update on review
+                {t("documents.add.updateOnReview")}
               </div>
               <p className="mb-3 text-xs text-slate-500">
-                Choose which memories should be updated with the accepted
-                translations of this document.
+                {t("documents.add.updateOnReviewHint")}
               </p>
               <div className="flex flex-col gap-2">
                 {filteredTms
@@ -448,24 +457,34 @@ const ProjectAdd = ({ add, refetch }) => {
               type="info"
               showIcon
               className="mb-4"
-              message="No compatible memories found"
-              description="You can continue without TMs or create one from the TMs page."
+              message={t("documents.add.noCompatibleTms")}
+              description={t("documents.add.noCompatibleTmsDesc")}
             />
           ) : null}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Form.Item name="tm_mode" label="Mode" initialValue={tmMode}>
+            <Form.Item
+              name="tm_mode"
+              label={t("documents.add.modeLabel")}
+              initialValue={tmMode}
+            >
               <Radio.Group
                 buttonStyle="solid"
                 optionType="button"
                 onChange={(event) => setTmMode(event.target.value)}
               >
-                <Radio.Button value="standard">Standard</Radio.Button>
-                <Radio.Button value="smart">Smart</Radio.Button>
+                <Radio.Button value="standard">
+                  {t("documents.add.modeStandard")}
+                </Radio.Button>
+                <Radio.Button value="smart">
+                  {t("documents.add.modeSmart")}
+                </Radio.Button>
               </Radio.Group>
             </Form.Item>
             <Form.Item
               name="tm_threshold"
-              label={`Threshold: ${Math.round(tmThreshold * 100)}%`}
+              label={t("documents.add.thresholdLabel", {
+                value: Math.round(tmThreshold * 100),
+              })}
               initialValue={tmThreshold}
             >
               <Slider
@@ -487,28 +506,28 @@ const ProjectAdd = ({ add, refetch }) => {
         <section className="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-emerald-50/50 to-white p-5">
           <div className="mb-4">
             <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-600/80">
-              Step 3
+              {t("documents.add.step3Eyebrow")}
             </div>
             <h3 className="mt-1 text-lg font-semibold text-slate-900">
-              Glossaries
+              {t("documents.add.step3Title")}
             </h3>
             <p className="mt-1 text-sm text-slate-500">
-              Attach glossaries compatible with the selected language pair.
+              {t("documents.add.step3Subtitle")}
             </p>
           </div>
           <Form.Item
             name="glossary_ids"
-            label="Matching glossaries"
+            label={t("documents.add.matchingGlossaries")}
             initialValue={glossaryIds}
           >
             <Select
               mode="multiple"
               size="large"
               loading={loadingAssets}
-              placeholder="Select glossaries"
+              placeholder={t("documents.add.selectGlossaries")}
               notFoundContent={
                 filteredGlossaries.length === 0
-                  ? "No matching glossaries for this language pair"
+                  ? t("documents.add.noMatchingGlossaries")
                   : undefined
               }
               optionFilterProp="label"
@@ -523,8 +542,8 @@ const ProjectAdd = ({ add, refetch }) => {
             <Alert
               type="info"
               showIcon
-              message="No compatible glossaries found"
-              description="You can continue without glossaries or create one from the Glossaries page."
+              message={t("documents.add.noCompatibleGlossaries")}
+              description={t("documents.add.noCompatibleGlossariesDesc")}
             />
           ) : null}
         </section>
@@ -535,35 +554,43 @@ const ProjectAdd = ({ add, refetch }) => {
       <div className="space-y-4">
         <section className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4">
           <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-            Configuration summary
+            {t("documents.add.summaryTitle")}
           </div>
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <div className="text-xs text-slate-500">Language pair</div>
+              <div className="text-xs text-slate-500">
+                {t("documents.add.summaryLanguagePair")}
+              </div>
               <div className="mt-1 font-medium text-slate-900">
                 {getLanguageLabel(src)} → {getLanguageLabel(tgt)}
               </div>
             </div>
             <div>
-              <div className="text-xs text-slate-500">TM mode / threshold</div>
+              <div className="text-xs text-slate-500">
+                {t("documents.add.summaryTmMode")}
+              </div>
               <div className="mt-1 font-medium capitalize text-slate-900">
                 {tmMode} · {Math.round(tmThreshold * 100)}%
               </div>
             </div>
             <div>
-              <div className="text-xs text-slate-500">Translation memories</div>
+              <div className="text-xs text-slate-500">
+                {t("documents.add.summaryTms")}
+              </div>
               <div className="mt-1 font-medium text-slate-900">
                 {selectedTmNames.length > 0
                   ? selectedTmNames.join(", ")
-                  : "None selected"}
+                  : t("documents.add.noneSelected")}
               </div>
             </div>
             <div>
-              <div className="text-xs text-slate-500">Glossaries</div>
+              <div className="text-xs text-slate-500">
+                {t("documents.add.summaryGlossaries")}
+              </div>
               <div className="mt-1 font-medium text-slate-900">
                 {selectedGlossaryNames.length > 0
                   ? selectedGlossaryNames.join(", ")
-                  : "None selected"}
+                  : t("documents.add.noneSelected")}
               </div>
             </div>
           </div>
@@ -572,23 +599,21 @@ const ProjectAdd = ({ add, refetch }) => {
         <section className="rounded-2xl border border-dashed border-[#98C441]/40 bg-white p-5">
           <div className="mb-4">
             <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7aa832]">
-              Step 4
+              {t("documents.add.step4Eyebrow")}
             </div>
             <h3 className="mt-1 text-lg font-semibold text-slate-900">
-              Upload file
+              {t("documents.add.step4Title")}
             </h3>
             <p className="mt-1 text-sm text-slate-500">
-              Drop your source file here or browse. Max 500MB.
+              {t("documents.add.step4Subtitle")}
             </p>
           </div>
           <Dragger {...uploadProps}>
             <p className="ant-upload-drag-icon">
               <UploadOutlined />
             </p>
-            <p className="ant-upload-text">Drop file or click to browse</p>
-            <p className="ant-upload-hint">
-              Supported formats depend on your workspace configuration.
-            </p>
+            <p className="ant-upload-text">{t("documents.add.dropText")}</p>
+            <p className="ant-upload-hint">{t("documents.add.dropHint")}</p>
           </Dragger>
         </section>
       </div>
@@ -609,26 +634,26 @@ const ProjectAdd = ({ add, refetch }) => {
           border: 0,
         }}
       >
-        Add Document
+        {t("documents.add.trigger")}
       </Button>
       <Modal
-        title="New Document"
+        title={t("documents.add.modalTitle")}
         open={isModalOpen}
         onCancel={handleCancel}
         footer={
           isLastStep ? (
             <div className="flex justify-start">
               <Button icon={<ArrowLeftOutlined />} onClick={goBack}>
-                Back
+                {t("common.back")}
               </Button>
             </div>
           ) : (
             <div className="flex justify-between gap-3">
-              <Button onClick={handleCancel}>Cancel</Button>
+              <Button onClick={handleCancel}>{t("common.cancel")}</Button>
               <div className="flex gap-2">
                 {currentStep > 0 ? (
                   <Button icon={<ArrowLeftOutlined />} onClick={goBack}>
-                    Back
+                    {t("common.back")}
                   </Button>
                 ) : null}
                 <Button
@@ -640,7 +665,7 @@ const ProjectAdd = ({ add, refetch }) => {
                     borderColor: "#98C441",
                   }}
                 >
-                  Next
+                  {t("common.next")}
                 </Button>
               </div>
             </div>
@@ -655,9 +680,11 @@ const ProjectAdd = ({ add, refetch }) => {
           <div className="absolute -right-10 -top-10 size-28 rounded-full bg-blue-500/25 blur-3xl" />
           <div className="relative">
 
-            <h2 className="mt-1 text-xl font-semibold">Create document</h2>
+            <h2 className="mt-1 text-xl font-semibold">
+              {t("documents.add.heading")}
+            </h2>
             <p className="mt-1 text-sm text-slate-300">
-              Configure languages, assets and upload in four guided steps.
+              {t("documents.add.headingSubtitle")}
             </p>
           </div>
         </div>
@@ -666,9 +693,9 @@ const ProjectAdd = ({ add, refetch }) => {
           <Steps
             current={currentStep}
             responsive
-            items={WIZARD_STEPS.map(({ title, description }) => ({
-              title,
-              description,
+            items={WIZARD_STEPS.map(({ titleKey, descKey }) => ({
+              title: t(titleKey),
+              description: t(descKey),
             }))}
           />
         </div>

@@ -8,6 +8,7 @@ import {
   UploadOutlined,
 } from "@ant-design/icons";
 import { useCallback, useState } from "react";
+import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { tmStore } from "@/store";
 
 const { Dragger } = Upload;
@@ -32,6 +33,7 @@ const isUploadReady = ({ name, source, target }) =>
   Boolean(name?.trim() && source && target && source !== target);
 
 const ImportTmButton = ({ refetch }) => {
+  const { t } = useTranslation();
   const tmSt = tmStore();
   const { tm } = tmSt;
   const [form] = Form.useForm();
@@ -71,36 +73,38 @@ const ImportTmButton = ({ refetch }) => {
     }),
     onChange: async (info) => {
       if (info.file.status === "done") {
-        message.success(`${info.file.name} file uploaded successfully`);
+        message.success(
+          t("tms.import.uploadSuccess", { name: info.file.name }),
+        );
         await refetch();
         setIsModalOpen(false);
         resetFormState();
       } else if (info.file.status === "error") {
-        message.error(`${info.file.name} file upload failed.`);
+        message.error(t("tms.import.uploadError", { name: info.file.name }));
       }
     },
     beforeUpload: async (file) => {
       try {
         await form.validateFields(["name", "source", "target"]);
       } catch {
-        message.error("Complete name, source and target before uploading.");
+        message.error(t("tms.import.validateFields"));
         return Upload.LIST_IGNORE;
       }
 
       const { source, target } = form.getFieldsValue(["source", "target"]);
       if (source === target) {
-        message.error("Source and target must be different.");
+        message.error(t("tms.import.sameLanguage"));
         return Upload.LIST_IGNORE;
       }
 
       const isLt = file.size / 1024 / 1024 < 100;
       if (!isLt) {
-        message.error("Files must smaller than 100MB");
+        message.error(t("tms.import.tooLarge"));
         return Upload.LIST_IGNORE;
       }
 
       if (!checkFile(file)) {
-        message.error("File type not supported");
+        message.error(t("tms.import.invalidType"));
         return Upload.LIST_IGNORE;
       }
 
@@ -120,10 +124,10 @@ const ImportTmButton = ({ refetch }) => {
           border: 0,
         }}
       >
-        Import TM
+        {t("tms.import.button")}
       </Button>
       <Modal
-        title="Import TM"
+        title={t("tms.import.button")}
         open={isModalOpen}
         onCancel={handleCancel}
         footer={null}
@@ -136,10 +140,10 @@ const ImportTmButton = ({ refetch }) => {
           <div className="absolute -right-10 -top-10 size-28 rounded-full bg-blue-500/25 blur-3xl" />
           <div className="relative">
             <div className="text-lg font-semibold leading-tight">
-              Import translation memory
+              {t("tms.import.title")}
             </div>
             <div className="mt-1 text-sm text-slate-300">
-              Define metadata and upload a TMX file.
+              {t("tms.import.subtitle")}
             </div>
           </div>
         </div>
@@ -156,55 +160,50 @@ const ImportTmButton = ({ refetch }) => {
                 </div>
                 <div>
                   <div className="font-semibold text-slate-900">
-                    Memory details
+                    {t("tms.import.detailsTitle")}
                   </div>
                   <div className="text-xs text-slate-500">
-                    Name, context and optional metadata.
+                    {t("tms.import.detailsSubtitle")}
                   </div>
                 </div>
               </div>
               <Form.Item
-                label="Name"
+                label={t("tms.import.nameLabel")}
                 name="name"
                 rules={[
-                  { required: true, message: "Please introduce a name!" },
+                  { required: true, message: t("tms.import.nameRequired") },
                 ]}
               >
-                <Input placeholder="Memory name" />
+                <Input placeholder={t("tms.import.namePlaceholder")} />
               </Form.Item>
-              <div className="grid grid-cols-2 gap-2">
-                <Form.Item label="Document" name="project">
-                  <Input placeholder="Optional" />
-                </Form.Item>
-                <Form.Item label="Domain" name="domain">
-                  <Input placeholder="Optional" />
-                </Form.Item>
-              </div>
+              <Form.Item label={t("tms.import.domainLabel")} name="domain">
+                <Input placeholder={t("tms.import.optional")} />
+              </Form.Item>
             </section>
 
             <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="mb-3">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                  Languages
+                  {t("tms.import.languagesEyebrow")}
                 </div>
                 <div className="mt-1 font-semibold text-slate-900">
-                  Source and target
+                  {t("tms.import.languagesTitle")}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <Form.Item
-                  label="Source"
+                  label={t("tms.import.sourceLabel")}
                   name="source"
                   rules={[
                     {
                       required: true,
-                      message: "Please select a source language",
+                      message: t("tms.import.sourceRequired"),
                     },
                   ]}
                 >
                   <Select
                     showSearch
-                    placeholder="Select source"
+                    placeholder={t("tms.import.sourcePlaceholder")}
                     optionFilterProp="label"
                     options={languageOptions}
                     onChange={handleSourceChange}
@@ -217,12 +216,12 @@ const ImportTmButton = ({ refetch }) => {
                     return (
                       <Form.Item
                         name="target"
-                        label="Target"
+                        label={t("tms.import.targetLabel")}
                         dependencies={["source"]}
                         rules={[
                           {
                             required: true,
-                            message: "Please select a target language",
+                            message: t("tms.import.targetRequired"),
                           },
                           ({ getFieldValue: getDependencyValue }) => ({
                             validator(_, value) {
@@ -236,7 +235,7 @@ const ImportTmButton = ({ refetch }) => {
                               }
 
                               return Promise.reject(
-                                new Error("Target must differ from source"),
+                                new Error(t("tms.import.targetDiffers")),
                               );
                             },
                           }),
@@ -244,7 +243,7 @@ const ImportTmButton = ({ refetch }) => {
                       >
                         <Select
                           showSearch
-                          placeholder="Select target"
+                          placeholder={t("tms.import.targetPlaceholder")}
                           optionFilterProp="label"
                           options={getTargetOptions(source)}
                           disabled={!source}
@@ -278,10 +277,10 @@ const ImportTmButton = ({ refetch }) => {
                           <UploadOutlined />
                         </p>
                         <p className="ant-upload-text">
-                          Drop TMX file or browse
+                          {t("tms.import.dropText")}
                         </p>
                         <p className="ant-upload-hint">
-                          TMX only. Maximum file size 100MB.
+                          {t("tms.import.dropHint")}
                         </p>
                       </Dragger>
                     ) : (
@@ -290,10 +289,10 @@ const ImportTmButton = ({ refetch }) => {
                           <UploadOutlined />
                         </p>
                         <p className="ant-upload-text">
-                          Complete required fields to upload
+                          {t("tms.import.completeText")}
                         </p>
                         <p className="ant-upload-hint">
-                          Name, source and target are required (and must differ).
+                          {t("tms.import.completeHint")}
                         </p>
                       </div>
                     )}

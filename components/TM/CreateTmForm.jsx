@@ -2,6 +2,7 @@
 import { FileTextOutlined, GlobalOutlined } from "@ant-design/icons";
 import { Button, Form, Input, Select, message } from "antd";
 import locales from "@/lib/locales.json";
+import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { addTMRequest } from "@/services/tm.services";
 
 const languages = locales;
@@ -18,6 +19,7 @@ const getLocaleCode = (locale) => {
 };
 
 export default function CreateTmForm({ user, onBack, onCreated }) {
+  const { t } = useTranslation();
   const [form] = Form.useForm();
   const [messageApi, contextHolder] = message.useMessage();
 
@@ -32,14 +34,20 @@ export default function CreateTmForm({ user, onBack, onCreated }) {
         source: getLocaleCode(values.source),
         target: getLocaleCode(values.target),
       };
-      messageApi.loading({ content: "Creating TM...", key: "add-tm" });
+      messageApi.loading({
+        content: t("tms.create.creating"),
+        key: "add-tm",
+      });
       await addTMRequest(data);
       await onCreated?.();
       form.resetFields();
-      messageApi.success({ content: "TM created!", key: "add-tm" });
+      messageApi.success({ content: t("tms.create.created"), key: "add-tm" });
     } catch (error) {
       console.error("Failed:", error);
-      messageApi.error({ content: "Error creating TM", key: "add-tm" });
+      messageApi.error({
+        content: t("tms.create.createError"),
+        key: "add-tm",
+      });
     }
   };
 
@@ -58,27 +66,26 @@ export default function CreateTmForm({ user, onBack, onCreated }) {
                 <FileTextOutlined />
               </div>
               <div>
-                <div className="font-semibold text-slate-900">Memory details</div>
+                <div className="font-semibold text-slate-900">
+                  {t("tms.create.detailsTitle")}
+                </div>
                 <div className="text-xs text-slate-500">
-                  Name, project and domain metadata.
+                  {t("tms.create.detailsSubtitle")}
                 </div>
               </div>
             </div>
             <Form.Item
-              label="Name"
+              label={t("tms.create.nameLabel")}
               name="name"
-              rules={[{ required: true, message: "Please introduce a name!" }]}
+              rules={[
+                { required: true, message: t("tms.create.nameRequired") },
+              ]}
             >
-              <Input placeholder="Memory name" />
+              <Input placeholder={t("tms.create.namePlaceholder")} />
             </Form.Item>
-            <div className="grid grid-cols-2 gap-2">
-              <Form.Item label="Document" name="project">
-                <Input placeholder="Optional" />
-              </Form.Item>
-              <Form.Item label="Domain" name="domain">
-                <Input placeholder="Optional" />
-              </Form.Item>
-            </div>
+            <Form.Item label={t("tms.create.domainLabel")} name="domain">
+              <Input placeholder={t("tms.create.optional")} />
+            </Form.Item>
           </section>
 
           <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -87,37 +94,39 @@ export default function CreateTmForm({ user, onBack, onCreated }) {
                 <GlobalOutlined />
               </div>
               <div>
-                <div className="font-semibold text-slate-900">Languages</div>
+                <div className="font-semibold text-slate-900">
+                  {t("tms.create.languagesTitle")}
+                </div>
                 <div className="text-xs text-slate-500">
-                  Select the source and target language pair.
+                  {t("tms.create.languagesSubtitle")}
                 </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <Form.Item
-                label="Source"
+                label={t("tms.create.sourceLabel")}
                 name="source"
                 rules={[
-                  { required: true, message: "Please select a source language" },
+                  { required: true, message: t("tms.create.sourceRequired") },
                 ]}
               >
                 <Select
                   showSearch
-                  placeholder="Select source"
+                  placeholder={t("tms.create.sourcePlaceholder")}
                   optionFilterProp="label"
                   options={languageOptions}
                 />
               </Form.Item>
               <Form.Item
                 name="target"
-                label="Target"
+                label={t("tms.create.targetLabel")}
                 rules={[
-                  { required: true, message: "Please select a target language" },
+                  { required: true, message: t("tms.create.targetRequired") },
                 ]}
               >
                 <Select
                   showSearch
-                  placeholder="Select target"
+                  placeholder={t("tms.create.targetPlaceholder")}
                   optionFilterProp="label"
                   options={languageOptions}
                 />
@@ -126,7 +135,7 @@ export default function CreateTmForm({ user, onBack, onCreated }) {
           </section>
 
           <div className="flex justify-end gap-2">
-            <Button onClick={onBack}>Cancel</Button>
+            <Button onClick={onBack}>{t("common.cancel")}</Button>
             <Button
               type="primary"
               htmlType="submit"
@@ -135,7 +144,7 @@ export default function CreateTmForm({ user, onBack, onCreated }) {
                 border: 0,
               }}
             >
-              Create TM
+              {t("tms.create.submit")}
             </Button>
           </div>
         </div>
