@@ -7,7 +7,8 @@
     "back": "Atrás",
     "next": "Siguiente",
     "confirm": "Confirmar",
-    "search": "Buscar"
+    "search": "Buscar",
+    "reset": "Restablecer"
   },
   "actions": {
     "create": "Crear",
@@ -22,6 +23,7 @@
   },
   "table": {
     "filename": "Archivo",
+    "searchFilenamePlaceholder": "Buscar archivo",
     "name": "Nombre",
     "email": "Correo electrónico",
     "role": "Rol",
@@ -196,6 +198,37 @@
       "deleting": "Eliminando glosario...",
       "deleted": "¡Glosario eliminado correctamente!",
       "deleteError": "Error al eliminar el glosario"
+    },
+    "import": {
+      "button": "Importar glosario",
+      "title": "Importar glosario",
+      "subtitle": "Define los metadatos y sube un archivo TXT, CSV, TSV o TBX.",
+      "detailsTitle": "Detalles del glosario",
+      "detailsSubtitle": "Nombre, contexto y metadatos opcionales.",
+      "nameLabel": "Nombre",
+      "namePlaceholder": "Nombre del glosario",
+      "nameRequired": "¡Introduce un nombre!",
+      "domainLabel": "Dominio",
+      "domainPlaceholder": "Opcional",
+      "languagesEyebrow": "Idiomas",
+      "languagesTitle": "Origen y destino",
+      "sourceLabel": "Origen",
+      "sourcePlaceholder": "Selecciona el origen",
+      "sourceRequired": "Selecciona un idioma de origen",
+      "targetLabel": "Destino",
+      "targetPlaceholder": "Selecciona el destino",
+      "targetRequired": "Selecciona un idioma de destino",
+      "targetDiffers": "El destino debe ser distinto del origen",
+      "dropText": "Suelta un archivo TXT, CSV, TSV o TBX, o examina",
+      "dropHint": "Solo TXT, CSV, TSV y TBX. Tamaño máximo 100 MB.",
+      "completeText": "Completa los campos obligatorios para subir",
+      "completeHint": "Nombre, origen y destino son obligatorios (y deben diferir).",
+      "uploadSuccess": "Archivo {name} subido correctamente",
+      "uploadError": "Error al subir el archivo {name}.",
+      "validateFields": "Completa nombre, origen y destino antes de subir.",
+      "sameLanguage": "El origen y el destino deben ser distintos.",
+      "tooLarge": "Los archivos deben ser menores de 100 MB",
+      "invalidType": "Solo se admiten archivos TXT, CSV, TSV y TBX"
     }
   },
   "users": {

@@ -7,7 +7,8 @@
     "back": "Back",
     "next": "Next",
     "confirm": "Confirm",
-    "search": "Search"
+    "search": "Search",
+    "reset": "Reset"
   },
   "actions": {
     "create": "Create",
@@ -22,6 +23,7 @@
   },
   "table": {
     "filename": "Filename",
+    "searchFilenamePlaceholder": "Search filename",
     "name": "Name",
     "email": "Email",
     "role": "Role",
@@ -196,6 +198,37 @@
       "deleting": "Deleting glossary...",
       "deleted": "Glossary deleted successfully!",
       "deleteError": "Error deleting glossary"
+    },
+    "import": {
+      "button": "Import Glossary",
+      "title": "Import glossary",
+      "subtitle": "Define metadata and upload a TXT, CSV, TSV or TBX file.",
+      "detailsTitle": "Glossary details",
+      "detailsSubtitle": "Name, context and optional metadata.",
+      "nameLabel": "Name",
+      "namePlaceholder": "Glossary name",
+      "nameRequired": "Please introduce a name!",
+      "domainLabel": "Domain",
+      "domainPlaceholder": "Optional",
+      "languagesEyebrow": "Languages",
+      "languagesTitle": "Source and target",
+      "sourceLabel": "Source",
+      "sourcePlaceholder": "Select source",
+      "sourceRequired": "Please select a source language",
+      "targetLabel": "Target",
+      "targetPlaceholder": "Select target",
+      "targetRequired": "Please select a target language",
+      "targetDiffers": "Target must differ from source",
+      "dropText": "Drop TXT, CSV, TSV or TBX file, or browse",
+      "dropHint": "TXT, CSV, TSV and TBX only. Maximum file size 100MB.",
+      "completeText": "Complete required fields to upload",
+      "completeHint": "Name, source and target are required (and must differ).",
+      "uploadSuccess": "{name} file uploaded successfully",
+      "uploadError": "{name} file upload failed.",
+      "validateFields": "Complete name, source and target before uploading.",
+      "sameLanguage": "Source and target must be different.",
+      "tooLarge": "Files must smaller than 100MB",
+      "invalidType": "Only TXT, CSV, TSV and TBX files are supported"
     }
   },
   "users": {

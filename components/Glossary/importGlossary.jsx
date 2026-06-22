@@ -9,6 +9,8 @@ import {
 } from "@ant-design/icons";
 import { useCallback, useState } from "react";
 
+import { useTranslation } from "@/components/i18n/LanguageProvider";
+
 const { Dragger } = Upload;
 
 const languageOptions = Object.keys(locales).map((code) => ({
@@ -33,6 +35,7 @@ const isUploadReady = ({ name, source, target }) =>
   Boolean(name?.trim() && source && target && source !== target);
 
 const ImportGlossaryButton = ({ refetch }) => {
+  const { t } = useTranslation();
   const [form] = Form.useForm();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -70,36 +73,40 @@ const ImportGlossaryButton = ({ refetch }) => {
     }),
     onChange: async (info) => {
       if (info.file.status === "done") {
-        message.success(`${info.file.name} file uploaded successfully`);
+        message.success(
+          t("glossaries.import.uploadSuccess", { name: info.file.name }),
+        );
         await refetch();
         setIsModalOpen(false);
         resetFormState();
       } else if (info.file.status === "error") {
-        message.error(`${info.file.name} file upload failed.`);
+        message.error(
+          t("glossaries.import.uploadError", { name: info.file.name }),
+        );
       }
     },
     beforeUpload: async (file) => {
       try {
         await form.validateFields(["name", "source", "target"]);
       } catch {
-        message.error("Complete name, source and target before uploading.");
+        message.error(t("glossaries.import.validateFields"));
         return Upload.LIST_IGNORE;
       }
 
       const { source, target } = form.getFieldsValue(["source", "target"]);
       if (source === target) {
-        message.error("Source and target must be different.");
+        message.error(t("glossaries.import.sameLanguage"));
         return Upload.LIST_IGNORE;
       }
 
       const isLt = file.size / 1024 / 1024 < 100;
       if (!isLt) {
-        message.error("Files must smaller than 100MB");
+        message.error(t("glossaries.import.tooLarge"));
         return Upload.LIST_IGNORE;
       }
 
       if (!checkFile(file)) {
-        message.error("Only TXT, CSV, TSV and TBX files are supported");
+        message.error(t("glossaries.import.invalidType"));
         return Upload.LIST_IGNORE;
       }
 
@@ -119,10 +126,10 @@ const ImportGlossaryButton = ({ refetch }) => {
           border: 0,
         }}
       >
-        Import Glossary
+        {t("glossaries.import.button")}
       </Button>
       <Modal
-        title="Import Glossary"
+        title={t("glossaries.import.title")}
         open={isModalOpen}
         onCancel={handleCancel}
         footer={null}
@@ -135,10 +142,10 @@ const ImportGlossaryButton = ({ refetch }) => {
           <div className="absolute -right-10 -top-10 size-28 rounded-full bg-emerald-500/25 blur-3xl" />
           <div className="relative">
             <div className="text-lg font-semibold leading-tight">
-              Import glossary
+              {t("glossaries.import.title")}
             </div>
             <div className="mt-1 text-sm text-slate-300">
-              Define metadata and upload a TXT, CSV, TSV or TBX file.
+              {t("glossaries.import.subtitle")}
             </div>
           </div>
         </div>
@@ -151,55 +158,56 @@ const ImportGlossaryButton = ({ refetch }) => {
                 </div>
                 <div>
                   <div className="font-semibold text-slate-900">
-                    Glossary details
+                    {t("glossaries.import.detailsTitle")}
                   </div>
                   <div className="text-xs text-slate-500">
-                    Name, context and optional metadata.
+                    {t("glossaries.import.detailsSubtitle")}
                   </div>
                 </div>
               </div>
               <Form.Item
-                label="Name"
+                label={t("glossaries.import.nameLabel")}
                 name="name"
                 rules={[
-                  { required: true, message: "Please introduce a name!" },
+                  {
+                    required: true,
+                    message: t("glossaries.import.nameRequired"),
+                  },
                 ]}
               >
-                <Input placeholder="Glossary name" />
+                <Input placeholder={t("glossaries.import.namePlaceholder")} />
               </Form.Item>
-              <div className="grid grid-cols-2 gap-2">
-                <Form.Item label="Project" name="project">
-                  <Input placeholder="Optional" />
-                </Form.Item>
-                <Form.Item label="Domain" name="domain">
-                  <Input placeholder="Optional" />
-                </Form.Item>
-              </div>
+              <Form.Item
+                label={t("glossaries.import.domainLabel")}
+                name="domain"
+              >
+                <Input placeholder={t("glossaries.import.domainPlaceholder")} />
+              </Form.Item>
             </section>
 
             <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="mb-3">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                  Languages
+                  {t("glossaries.import.languagesEyebrow")}
                 </div>
                 <div className="mt-1 font-semibold text-slate-900">
-                  Source and target
+                  {t("glossaries.import.languagesTitle")}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <Form.Item
-                  label="Source"
+                  label={t("glossaries.import.sourceLabel")}
                   name="source"
                   rules={[
                     {
                       required: true,
-                      message: "Please select a source language",
+                      message: t("glossaries.import.sourceRequired"),
                     },
                   ]}
                 >
                   <Select
                     showSearch
-                    placeholder="Select source"
+                    placeholder={t("glossaries.import.sourcePlaceholder")}
                     optionFilterProp="label"
                     options={languageOptions}
                     onChange={handleSourceChange}
@@ -212,12 +220,12 @@ const ImportGlossaryButton = ({ refetch }) => {
                     return (
                       <Form.Item
                         name="target"
-                        label="Target"
+                        label={t("glossaries.import.targetLabel")}
                         dependencies={["source"]}
                         rules={[
                           {
                             required: true,
-                            message: "Please select a target language",
+                            message: t("glossaries.import.targetRequired"),
                           },
                           ({ getFieldValue: getDependencyValue }) => ({
                             validator(_, value) {
@@ -231,7 +239,7 @@ const ImportGlossaryButton = ({ refetch }) => {
                               }
 
                               return Promise.reject(
-                                new Error("Target must differ from source"),
+                                new Error(t("glossaries.import.targetDiffers")),
                               );
                             },
                           }),
@@ -239,7 +247,7 @@ const ImportGlossaryButton = ({ refetch }) => {
                       >
                         <Select
                           showSearch
-                          placeholder="Select target"
+                          placeholder={t("glossaries.import.targetPlaceholder")}
                           optionFilterProp="label"
                           options={getTargetOptions(source)}
                           disabled={!source}
@@ -271,10 +279,10 @@ const ImportGlossaryButton = ({ refetch }) => {
                           <UploadOutlined />
                         </p>
                         <p className="ant-upload-text">
-                          Drop TXT, CSV, TSV or TBX file, or browse
+                          {t("glossaries.import.dropText")}
                         </p>
                         <p className="ant-upload-hint">
-                          TXT, CSV, TSV and TBX only. Maximum file size 100MB.
+                          {t("glossaries.import.dropHint")}
                         </p>
                       </Dragger>
                     ) : (
@@ -283,10 +291,10 @@ const ImportGlossaryButton = ({ refetch }) => {
                           <UploadOutlined />
                         </p>
                         <p className="ant-upload-text">
-                          Complete required fields to upload
+                          {t("glossaries.import.completeText")}
                         </p>
                         <p className="ant-upload-hint">
-                          Name, source and target are required (and must differ).
+                          {t("glossaries.import.completeHint")}
                         </p>
                       </div>
                     )}

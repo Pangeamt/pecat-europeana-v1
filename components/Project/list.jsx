@@ -15,6 +15,7 @@ import {
   ArrowRightOutlined,
   DeleteOutlined,
   DownloadOutlined,
+  SearchOutlined,
   UserOutlined,
 } from "@ant-design/icons";
 import { StatCard, StatCardGrid } from "@/components/shared/StatCard";
@@ -25,6 +26,7 @@ import {
   Button,
   Card,
   Empty,
+  Input,
   message,
   Popconfirm,
   Progress,
@@ -161,6 +163,67 @@ const ProjectList = () => {
     [data],
   );
 
+  const userFilters = useMemo(
+    () =>
+      [...new Set(data.map((p) => p.User?.email).filter(Boolean))].map((u) => ({
+        text: u,
+        value: u,
+      })),
+    [data],
+  );
+
+  const getFilenameColumnSearchProps = () => ({
+    filterDropdown: ({
+      setSelectedKeys,
+      selectedKeys,
+      confirm,
+      clearFilters,
+      close,
+    }) => (
+      <div style={{ padding: 8 }} onKeyDown={(e) => e.stopPropagation()}>
+        <Input
+          allowClear
+          placeholder={t("table.searchFilenamePlaceholder")}
+          value={selectedKeys[0]}
+          onChange={(e) =>
+            setSelectedKeys(e.target.value ? [e.target.value] : [])
+          }
+          onPressEnter={() => confirm()}
+          style={{ marginBottom: 8, display: "block", width: 220 }}
+        />
+        <Space>
+          <Button
+            type="primary"
+            size="small"
+            icon={<SearchOutlined />}
+            onClick={() => confirm()}
+          >
+            {t("common.search")}
+          </Button>
+          <Button
+            size="small"
+            onClick={() => {
+              clearFilters?.();
+              confirm();
+            }}
+          >
+            {t("common.reset")}
+          </Button>
+          <Button type="link" size="small" onClick={() => close()}>
+            {t("common.close")}
+          </Button>
+        </Space>
+      </div>
+    ),
+    filterIcon: (filtered) => (
+      <SearchOutlined style={{ color: filtered ? "#98C441" : undefined }} />
+    ),
+    onFilter: (value, record) =>
+      record.filename
+        ?.toLowerCase()
+        .includes(String(value).toLowerCase()),
+  });
+
   const readyProjects = data.filter(
     (project) => project.status === READY_PROJECT_STATUS,
   ).length;
@@ -187,6 +250,7 @@ const ProjectList = () => {
       title: t("table.filename"),
       dataIndex: "filename",
       key: "name",
+      ...getFilenameColumnSearchProps(),
       render: (text, record) => {
         const isReady =
           record.status === READY_PROJECT_STATUS && !record.deletedAt;
@@ -221,7 +285,21 @@ const ProjectList = () => {
       onFilter: (value, record) => record.label === value,
       render: (label) =>
         label ? (
-          <Tag className="rounded-full">{label}</Tag>
+          <Tooltip title={label}>
+            <Tag
+              className="rounded-full"
+              style={{
+                maxWidth: 50,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                display: "inline-block",
+                verticalAlign: "middle",
+              }}
+            >
+              {label.length > 30 ? `${label.slice(0, 30)}…` : label}
+            </Tag>
+          </Tooltip>
         ) : (
           <span className="text-slate-400">-</span>
         ),
@@ -281,6 +359,9 @@ const ProjectList = () => {
     {
       title: t("table.user"),
       key: "user",
+      filters: userFilters,
+      filterSearch: true,
+      onFilter: (value, record) => record.User?.email === value,
       render: (_, record) => (
         <Space size={8}>
           <Avatar size="small" icon={<UserOutlined />} />

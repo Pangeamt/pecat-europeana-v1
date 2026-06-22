@@ -281,18 +281,6 @@ const GlossaryList = () => {
               </p>
             </div>
             <Space wrap>
-              <Button
-                icon={<PlusOutlined />}
-                type="primary"
-                onClick={() => setIsCreateOpen(true)}
-                style={{
-                  background:
-                    "linear-gradient(135deg, #111827 0%, #059669 100%)",
-                  border: 0,
-                }}
-              >
-                {t("glossaries.createGlossary")}
-              </Button>
               <ImportGlossaryButton refetch={fetchGlossaries} />
             </Space>
           </div>

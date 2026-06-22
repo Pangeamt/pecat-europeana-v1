@@ -780,10 +780,10 @@ const TusList = () => {
         className="mb-2"
         style={{
           position: "sticky",
-          bottom: 0,
+          top: 0,
           left: 0,
           width: "100%",
-          zIndex: 10,
+          zIndex: 5,
         }}
       >
         <StatsTus

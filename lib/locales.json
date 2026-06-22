@@ -149,11 +149,6 @@
     "ISO-8859-6",
     "rtl"
   ],
-  "as": [
-    "Assamese",
-    "UTF-8",
-    "ltr"
-  ],
   "as_IN": [
     "Assamese (India)",
     "UTF-8",
@@ -266,11 +261,6 @@
   ],
   "bm_ML": [
     "Bambara (Mali)",
-    "UTF-8",
-    "ltr"
-  ],
-  "bn": [
-    "Bengali",
     "UTF-8",
     "ltr"
   ],
@@ -1084,11 +1074,6 @@
     "UTF-8",
     "ltr"
   ],
-  "gu": [
-    "Gujarati",
-    "UTF-8",
-    "ltr"
-  ],
   "gu_IN": [
     "Gujarati (India)",
     "UTF-8",
@@ -1163,11 +1148,6 @@
     "Hebrew (Israel)",
     "ISO-8859-8",
     "rtl"
-  ],
-  "hi": [
-    "Hindi",
-    "UTF-8",
-    "ltr"
   ],
   "hi_IN": [
     "Hindi (India)",
@@ -1429,11 +1409,6 @@
     "UTF-8",
     "ltr"
   ],
-  "kn": [
-    "Kannada",
-    "UTF-8",
-    "ltr"
-  ],
   "kn_IN": [
     "Kannada (India)",
     "UTF-8",
@@ -1446,11 +1421,6 @@
   ],
   "ko_KR": [
     "Korean (South Korea)",
-    "UTF-8",
-    "ltr"
-  ],
-  "kok": [
-    "Konkani",
     "UTF-8",
     "ltr"
   ],
@@ -1644,11 +1614,6 @@
     "ISO-8859-5",
     "ltr"
   ],
-  "ml": [
-    "Malayalam",
-    "UTF-8",
-    "ltr"
-  ],
   "ml_IN": [
     "Malayalam (India)",
     "UTF-8",
@@ -1656,11 +1621,6 @@
   ],
   "mn_MN": [
     "Mongolian (Mongolia)",
-    "UTF-8",
-    "ltr"
-  ],
-  "mr": [
-    "Marathi",
     "UTF-8",
     "ltr"
   ],
@@ -1834,11 +1794,6 @@
     "ISO-8859-1",
     "ltr"
   ],
-  "or": [
-    "Oriya",
-    "UTF-8",
-    "ltr"
-  ],
   "or_IN": [
     "Oriya (India)",
     "UTF-8",
@@ -1846,11 +1801,6 @@
   ],
   "os_RU": [
     "Ossetian (Russia)",
-    "UTF-8",
-    "ltr"
-  ],
-  "pa": [
-    "Punjabi",
     "UTF-8",
     "ltr"
   ],
@@ -2279,11 +2229,6 @@
     "UTF-8",
     "ltr"
   ],
-  "ta": [
-    "Tamil",
-    "UTF-8",
-    "ltr"
-  ],
   "ta_IN": [
     "Tamil (India)",
     "UTF-8",
@@ -2291,11 +2236,6 @@
   ],
   "ta_LK": [
     "Tamil (Sri Lanka)",
-    "UTF-8",
-    "ltr"
-  ],
-  "te": [
-    "Telugu",
     "UTF-8",
     "ltr"
   ],
@@ -2438,11 +2378,6 @@
     "Unami (America)",
     "UTF-8",
     "ltr"
-  ],
-  "ur": [
-    "Urdu",
-    "UTF-8",
-    "rtl"
   ],
   "ur_IN": [
     "Urdu (India)",

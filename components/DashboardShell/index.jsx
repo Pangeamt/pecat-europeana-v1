@@ -90,7 +90,7 @@ const buildMenuItems = (role, t) => {
 const HEADER_STYLE = {
   position: "sticky",
   top: 0,
-  zIndex: 10,
+  zIndex: 100,
   height: 64,
   lineHeight: "64px",
   paddingInline: 20,
