@@ -11,6 +11,11 @@ export {
   importProjectsFromUploadService,
 } from "./import-service";
 
+export {
+  exportProjectAsSdlxliffService,
+  exportProjectAsJsonService,
+} from "./export-service";
+
 export { getProjectLogsStatsService } from "./logs-service";
 
 export {

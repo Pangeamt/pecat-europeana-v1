@@ -4,8 +4,10 @@ import { createGzip } from "zlib";
 import { pipeline } from "stream";
 import { promisify } from "util";
 import { uid } from "uid";
+import contentDisposition from "content-disposition";
 import { oxygenBuildFile } from "../../lib/utils";
 import { HttpError } from "../shared/http-error";
+import { exportSdlxliffForDownload } from "../projects/sdlxliff-service";
 import { findProjectForActor } from "../projects/repository";
 import { findProjectById, findTusByProjectId, updateProjectById } from "./repository";
 
@@ -108,7 +110,20 @@ export async function buildProjectDownloadService({ uuid, projectId }) {
       body: fileBuffer,
       headers: {
         "Content-Type": "application/json",
-        "Content-Disposition": `attachment; filename=${fileNameAux}-pecat.json.gz`,
+        "Content-Disposition": contentDisposition(`${fileNameAux}-pecat.json.gz`),
+      },
+    };
+  }
+
+  // SDLXLIFF: fill the original file's <target> segments locally (NexRelay-based
+  // pipeline does not go through Oxigen). Uses raw tus matched by source text.
+  if (project.extension === "sdlxliff") {
+    const xml = await exportSdlxliffForDownload(project.filePath, tus);
+    return {
+      body: Buffer.from(xml, "utf8"),
+      headers: {
+        "Content-Type": "application/xml; charset=utf-8",
+        "Content-Disposition": contentDisposition(project.filename),
       },
     };
   }
@@ -139,7 +154,7 @@ export async function buildProjectDownloadService({ uuid, projectId }) {
     body,
     headers: {
       "Content-Type": "application/octet-stream",
-      "Content-Disposition": `attachment; filename=${project.filename}`,
+      "Content-Disposition": contentDisposition(project.filename),
     },
   };
 }

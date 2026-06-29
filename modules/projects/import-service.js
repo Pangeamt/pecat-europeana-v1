@@ -16,6 +16,11 @@ import {
 import { HttpError } from "../shared/http-error";
 import { findValidGlossaryIdsInWorkspace, findValidTmIdsInWorkspace } from "./repository";
 import oxigenResponse from "@/oxigen_response.json";
+import {
+  parseSdlxliffFile,
+  translateWithNexRelay,
+  normalizeNexRelaySegmentsToTusData,
+} from "./sdlxliff-service";
 
 const pump = promisify(pipeline);
 const PROJECT_STATUS = {
@@ -414,6 +419,78 @@ function resolveProjectErrorStatus(fileExtension, error) {
   return PROJECT_STATUS.FILE_ERROR;
 }
 
+async function processSdlxliffProjectInBackground({
+  projectId,
+  filePath,
+  src,
+  tgt,
+  tmMode,
+  tmThreshold,
+  tmIds,
+  glossaryIds,
+}) {
+  try {
+    await setProjectStatus(projectId, PROJECT_STATUS.PROCESSING);
+
+    const { sourceLanguage, targetLanguage, sources } = await parseSdlxliffFile(filePath);
+
+    const normalizedSrc = src || sourceLanguage;
+    const normalizedTgt = tgt || targetLanguage;
+
+    if (!normalizedSrc) {
+      throw new Error("No source language provided (missing in file and upload)");
+    }
+    if (!normalizedTgt) {
+      throw new Error(
+        "No target language: SDLXLIFF has no target-language; select one on upload",
+      );
+    }
+
+    if (!sources || sources.length === 0) {
+      throw new Error("No sources found in SDLXLIFF file");
+    }
+
+    const sourceTexts = sources.map((s) => s.source);
+
+    console.log("[SDLXLIFF] NexRelay request", {
+      projectId,
+      src: normalizedSrc,
+      tgt: normalizedTgt,
+      segments: sourceTexts.length,
+      tmMode,
+      tmThreshold,
+      tmIds,
+      glossaryIds,
+    });
+
+    const translationSegments = await translateWithNexRelay({
+      texts: sourceTexts,
+      sourceLanguage: normalizedSrc,
+      targetLanguage: normalizedTgt,
+      tmMode,
+      tmThreshold,
+      tmIds,
+      glossaryIds,
+    });
+
+    const tusData = normalizeNexRelaySegmentsToTusData(
+      translationSegments,
+      projectId,
+      normalizedSrc,
+      normalizedTgt
+    );
+
+    await prisma.tu.createMany({
+      data: tusData,
+    });
+
+    await setProjectStatus(projectId, PROJECT_STATUS.READY);
+  } catch (error) {
+    console.error("Error processing SDLXLIFF project in background:", error);
+    await setProjectStatus(projectId, PROJECT_STATUS.FILE_ERROR).catch(() => {});
+  }
+}
+
 async function processUploadedProjectInBackground({
   projectId,
   filePath,
@@ -614,20 +691,34 @@ export async function importProjectsFromUploadService({
     await linkProjectGlossaries(createdProject.id, validGlossaryIds);
 
     createdProjectIds.push(createdProject.id);
-    void processUploadedProjectInBackground({
-      projectId: createdProject.id,
-      filePath,
-      fileExtension,
-      mt,
-      src,
-      tgt,
-      tmMode: tmSettings.tmMode,
-      tmThreshold: tmSettings.tmThreshold,
-      tmIds: validTmIds,
-      glossaryIds: validGlossaryIds,
-      userId,
-      workspaceId,
-    });
+
+    if (fileExtension === "sdlxliff") {
+      void processSdlxliffProjectInBackground({
+        projectId: createdProject.id,
+        filePath,
+        src,
+        tgt,
+        tmMode: tmSettings.tmMode,
+        tmThreshold: tmSettings.tmThreshold,
+        tmIds: validTmIds,
+        glossaryIds: validGlossaryIds,
+      });
+    } else {
+      void processUploadedProjectInBackground({
+        projectId: createdProject.id,
+        filePath,
+        fileExtension,
+        mt,
+        src,
+        tgt,
+        tmMode: tmSettings.tmMode,
+        tmThreshold: tmSettings.tmThreshold,
+        tmIds: validTmIds,
+        glossaryIds: validGlossaryIds,
+        userId,
+        workspaceId,
+      });
+    }
   }
 
   return { projectIds: createdProjectIds };
