@@ -9,7 +9,6 @@ import prisma from "../../lib/prisma";
 import {
   checkFile,
   oxygenTranslateFile,
-  postMTQE,
   segmentTexts,
   translateTexts,
 } from "../../lib/utils";
@@ -18,8 +17,8 @@ import { findValidGlossaryIdsInWorkspace, findValidTmIdsInWorkspace } from "./re
 import oxigenResponse from "@/oxigen_response.json";
 import {
   parseSdlxliffFile,
-  translateWithNexRelay,
-  normalizeNexRelaySegmentsToTusData,
+  enrichSdlxliffSegments,
+  buildTusDataFromSdlxliffSegments,
 } from "./sdlxliff-service";
 
 const pump = promisify(pipeline);
@@ -419,6 +418,13 @@ function resolveProjectErrorStatus(fileExtension, error) {
   return PROJECT_STATUS.FILE_ERROR;
 }
 
+// SDLXLIFF import pipeline:
+//  1. Read source + target per segment from the file itself; keep the
+//     trans-unit/mrk ids in `externalId` (needed for a lossless export) and
+//     block the segments marked as locked in <sdl:seg-defs>.
+//  2/3. In parallel: machine-translate with NexRelay the unlocked segments
+//     without target, and score with MTQE the unlocked ones that already have
+//     a target (see enrichSdlxliffSegments).
 async function processSdlxliffProjectInBackground({
   projectId,
   filePath,
@@ -432,7 +438,7 @@ async function processSdlxliffProjectInBackground({
   try {
     await setProjectStatus(projectId, PROJECT_STATUS.PROCESSING);
 
-    const { sourceLanguage, targetLanguage, sources } = await parseSdlxliffFile(filePath);
+    const { sourceLanguage, targetLanguage, segments } = await parseSdlxliffFile(filePath);
 
     const normalizedSrc = src || sourceLanguage;
     const normalizedTgt = tgt || targetLanguage;
@@ -446,25 +452,15 @@ async function processSdlxliffProjectInBackground({
       );
     }
 
-    if (!sources || sources.length === 0) {
-      throw new Error("No sources found in SDLXLIFF file");
-    }
-
-    const sourceTexts = sources.map((s) => s.source);
-
-    console.log("[SDLXLIFF] NexRelay request", {
+    console.log("[SDLXLIFF] parsed", {
       projectId,
       src: normalizedSrc,
       tgt: normalizedTgt,
-      segments: sourceTexts.length,
-      tmMode,
-      tmThreshold,
-      tmIds,
-      glossaryIds,
+      segments: segments.length,
+      locked: segments.filter((s) => s.locked).length,
     });
 
-    const translationSegments = await translateWithNexRelay({
-      texts: sourceTexts,
+    const { translated, scored } = await enrichSdlxliffSegments(segments, {
       sourceLanguage: normalizedSrc,
       targetLanguage: normalizedTgt,
       tmMode,
@@ -473,11 +469,17 @@ async function processSdlxliffProjectInBackground({
       glossaryIds,
     });
 
-    const tusData = normalizeNexRelaySegmentsToTusData(
-      translationSegments,
+    console.log("[SDLXLIFF] enriched", {
+      projectId,
+      translatedWithNexRelay: translated,
+      scoredWithMtqe: scored,
+    });
+
+    const tusData = buildTusDataFromSdlxliffSegments(
+      segments,
       projectId,
       normalizedSrc,
-      normalizedTgt
+      normalizedTgt,
     );
 
     await prisma.tu.createMany({

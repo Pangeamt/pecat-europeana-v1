@@ -1,6 +1,7 @@
 import xml2js from 'xml2js';
 import axios from 'axios';
 import { HttpError } from '../shared/http-error';
+import { postMTQE } from '../../lib/utils';
 
 const NEXRELAY_API_HOST = process.env.NEXRELAY_API_HOST || 'http://prod.pangeamt.com:8080';
 const NEXRELAY_API_KEY = process.env.NEXRELAY_API_KEY || 'pcat-7d9a3f8e2b4c1d6f-default';
@@ -61,34 +62,60 @@ function collectText(node) {
   return node._ || '';
 }
 
-// Flatten all <trans-unit> elements (in document order) from an ordered parse.
-function getOrderedTransUnits(orderedXml) {
-  const file = orderedXml?.xliff?.file?.[0];
-  const body = file?.body?.[0];
-  const groups = body?.group || [];
-  const list = [];
-  for (const group of groups) {
-    const transUnits = group['trans-unit'] || [];
-    for (const tu of transUnits) list.push(tu);
+// Recursively collect the <trans-unit> elements of a <body>/<group> container:
+// Trados places them directly under <body>, inside <group>, or in nested
+// groups. `toArray` adapts to the parser shape (ordered: always arrays;
+// simple: scalar when there is a single child).
+function collectContainerTransUnits(container, toArray, out) {
+  for (const tu of toArray(container['trans-unit'])) out.push(tu);
+  for (const group of toArray(container.group)) {
+    collectContainerTransUnits(group, toArray, out);
   }
-  return { file, list };
 }
 
-// Flatten all <trans-unit> elements (in document order) from a simple parse.
-function getSimpleTransUnits(simpleXml) {
-  const body = simpleXml?.xliff?.file?.body;
-  if (!body) return [];
-  const groups = Array.isArray(body.group) ? body.group : body.group ? [body.group] : [];
+// Flatten all <trans-unit> elements from an ordered parse. A SDLXLIFF can hold
+// SEVERAL <file> elements for the same document (e.g. pptx slides/notes split
+// by Trados), so every one of them is traversed. Both flatteners visit
+// files/groups in the same order, so their indexes stay aligned for export.
+function getOrderedTransUnits(orderedXml) {
+  const files = orderedXml?.xliff?.file || [];
+  const toArray = (value) => value || [];
   const list = [];
-  for (const group of groups) {
-    const transUnits = Array.isArray(group['trans-unit'])
-      ? group['trans-unit']
-      : group['trans-unit']
-        ? [group['trans-unit']]
-        : [];
-    for (const tu of transUnits) list.push(tu);
+  for (const file of files) {
+    const body = file?.body?.[0];
+    if (body) collectContainerTransUnits(body, toArray, list);
+  }
+  return { file: files[0], list };
+}
+
+// Flatten all <trans-unit> elements from a simple parse (same traversal order
+// as getOrderedTransUnits).
+function getSimpleTransUnits(simpleXml) {
+  const rawFiles = simpleXml?.xliff?.file;
+  const files = Array.isArray(rawFiles) ? rawFiles : rawFiles ? [rawFiles] : [];
+  const toArray = (value) => (Array.isArray(value) ? value : value ? [value] : []);
+  const list = [];
+  for (const file of files) {
+    if (file?.body) collectContainerTransUnits(file.body, toArray, list);
   }
   return list;
+}
+
+// Collect every <mrk mtype="seg"> descendant of an ordered-parser node, in
+// document order. Trados files place them either directly under <seg-source>/
+// <target> or wrapped in one or more <g> tags, so we walk the whole subtree.
+function collectSegMrks(node, out = []) {
+  if (!node || typeof node === 'string') return out;
+  if (Array.isArray(node.$$)) {
+    for (const child of node.$$) {
+      if (child['#name'] === 'mrk' && child.$?.mtype === 'seg') {
+        out.push(child);
+      } else if (child['#name'] !== '__text__') {
+        collectSegMrks(child, out);
+      }
+    }
+  }
+  return out;
 }
 
 // Compute the source segments for a single ordered <trans-unit>.
@@ -97,26 +124,23 @@ function getTransUnitSegments(orderedTransUnit) {
   const segSource = orderedTransUnit['seg-source']?.[0];
 
   if (segSource) {
-    const g = segSource.g?.[0];
-    const mrks = g?.mrk || [];
+    const mrks = collectSegMrks(segSource);
     const segments = [];
     for (const mrk of mrks) {
-      if (mrk.$ && mrk.$['mtype'] === 'seg') {
-        const text = normalizeSegmentText(collectText(mrk));
-        if (text) {
-          segments.push({ mid: mrk.$['mid'], text });
-        }
+      const text = normalizeSegmentText(collectText(mrk));
+      if (text) {
+        segments.push({ mid: mrk.$?.mid ?? null, text });
       }
     }
     if (segments.length > 0) {
-      return { segmented: true, segments, gAttrs: g?.$ };
+      return { segmented: true, segments, gAttrs: segSource.g?.[0]?.$ };
     }
     // <seg-source> present but not sentence-segmented (no <mrk mtype="seg">):
     // a pre-segmentation Trados file keeps text directly in <g> or as <x/>
     // placeholders. Fall back to the whole seg-source text as one segment.
     const whole = normalizeSegmentText(collectText(segSource));
     if (whole) {
-      return { segmented: false, segments: [{ mid: null, text: whole }], gAttrs: g?.$ };
+      return { segmented: false, segments: [{ mid: null, text: whole }], gAttrs: segSource.g?.[0]?.$ };
     }
     return { segmented: false, segments: [], gAttrs: null };
   }
@@ -130,6 +154,46 @@ function getTransUnitSegments(orderedTransUnit) {
   }
 
   return { segmented: false, segments: [], gAttrs: null };
+}
+
+// Extract the existing translations of a <trans-unit>: a map mid -> text for
+// segmented targets, plus the whole-target text for unsegmented ones.
+function getTransUnitTargetTexts(orderedTransUnit) {
+  const target = orderedTransUnit.target?.[0];
+  if (!target) return { byMid: new Map(), whole: '' };
+
+  const byMid = new Map();
+  for (const mrk of collectSegMrks(target)) {
+    byMid.set(mrk.$?.mid ?? null, normalizeSegmentText(collectText(mrk)));
+  }
+  return { byMid, whole: normalizeSegmentText(collectText(target)) };
+}
+
+// <mrk mid> encodes special characters OOXML-style ("140_x0020_a") while the
+// matching <sdl:seg id> keeps them literal ("140 a"). Decode _xHHHH_ escapes
+// so seg-defs lookups work for both shapes.
+function decodeMid(mid) {
+  if (typeof mid !== 'string') return mid;
+  return mid.replace(/_x([0-9A-Fa-f]{4})_/g, (_, hex) =>
+    String.fromCharCode(parseInt(hex, 16)),
+  );
+}
+
+// Extract per-segment state from <sdl:seg-defs>. Each <sdl:seg id="X"> matches
+// the <mrk mid="X"> of the same trans-unit and carries locked/origin/conf.
+function getTransUnitSegDefs(orderedTransUnit) {
+  const segs = orderedTransUnit['sdl:seg-defs']?.[0]?.['sdl:seg'] || [];
+  const byId = new Map();
+  for (const seg of segs) {
+    const attrs = seg.$ || {};
+    byId.set(attrs.id, {
+      locked: attrs.locked === 'true',
+      origin: attrs.origin ?? null,
+      conf: attrs.conf ?? null,
+      percent: attrs.percent !== undefined ? Number(attrs.percent) : null,
+    });
+  }
+  return byId;
 }
 
 export async function parseSdlxliffFile(filePath) {
@@ -159,30 +223,179 @@ export async function parseSdlxliffFile(filePath) {
   }
 
   const { list } = getOrderedTransUnits(xmlData);
-  const sources = [];
+  const segments = [];
 
   for (const tu of list) {
-    const id = tu.$?.id;
+    // Structural units (translate="no", e.g. slide metadata) have no
+    // seg-source/target and must not become editable TUs; they are preserved
+    // on export because the export rebuilds from the original file.
+    if (tu.$?.translate === 'no') continue;
+
+    const transUnitId = tu.$?.id;
     const info = getTransUnitSegments(tu);
+    if (info.segments.length === 0) continue;
+
+    const targets = getTransUnitTargetTexts(tu);
+    const segDefs = getTransUnitSegDefs(tu);
+
     info.segments.forEach((seg, idx) => {
-      sources.push({
-        id,
-        source: seg.text,
+      const def =
+        seg.mid != null
+          ? segDefs.get(seg.mid) ?? segDefs.get(decodeMid(seg.mid))
+          : undefined;
+      const target = seg.mid != null
+        ? targets.byMid.get(seg.mid) ?? null
+        : targets.whole || null;
+
+      segments.push({
+        transUnitId,
+        mid: seg.mid,
         segmentIndex: idx,
         isSegmented: info.segmented,
+        source: seg.text,
+        target: target || null,
+        locked: def?.locked ?? false,
+        origin: def?.origin ?? null,
+        conf: def?.conf ?? null,
+        percent: def?.percent ?? null,
       });
     });
   }
 
-  if (sources.length === 0) {
+  if (segments.length === 0) {
     throw new HttpError(400, 'No translation units found in SDLXLIFF file.');
   }
 
   return {
     sourceLanguage: sourceLanguage.split('-')[0].toLowerCase(),
     targetLanguage: targetLanguage ? targetLanguage.split('-')[0].toLowerCase() : null,
-    sources,
+    segments,
   };
+}
+
+// Enrich parsed SDLXLIFF segments in place with two independent branches that
+// run in PARALLEL (locked segments are never touched):
+//  - no target  -> machine-translate with NexRelay (step 2)
+//  - has target -> score the existing translation with MTQE (step 3)
+// A NexRelay failure aborts the import (the project would miss translations);
+// an MTQE failure is non-fatal: targets are kept, just without score.
+export async function enrichSdlxliffSegments(segments, {
+  sourceLanguage,
+  targetLanguage,
+  tmMode = 'standard',
+  tmThreshold = 0.75,
+  tmIds = [],
+  glossaryIds = [],
+} = {}) {
+  const toTranslate = segments.filter((seg) => !seg.locked && !seg.target);
+  const toScore = segments.filter((seg) => !seg.locked && seg.target);
+
+  async function translateMissingTargets() {
+    if (toTranslate.length === 0) return;
+
+    const results = await translateWithNexRelay({
+      texts: toTranslate.map((seg) => seg.source),
+      sourceLanguage,
+      targetLanguage,
+      tmMode,
+      tmThreshold,
+      tmIds,
+      glossaryIds,
+    });
+
+    // NexRelay returns one entry per input text, in the same order.
+    toTranslate.forEach((seg, index) => {
+      const result = results[index];
+      if (!result) return;
+
+      const tmInfoArray = Array.isArray(result.tm_info) ? result.tm_info : [];
+      const bestTm = tmInfoArray.find(
+        (tm) => tm.tm_match === true && tm.tm_score === 1,
+      );
+
+      seg.target = result.target ?? null;
+      seg.mtqeScore = result.mtqe_score ?? null;
+      seg.tmInfo = result.tm_info ?? null;
+      seg.glossaryInfo = result.glossary_info ?? null;
+      seg.machineTranslated = true;
+      seg.tmExactMatch = Boolean(bestTm);
+      seg.levenshteinDistance = bestTm ? bestTm.tm_score : null;
+    });
+  }
+
+  async function scoreExistingTargets() {
+    if (toScore.length === 0) return;
+
+    // MTQE scores every { source, target } pair in one batch. The response
+    // returns the pairs in the same order adding the score; results are
+    // matched back by the echoed pair when available, by index otherwise.
+    const pairs = toScore.map((seg) => ({
+      source: seg.source,
+      target: seg.target,
+    }));
+
+    let response = null;
+    try {
+      response = await postMTQE({ pairs, sourceLanguage, targetLanguage });
+    } catch (error) {
+      console.error(
+        '[SDLXLIFF] MTQE scoring failed; keeping targets without score:',
+        error.message,
+      );
+      return;
+    }
+
+    const items = Array.isArray(response)
+      ? response
+      : response?.pairs ?? response?.segments ?? response?.scores ?? [];
+    const scoreOf = (item) => item?.mtqe_score ?? item?.score ?? null;
+
+    const scoreByPair = new Map();
+    for (const item of items) {
+      if (typeof item?.source === 'string' && typeof item?.target === 'string') {
+        scoreByPair.set(`${item.source}\u0000${item.target}`, scoreOf(item));
+      }
+    }
+
+    toScore.forEach((seg, index) => {
+      const echoed = scoreByPair.get(`${seg.source}\u0000${seg.target}`);
+      seg.mtqeScore = echoed ?? scoreOf(items[index]);
+    });
+  }
+
+  await Promise.all([translateMissingTargets(), scoreExistingTargets()]);
+
+  return { translated: toTranslate.length, scored: toScore.length };
+}
+
+// Build Prisma `Tu` rows straight from the parsed (and optionally enriched)
+// SDLXLIFF segments. externalId keeps the identity needed for a lossless
+// export: "<trans-unit id>::<mrk mid>" (or just the trans-unit id when
+// unsegmented). Locked segments (<sdl:seg locked="true">) are blocked from
+// editing, and so are NexRelay exact TM matches (tm_score === 1).
+export function buildTusDataFromSdlxliffSegments(segments, projectId, sourceLanguage, targetLanguage) {
+  return segments.map((seg, index) => ({
+    externalId: seg.mid != null ? `${seg.transUnitId}::${seg.mid}` : seg.transUnitId,
+    count: index,
+    srcLiteral: seg.source,
+    translatedLiteral: seg.target ?? null,
+    // Scores are stored in the 0..1 scale the UI buckets expect. MTQE/NexRelay
+    // already return 0..1; the sdl:seg `percent` attribute is 0..100.
+    translationScorePercent:
+      seg.mtqeScore ?? (seg.percent != null ? seg.percent / 100 : null),
+    tmInfo: seg.tmInfo ?? null,
+    glossaryInfo: seg.glossaryInfo ?? null,
+    levenshteinDistance: seg.levenshteinDistance ?? null,
+    block: seg.locked || seg.tmExactMatch === true,
+    sourceLanguage: sourceLanguage || '',
+    targetLanguage: targetLanguage || '',
+    Status: seg.locked || seg.tmExactMatch === true
+      ? 'ACCEPTED'
+      : seg.machineTranslated || seg.origin === 'mt'
+        ? 'TRANSLATED_MT'
+        : 'NOT_REVIEWED',
+    projectId,
+  }));
 }
 
 export async function translateWithNexRelay({
