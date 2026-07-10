@@ -447,6 +447,7 @@ const TusList = () => {
       width: 80,
       dataIndex: "block",
       key: "block",
+      sorter: (a, b) => Number(Boolean(a.block)) - Number(Boolean(b.block)),
       render: (value) => {
         if (value) {
           return <LockIcon size={16} className="text-gray-800" />;
