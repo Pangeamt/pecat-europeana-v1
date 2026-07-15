@@ -1,10 +1,12 @@
 "use client";
 
 import { ColumnHeightOutlined } from "@ant-design/icons";
-import { Button, Table } from "antd";
+import { Button, Table, Tooltip } from "antd";
 import PropTypes from "prop-types";
 import { Resizable } from "re-resizable";
 import { useRef, useState } from "react";
+
+import { useTranslation } from "@/components/i18n/LanguageProvider";
 
 const style = { padding: "10px 5px" };
 
@@ -18,6 +20,7 @@ const columns = [
 ];
 
 const GlossaryTool = ({ glossaryInfo }) => {
+  const { t } = useTranslation();
   const [height, setHeight] = useState(DEFAULT_HEIGHT);
   const baseHeightRef = useRef(DEFAULT_HEIGHT);
 
@@ -52,14 +55,16 @@ const GlossaryTool = ({ glossaryInfo }) => {
       handleStyles={{ bottom: { height: 20, bottom: 0, cursor: "row-resize" } }}
       handleComponent={{
         bottom: (
-          <Button
-            type="primary"
-            shape="circle"
-            icon={<ColumnHeightOutlined />}
-            size="small"
-            className="cursor-row-resize"
-            style={{ position: "absolute", bottom: 12, right: 12 }}
-          />
+          <Tooltip title={t("tus.resizeHandleTooltip")} placement="left">
+            <Button
+              type="primary"
+              shape="circle"
+              icon={<ColumnHeightOutlined />}
+              size="small"
+              className="cursor-row-resize"
+              style={{ position: "absolute", bottom: 12, right: 12 }}
+            />
+          </Tooltip>
         ),
       }}
     >

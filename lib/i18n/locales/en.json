@@ -281,6 +281,9 @@
       "invalidType": "File type not supported"
     }
   },
+  "tus": {
+    "resizeHandleTooltip": "Drag to resize the panel height"
+  },
   "glossaries": {
     "eyebrow": "Translation assets",
     "title": "Glossaries",

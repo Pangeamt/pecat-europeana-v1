@@ -281,6 +281,9 @@
       "invalidType": "Tipo de archivo no admitido"
     }
   },
+  "tus": {
+    "resizeHandleTooltip": "Arrastra para ajustar la altura del panel"
+  },
   "glossaries": {
     "eyebrow": "Recursos de traducción",
     "title": "Glosarios",
