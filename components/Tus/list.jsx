@@ -221,9 +221,11 @@ const TusList = () => {
     setSearchedColumn(dataIndex);
   };
 
-  const handleReset = (clearFilters) => {
+  const handleReset = (clearFilters, confirm) => {
     clearFilters();
     setSearchText("");
+    setSearchedColumn("");
+    confirm();
   };
 
   const getColumnSearchProps = (dataIndex) => ({
@@ -232,7 +234,6 @@ const TusList = () => {
       selectedKeys,
       confirm,
       clearFilters,
-      close,
     }) => (
       <div
         style={{ padding: 8 }}
@@ -244,9 +245,15 @@ const TusList = () => {
           ref={searchInput}
           placeholder={`Search ${dataIndex}`}
           value={selectedKeys[0]}
-          onChange={(e) =>
-            setSelectedKeys(e.target.value ? [e.target.value] : [])
-          }
+          onChange={(e) => {
+            const value = e.target.value;
+            setSelectedKeys(value ? [value] : []);
+            if (!value) {
+              setSearchText("");
+              setSearchedColumn("");
+              confirm({ closeDropdown: false });
+            }
+          }}
           onPressEnter={() => handleSearch(selectedKeys, confirm, dataIndex)}
           style={{
             marginBottom: 8,
@@ -265,31 +272,11 @@ const TusList = () => {
             Search
           </Button>
           <Button
-            onClick={() => clearFilters && handleReset(clearFilters)}
+            onClick={() => clearFilters && handleReset(clearFilters, confirm)}
             size="small"
             style={{ width: 90 }}
           >
             Reset
-          </Button>
-          <Button
-            type="link"
-            size="small"
-            onClick={() => {
-              confirm({ closeDropdown });
-              setSearchText(selectedKeys[0]);
-              setSearchedColumn(dataIndex);
-            }}
-          >
-            Filter
-          </Button>
-          <Button
-            type="link"
-            size="small"
-            onClick={() => {
-              close();
-            }}
-          >
-            close
           </Button>
         </Space>
       </div>
@@ -298,15 +285,15 @@ const TusList = () => {
       <SearchOutlined style={{ color: filtered ? "#1677ff" : undefined }} />
     ),
     onFilter: (value, record) => {
-      if (record[dataIndex]) {
-        return record[dataIndex]
-          ? record[dataIndex]
-              .toString()
-              .toLowerCase()
-              .includes(value.toString().toLowerCase())
-          : "";
-      }
-      return false;
+      const fieldValue =
+        dataIndex === "reviewLiteral"
+          ? record.reviewLiteral || record.translatedLiteral
+          : record[dataIndex];
+      if (!fieldValue) return false;
+      return fieldValue
+        .toString()
+        .toLowerCase()
+        .includes(value.toString().toLowerCase());
     },
     filterDropdownProps: {
       onOpenChange: (visible) => {
@@ -362,21 +349,24 @@ const TusList = () => {
       minWidth: 400,
       textWrap: "word-break",
       ...getColumnSearchProps("srcLiteral"),
-      render: (text) => (
-        <div
-          dir={sourceDir}
-          style={{
-            wordWrap: "break-word",
-            wordBreak: "break-word",
-            textAlign: sourceDir === "rtl" ? "right" : "left",
-          }}
-        >
-          {text}
-        </div>
-      ),
+      render: (text) => {
+        const srcLiteral = getColumnSearchProps("srcLiteral");
+        return (
+          <div
+            dir={sourceDir}
+            style={{
+              wordWrap: "break-word",
+              wordBreak: "break-word",
+              textAlign: sourceDir === "rtl" ? "right" : "left",
+            }}
+          >
+            {srcLiteral.render(text)}
+          </div>
+        );
+      },
     },
     {
-      title: "Review",
+      title: "Target",
       dataIndex: "reviewLiteral",
       key: "reviewLiteral",
       width: "40%",
@@ -384,7 +374,8 @@ const TusList = () => {
       render: (text, record) => {
         const aux = text || record.translatedLiteral || "";
 
-        if (record.block)
+        if (record.block) {
+          const reviewLiteral = getColumnSearchProps("reviewLiteral");
           return (
             <div
               className="text-gray-500"
@@ -395,9 +386,10 @@ const TusList = () => {
                 textAlign: targetDir === "rtl" ? "right" : "left",
               }}
             >
-              {aux}
+              {reviewLiteral.render(aux)}
             </div>
           );
+        }
 
         if (selectedRow && record.id === selectedRow.id) {
           return (
