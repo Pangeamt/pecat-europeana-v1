@@ -32,7 +32,7 @@ export const updateGlossarySchema = Joi.object({
 
 export const glossaryExportQuerySchema = Joi.object({
   glossaryId: Joi.string().required(),
-  format: Joi.string().optional().default("xlsx"),
+  format: Joi.string().valid("tmx", "csv", "tsv").optional().default("csv"),
 });
 
 export const glossaryImportFormSchema = Joi.object({

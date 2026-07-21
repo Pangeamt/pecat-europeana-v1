@@ -287,7 +287,7 @@
   "glossaries": {
     "eyebrow": "Recursos de traducción",
     "title": "Glosarios",
-    "subtitle": "Gestiona glosarios del espacio, importaciones y exportaciones XLSX.",
+    "subtitle": "Gestiona glosarios del espacio, importaciones y exportaciones CSV.",
     "createGlossary": "Crear glosario",
     "createModalTitle": "Crear glosario",
     "statsAria": "Estadísticas de glosarios",
@@ -295,7 +295,7 @@
     "processingEntries": "Procesando…",
     "viewTooltip": "Ver glosario",
     "editTooltip": "Editar glosario",
-    "exportTooltip": "Exportar XLSX",
+    "exportTooltip": "Exportar CSV",
     "deleteTooltip": "Eliminar glosario",
     "deleteTitle": "Eliminar glosario",
     "deleteDescription": "¿Seguro que quieres eliminar este glosario?",

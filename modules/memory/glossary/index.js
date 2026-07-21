@@ -9,7 +9,7 @@ export {
 
 export { importGlossaryFromFilesService } from "./import.service";
 
-export { exportGlossaryAsXlsxService } from "./export.service";
+export { exportGlossaryAsCsvService } from "./export.service";
 
 export {
   createGlossarySchema,

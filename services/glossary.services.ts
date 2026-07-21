@@ -114,12 +114,12 @@ export const exportGlossaryRequest = async (glossaryId: string): Promise<void> =
     });
 
     const blob = new Blob([response.data], {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      type: "text/csv",
     });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${glossaryId}.xlsx`;
+    a.download = `${glossaryId}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
   } catch (error) {

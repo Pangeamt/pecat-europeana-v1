@@ -18,10 +18,10 @@ async function assertGlossaryInWorkspace(id, actorUser) {
   return record;
 }
 
-export async function exportGlossaryAsXlsxService(
+export async function exportGlossaryAsCsvService(
   glossaryId,
   actorUser,
-  format = "xlsx",
+  format = "csv",
 ) {
   await assertGlossaryInWorkspace(glossaryId, actorUser);
   return exportGlossaryDaait(glossaryId, format);

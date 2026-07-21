@@ -37,7 +37,7 @@ export async function importGlossaryDaait(payload) {
   return importGlossary(payload);
 }
 
-export async function exportGlossaryDaait(id, format = "xlsx") {
+export async function exportGlossaryDaait(id, format = "csv") {
   return exportGlossary(id, format);
 }
 

@@ -1,6 +1,6 @@
 import { requireAuthUser, toErrorResponse } from "@/modules/shared";
 import {
-  exportGlossaryAsXlsxService,
+  exportGlossaryAsCsvService,
   glossaryExportQuerySchema,
 } from "@/modules/memory/glossary";
 
@@ -13,17 +13,16 @@ export const GET = async (req) => {
       glossaryId: searchParams.get("glossaryId"),
       format: searchParams.get("format") ?? undefined,
     });
-    const xlsxContent = await exportGlossaryAsXlsxService(
+    const csvContent = await exportGlossaryAsCsvService(
       glossaryId,
       actorUser,
       format,
     );
 
-    return new Response(xlsxContent, {
+    return new Response(csvContent, {
       status: 200,
       headers: {
-        "Content-Type":
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Type": "text/csv",
         "Content-Disposition": `attachment; filename="${glossaryId}.${format}"`,
       },
     });
