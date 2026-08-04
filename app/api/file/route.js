@@ -1,10 +1,12 @@
 import { toErrorResponse } from "@/modules/shared";
-import { fileDownloadQuerySchema } from "@/modules/files/schemas";
-import { buildProjectDownloadService } from "@/modules/files/service";
+import {
+  buildProjectDownloadService,
+  documentDownloadQuerySchema,
+} from "@/modules/documents";
 
 export const GET = async (req) => {
   try {
-    const { uuid, projectId } = await fileDownloadQuerySchema.validateAsync(
+    const { uuid, projectId } = await documentDownloadQuerySchema.validateAsync(
       Object.fromEntries(new URL(req.url).searchParams),
     );
     const fileResponse = await buildProjectDownloadService({ uuid, projectId });

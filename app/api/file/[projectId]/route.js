@@ -1,12 +1,14 @@
 import { requireAuthUser, toErrorResponse } from "@/modules/shared";
-import { fileShareParamsSchema } from "@/modules/files/schemas";
-import { generateProjectShareUuidService } from "@/modules/files/service";
+import {
+  documentShareParamsSchema,
+  generateProjectShareUuidService,
+} from "@/modules/documents";
 
 export const GET = async (req, { params }) => {
   try {
     const actorUser = await requireAuthUser();
 
-    const { projectId } = await fileShareParamsSchema.validateAsync(
+    const { projectId } = await documentShareParamsSchema.validateAsync(
       await params,
     );
     const uuid = await generateProjectShareUuidService(projectId, actorUser);
