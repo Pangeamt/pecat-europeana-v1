@@ -1,20 +1,18 @@
-import axios from "axios";
-import contentDisposition from "content-disposition";
 import fs from "fs";
 import { pipeline } from "stream";
 import { uid } from "uid";
 import { promisify } from "util";
-import zlib from "zlib";
 import prisma from "../../lib/prisma";
-import {
-  checkFile,
-  oxygenTranslateFile,
-  segmentTexts,
-  translateTexts,
-} from "../../lib/utils";
+import { checkFile } from "../../lib/utils";
+import { enqueueProjectImport } from "../../lib/queue";
 import { HttpError } from "../shared/http-error";
 import { findValidGlossaryIdsInWorkspace, findValidTmIdsInWorkspace } from "./repository";
-import oxigenResponse from "@/oxigen_response.json";
+import { UnrecoverableError } from "bullmq";
+import {
+  deleteProjectDocumentService,
+  extractDocumentSegmentsService,
+  linkProjectDocumentService,
+} from "@/modules/documents";
 import {
   parseSdlxliffFile,
   enrichSdlxliffSegments,
@@ -144,155 +142,17 @@ async function linkProjectGlossaries(projectId, glossaryIds) {
   });
 }
 
-function normalizeProjectSegmentsPayload(payload, { src, tgt } = {}) {
-  const segments = Array.isArray(payload?.segments)
-    ? payload.segments
-    : Array.isArray(payload)
-      ? payload
-      : [];
-
-  return segments.map((item, index) => {
-    if (item.src !== undefined || item.tgt !== undefined) {
-      return {
-        externalId: item.id ?? item.externalId ?? null,
-        count: item.count ?? index,
-        srcLiteral: item.src ?? "",
-        translatedLiteral: item.tgt ?? null,
-        translationScorePercent:
-          item.mtqe_score ?? item.translationScorePercent ?? null,
-        sourceLanguage: item.sourceLanguage ?? src ?? "",
-        targetLanguage: item.targetLanguage ?? tgt ?? "",
-        Status: item.Status ?? "NOT_REVIEWED",
-        tmInfo: item.tm_info ?? item.tmInfo ?? null,
-        block:
-          typeof item.block === "boolean"
-            ? item.block
-            : typeof item.blocks === "boolean"
-              ? item.blocks
-              : false,
-      };
-    }
-
-    return {
-      ...item,
-      tmInfo: item.tm_info ?? item.tmInfo ?? null,
-      translationScorePercent:
-        item.mtqe_score ?? item.translationScorePercent ?? null,
-      sourceLanguage: item.sourceLanguage ?? src ?? "",
-      targetLanguage: item.targetLanguage ?? tgt ?? "",
-      block:
-        typeof item.block === "boolean"
-          ? item.block
-          : typeof item.blocks === "boolean"
-            ? item.blocks
-            : false,
-    };
-  });
-}
-
-async function processJsonWithOptionalMt(jsonData, mt, { src, tgt } = {}) {
-  jsonData = normalizeProjectSegmentsPayload(jsonData, { src, tgt });
-  let result = [];
-  const textsToSegment = {};
-
-  jsonData.forEach((item) => {
-    if (!item.translatedLiteral) {
-      const languageKey = `${item.sourceLanguage}-${item.targetLanguage}`;
-      if (!textsToSegment[languageKey]) {
-        textsToSegment[languageKey] = [];
-      }
-      textsToSegment[languageKey].push(item);
-    }
-  });
-
-  const segmentedTexts = {};
-  const mtTexts = {};
-
-  if (mt) {
-    await Promise.all(
-      Object.entries(textsToSegment).map(async ([language, items]) => {
-        const [srcLang] = language.split("-");
-        segmentedTexts[language] = await segmentTexts(
-          srcLang,
-          items.map((item) => item.srcLiteral),
-        );
-      }),
-    );
-
-    await Promise.all(
-      Object.keys(segmentedTexts).map(async (language1) => {
-        const [srcLangForTranslation, tgtLang] = language1.split("-");
-        const aux = [];
-
-        segmentedTexts[language1].segments.forEach((segment, index) => {
-          segment.forEach((s) => {
-            aux.push(
-              textsToSegment[language1][index].srcLiteral
-                .substring(s.start, s.stop)
-                .trim(),
-            );
-          });
-        });
-
-        mtTexts[language1] = await translateTexts(
-          srcLangForTranslation,
-          tgtLang,
-          aux,
-        );
-      }),
-    );
-  } else {
-    // Keep same shape for non-MT flow and avoid undefined access.
-    await Promise.all(
-      Object.entries(textsToSegment).map(async ([language, items]) => {
-        const [srcLang] = language.split("-");
-        segmentedTexts[language] = await segmentTexts(
-          srcLang,
-          items.map((item) => item.srcLiteral),
-        );
-      }),
-    );
-  }
-
-  const segmentIndices = {};
-  jsonData.forEach((item) => {
-    if (!item.translatedLiteral) {
-      const language = `${item.sourceLanguage}-${item.targetLanguage}`;
-      if (!segmentIndices[language]) {
-        segmentIndices[language] = 0;
-      }
-
-      const segments =
-        segmentedTexts[language].segments[segmentIndices[language]];
-      segmentIndices[language]++;
-
-      segments.forEach((segment, index) => {
-        result.push({
-          ...item,
-          id: `${item.id}-${index}`,
-          srcLiteral: item.srcLiteral
-            .substring(segment.start, segment.stop)
-            .trim(),
-          belongTo: item.id,
-          Status: "TRANSLATED_MT",
-          translatedLiteral: mt
-            ? mtTexts[language].translations[index].tgt
-            : null,
-          translationScorePercent: mt
-            ? mtTexts[language].translations[index].score
-            : null,
-        });
-      });
-    } else {
-      result.push(item);
-    }
-  });
-
-  return result;
-}
-
-async function processNonJsonFile({
+// Document (non-SDLXLIFF) import: Okapi Tikal extracts the file to XLIFF
+// with Okapi and returns the segments (sources with inline-code placeholders
+// like <g1>…</g1>/<b1/> that must survive translation for the final merge).
+// Enrichment (NexRelay MT with TM/glossary + MTQE score) runs here, with the
+// same helper the SDLXLIFF pipeline uses. The storage/{documentId}/ working
+// folder stays alive for the whole project lifetime: the export rebuilds the
+// translated file from its XLIFF.
+async function processDocumentFile({
+  projectId,
   filePath,
+  filename,
   src,
   tgt,
   mt,
@@ -300,72 +160,78 @@ async function processNonJsonFile({
   tmThreshold,
   tmIds,
   glossaryIds,
-  userId,
-  workspaceId,
 }) {
-  const objectOxigen = {
-    filePath,
-    src_lang: src || "en",
-    tgt_lang: tgt || null,
-    mt,
-    tm_mode: tmMode,
-    tm_threshold: tmThreshold,
-    tm_ids: tmIds,
-    glossary_ids: glossaryIds,
-    user_id: userId,
-    workspace_id: workspaceId,
-  };
+  // A retried job re-extracts from scratch; drop the working folder the
+  // previous attempt created so storage/ does not accumulate orphans.
+  const previous = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { documentId: true },
+  });
+  if (previous?.documentId) {
+    await deleteProjectDocumentService(previous.documentId).catch(() => {});
+  }
 
-  const tmp = await oxygenTranslateFile(objectOxigen);
-  if (!tmp) {
-    const error = new Error("Internal error with Oxigen");
-    error.code = "FILE_ERROR";
+  let extraction;
+  try {
+    extraction = await extractDocumentSegmentsService({
+      filePath,
+      filename,
+      sourceLang: src || "en",
+      targetLang: tgt || undefined,
+    });
+  } catch (error) {
+    // Deterministic failures (unsupported/mismatched format, scanned PDF,
+    // extraction timeout) will not change on a retry: fail the job on the
+    // spot instead of re-uploading the file two more times.
+    const deterministic =
+      error?.code === "DOCUMENT_EXTRACTION_ERROR" ||
+      error?.code === "DOCUMENT_EXTRACTION_TIMEOUT" ||
+      (error?.status >= 400 && error?.status < 500);
+    if (deterministic) {
+      throw new UnrecoverableError(error.message);
+    }
     throw error;
   }
 
-  /** Simulación local: mismo envelope que Oxigen (`data.trans_units`). */
-  // const tmp = oxigenResponse.trans_units;
+  const { documentId, segments } = extraction;
+  await linkProjectDocumentService(projectId, documentId);
 
-  return tmp.map((item, index) => ({
-    externalId: null,
+  const working = segments.map((segment) => ({
+    externalId: segment.id,
+    source: segment.source,
+    target: segment.target || null,
+    locked: !segment.translatable,
+  }));
+
+  if (mt) {
+    await enrichSdlxliffSegments(working, {
+      sourceLanguage: src,
+      targetLanguage: tgt,
+      tmMode,
+      tmThreshold,
+      tmIds,
+      glossaryIds,
+    });
+  }
+
+  return working.map((segment, index) => ({
+    externalId: segment.externalId,
     count: index,
-    srcLiteral: item.src ?? item.mt_segment ?? "",
-    translatedLiteral: item.tgt ?? item.source_segment ?? null,
-    translationScorePercent: item.mtqe_score ?? null,
-    tmInfo: item.tm_info ?? item.tmInfo ?? null,
-    glossaryInfo: item.glossary_info ?? item.glossaryInfo ?? null,
-    block: (() => {
-      const tmInfoArray = item.tm_info ?? item.tmInfo ?? [];
-      if (Array.isArray(tmInfoArray)) {
-        const bestTm = tmInfoArray.find((tm) => tm.tm_match === true);
-        if (bestTm && bestTm.tm_score == 1) {
-          return true;
-        }
-      }
-      return false;
-    })(),
+    srcLiteral: segment.source,
+    translatedLiteral: segment.target ?? null,
+    translationScorePercent: segment.mtqeScore ?? null,
+    tmInfo: segment.tmInfo ?? null,
+    glossaryInfo: segment.glossaryInfo ?? null,
+    block: segment.locked || segment.tmExactMatch === true,
     sourceLanguage: src ?? "",
     targetLanguage: tgt ?? "",
-    Status: (() => {
-      const tmInfoArray = item.tm_info ?? item.tmInfo ?? [];
-      if (Array.isArray(tmInfoArray)) {
-        const bestTm = tmInfoArray.find((tm) => tm.tm_match === true);
-        if (bestTm && bestTm.tm_score == 1) {
-          return "ACCEPTED";
-        }
-      }
-      return "NOT_REVIEWED";
-    })(),
-    levenshteinDistance: (() => {
-      const tmInfoArray = item.tm_info ?? item.tmInfo ?? [];
-      if (Array.isArray(tmInfoArray)) {
-        const bestTm = tmInfoArray.find((tm) => tm.tm_match === true);
-        if (bestTm && typeof bestTm.tm_score === "number") {
-          return bestTm.tm_score;
-        }
-      }
-      return null;
-    })(),
+    Status:
+      segment.locked || segment.tmExactMatch === true
+        ? "ACCEPTED"
+        : segment.machineTranslated
+          ? "TRANSLATED_MT"
+          : "NOT_REVIEWED",
+    levenshteinDistance: segment.levenshteinDistance ?? null,
   }));
 }
 
@@ -412,10 +278,17 @@ function toTusData(result, projectId) {
   });
 }
 
-function resolveProjectErrorStatus(fileExtension, error) {
+export function resolveProjectErrorStatus(error) {
   if (error?.code === "MTQE_ERROR") return PROJECT_STATUS.MTQE_ERROR;
-  if (fileExtension === "json") return PROJECT_STATUS.MTQE_ERROR;
   return PROJECT_STATUS.FILE_ERROR;
+}
+
+// Queue handlers throw on failure so BullMQ retries with backoff; the final
+// failure is turned into an error status by the worker (see import-worker.js).
+// A retried job re-runs from scratch, so every handler clears the project TUs
+// first to stay idempotent.
+async function resetProjectTus(projectId) {
+  await prisma.tu.deleteMany({ where: { projectId } });
 }
 
 // SDLXLIFF import pipeline:
@@ -425,7 +298,7 @@ function resolveProjectErrorStatus(fileExtension, error) {
 //  2/3. In parallel: machine-translate with NexRelay the unlocked segments
 //     without target, and score with MTQE the unlocked ones that already have
 //     a target (see enrichSdlxliffSegments).
-async function processSdlxliffProjectInBackground({
+export async function handleSdlxliffImportJob({
   projectId,
   filePath,
   src,
@@ -435,68 +308,64 @@ async function processSdlxliffProjectInBackground({
   tmIds,
   glossaryIds,
 }) {
-  try {
-    await setProjectStatus(projectId, PROJECT_STATUS.PROCESSING);
+  await resetProjectTus(projectId);
+  await setProjectStatus(projectId, PROJECT_STATUS.PROCESSING);
 
-    const { sourceLanguage, targetLanguage, segments } = await parseSdlxliffFile(filePath);
+  const { sourceLanguage, targetLanguage, segments } = await parseSdlxliffFile(filePath);
 
-    const normalizedSrc = src || sourceLanguage;
-    const normalizedTgt = tgt || targetLanguage;
+  const normalizedSrc = src || sourceLanguage;
+  const normalizedTgt = tgt || targetLanguage;
 
-    if (!normalizedSrc) {
-      throw new Error("No source language provided (missing in file and upload)");
-    }
-    if (!normalizedTgt) {
-      throw new Error(
-        "No target language: SDLXLIFF has no target-language; select one on upload",
-      );
-    }
-
-    console.log("[SDLXLIFF] parsed", {
-      projectId,
-      src: normalizedSrc,
-      tgt: normalizedTgt,
-      segments: segments.length,
-      locked: segments.filter((s) => s.locked).length,
-    });
-
-    const { translated, scored } = await enrichSdlxliffSegments(segments, {
-      sourceLanguage: normalizedSrc,
-      targetLanguage: normalizedTgt,
-      tmMode,
-      tmThreshold,
-      tmIds,
-      glossaryIds,
-    });
-
-    console.log("[SDLXLIFF] enriched", {
-      projectId,
-      translatedWithNexRelay: translated,
-      scoredWithMtqe: scored,
-    });
-
-    const tusData = buildTusDataFromSdlxliffSegments(
-      segments,
-      projectId,
-      normalizedSrc,
-      normalizedTgt,
-    );
-
-    await prisma.tu.createMany({
-      data: tusData,
-    });
-
-    await setProjectStatus(projectId, PROJECT_STATUS.READY);
-  } catch (error) {
-    console.error("Error processing SDLXLIFF project in background:", error);
-    await setProjectStatus(projectId, PROJECT_STATUS.FILE_ERROR).catch(() => {});
+  if (!normalizedSrc) {
+    throw new Error("No source language provided (missing in file and upload)");
   }
+  if (!normalizedTgt) {
+    throw new Error(
+      "No target language: SDLXLIFF has no target-language; select one on upload",
+    );
+  }
+
+  console.log("[SDLXLIFF] parsed", {
+    projectId,
+    src: normalizedSrc,
+    tgt: normalizedTgt,
+    segments: segments.length,
+    locked: segments.filter((s) => s.locked).length,
+  });
+
+  const { translated, scored } = await enrichSdlxliffSegments(segments, {
+    sourceLanguage: normalizedSrc,
+    targetLanguage: normalizedTgt,
+    tmMode,
+    tmThreshold,
+    tmIds,
+    glossaryIds,
+  });
+
+  console.log("[SDLXLIFF] enriched", {
+    projectId,
+    translatedWithNexRelay: translated,
+    scoredWithMtqe: scored,
+  });
+
+  const tusData = buildTusDataFromSdlxliffSegments(
+    segments,
+    projectId,
+    normalizedSrc,
+    normalizedTgt,
+  );
+
+  await prisma.tu.createMany({
+    data: tusData,
+  });
+
+  await setProjectStatus(projectId, PROJECT_STATUS.READY);
 }
 
-async function processUploadedProjectInBackground({
+export async function handleUploadImportJob({
   projectId,
   filePath,
-  fileExtension,
+  filename,
   mt,
   src,
   tgt,
@@ -504,131 +373,39 @@ async function processUploadedProjectInBackground({
   tmThreshold,
   tmIds,
   glossaryIds,
-  userId,
-  workspaceId,
 }) {
-  try {
-    let result = [];
-    if (fileExtension === "json") {
-      await setProjectStatus(projectId, PROJECT_STATUS.PROCESSING);
-      const jsonData = JSON.parse(fs.readFileSync(filePath, "utf8"));
-      result = await processJsonWithOptionalMt(jsonData, mt, { src, tgt });
-    } else {
-      await setProjectStatus(projectId, PROJECT_STATUS.FILE_PROCESSING);
-      result = await processNonJsonFile({
-        filePath,
-        src,
-        tgt,
-        mt,
-        tmMode,
-        tmThreshold,
-        tmIds,
-        glossaryIds,
-        userId,
-        workspaceId,
-      });
-    }
+  await resetProjectTus(projectId);
+  await setProjectStatus(projectId, PROJECT_STATUS.FILE_PROCESSING);
+  const result = await processDocumentFile({
+    projectId,
+    filePath,
+    filename,
+    src,
+    tgt,
+    mt,
+    tmMode,
+    tmThreshold,
+    tmIds,
+    glossaryIds,
+  });
 
-    await prisma.tu.createMany({
-      data: toTusData(result, projectId),
-    });
-    await setProjectStatus(projectId, PROJECT_STATUS.READY);
-  } catch (error) {
-    console.error("Error processing project in background:", error);
-    const status = resolveProjectErrorStatus(fileExtension, error);
-    await setProjectStatus(projectId, status).catch(() => {});
-  }
+  await prisma.tu.createMany({
+    data: toTusData(result, projectId),
+  });
+  await setProjectStatus(projectId, PROJECT_STATUS.READY);
 }
 
-async function processUrlProjectInBackground({
-  projectId,
-  decompressedFilePath,
-}) {
+// If Redis is down the job cannot be scheduled: mark the project as failed
+// (instead of leaving it stuck in UPLOADED) and surface the 503 to the caller.
+async function enqueueImportJobOrFail(jobName, data) {
   try {
-    await setProjectStatus(projectId, PROJECT_STATUS.PROCESSING);
-    const data = fs.readFileSync(decompressedFilePath, "utf8");
-    const jsonData = JSON.parse(data);
-
-    const result = normalizeProjectSegmentsPayload(jsonData);
-    await prisma.tu.createMany({
-      data: toTusData(result, projectId),
-      skipDuplicates: true,
-    });
-
-    await setProjectStatus(projectId, PROJECT_STATUS.READY);
+    await enqueueProjectImport(jobName, data);
   } catch (error) {
-    console.error("Error processing URL project in background:", error);
-    await setProjectStatus(projectId, PROJECT_STATUS.MTQE_ERROR).catch(
+    await setProjectStatus(data.projectId, PROJECT_STATUS.FILE_ERROR).catch(
       () => {},
     );
+    throw error;
   }
-}
-
-export async function importProjectFromUrlService(url, userId, workspaceId) {
-  if (!workspaceId) {
-    throw new HttpError(400, "A workspace is required to import a project");
-  }
-  let response = null;
-  try {
-    response = await axios({
-      method: "get",
-      url,
-      responseType: "stream",
-    });
-  } catch {
-    throw new HttpError(500, "The URL is not reachable");
-  }
-
-  let fileName = "downloaded-file";
-  const contentDispositionHeader = response.headers["content-disposition"];
-  if (contentDispositionHeader) {
-    fileName = contentDisposition.parse(contentDispositionHeader).parameters
-      .filename;
-  }
-
-  const newFolder = Date.now();
-  const folderPath = `./public/files/${newFolder}`;
-  if (!fs.existsSync(folderPath)) {
-    fs.mkdirSync(folderPath);
-  }
-
-  const downloadPath = `${folderPath}/${fileName}`;
-  const writer = fs.createWriteStream(downloadPath);
-  response.data.pipe(writer);
-
-  await new Promise((resolve, reject) => {
-    writer.on("finish", resolve);
-    writer.on("error", reject);
-  });
-
-  const decompressedFilePath = `${downloadPath}.json`;
-  const readStream = fs.createReadStream(downloadPath);
-  const writeStream = fs.createWriteStream(decompressedFilePath);
-  const unzip = zlib.createGunzip();
-  readStream.pipe(unzip).pipe(writeStream);
-
-  await new Promise((resolve, reject) => {
-    writeStream.on("finish", resolve);
-    writeStream.on("error", reject);
-  });
-
-  const createdProject = await prisma.project.create({
-    data: {
-      filename: fileName.trim(),
-      userId,
-      workspaceId,
-      filePath: decompressedFilePath,
-      extension: "json",
-      status: PROJECT_STATUS.UPLOADED,
-    },
-  });
-
-  void processUrlProjectInBackground({
-    projectId: createdProject.id,
-    decompressedFilePath,
-  });
-
-  return createdProject;
 }
 
 export async function importProjectsFromUploadService({
@@ -695,7 +472,7 @@ export async function importProjectsFromUploadService({
     createdProjectIds.push(createdProject.id);
 
     if (fileExtension === "sdlxliff") {
-      void processSdlxliffProjectInBackground({
+      await enqueueImportJobOrFail("import-sdlxliff", {
         projectId: createdProject.id,
         filePath,
         src,
@@ -706,10 +483,10 @@ export async function importProjectsFromUploadService({
         glossaryIds: validGlossaryIds,
       });
     } else {
-      void processUploadedProjectInBackground({
+      await enqueueImportJobOrFail("import-upload", {
         projectId: createdProject.id,
         filePath,
-        fileExtension,
+        filename: file.name.trim(),
         mt,
         src,
         tgt,
@@ -717,8 +494,6 @@ export async function importProjectsFromUploadService({
         tmThreshold: tmSettings.tmThreshold,
         tmIds: validTmIds,
         glossaryIds: validGlossaryIds,
-        userId,
-        workspaceId,
       });
     }
   }

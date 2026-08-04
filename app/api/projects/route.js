@@ -1,8 +1,6 @@
 import { requireAuthUser, toErrorResponse } from "@/modules/shared";
 import {
   deleteProjectSchema,
-  importByUrlSchema,
-  importProjectFromUrlService,
   importProjectsFromUploadService,
   listProjectsService,
   softDeleteProjectService,
@@ -17,19 +15,6 @@ export const GET = async () => {
     return Response.json(result);
   } catch (error) {
     console.error("GET /api/projects failed:", error);
-    return toErrorResponse(error);
-  }
-};
-
-export const PUT = async (req) => {
-  try {
-    const body = await req.json();
-    const { url } = await importByUrlSchema.validateAsync(body);
-
-    const user = await requireAuthUser();
-    await importProjectFromUrlService(url, user.id, user.workspaceId);
-    return Response.json({ status: "success" });
-  } catch (error) {
     return toErrorResponse(error);
   }
 };

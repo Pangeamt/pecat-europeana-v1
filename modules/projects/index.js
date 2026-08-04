@@ -6,10 +6,7 @@ export {
   updateProjectTmsService,
 } from "./service";
 
-export {
-  importProjectFromUrlService,
-  importProjectsFromUploadService,
-} from "./import-service";
+export { importProjectsFromUploadService } from "./import-service";
 
 export {
   exportProjectAsSdlxliffService,
@@ -19,7 +16,6 @@ export {
 export { getProjectLogsStatsService } from "./logs-service";
 
 export {
-  importByUrlSchema,
   updateProjectSchema,
   deleteProjectSchema,
   updateProjectTmsSchema,
