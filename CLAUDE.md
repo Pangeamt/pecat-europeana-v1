@@ -30,7 +30,9 @@ This project is managed with **pnpm** (version pinned to `10.20.0` in `packageMa
 
 ### Production deployment
 
-Deploy with `./devops.sh`, which: requires `.env`, runs `git pull --ff-only` (fast-forward only — no merge commits), `pnpm install`, `prisma generate` + `prisma migrate deploy`, ensures `public/files` (755), `pnpm build`, then `pm2 startOrRestart ecosystem.config.cjs --update-env`. The PM2 app is named `pecat-e` (fork mode, port 3000).
+Deploy with `./devops.sh`, which: requires `.env`, runs `git pull --ff-only` (fast-forward only — no merge commits), `pnpm install`, `prisma generate` + `prisma migrate deploy`, ensures `public/files` (755), `pnpm build`, then `pm2 startOrRestart ecosystem.config.cjs --update-env`. The PM2 app is named `pecat-e` (fork mode, port 3000). The PM2 host additionally needs **Redis** (BullMQ queue), **Java + Okapi Tikal** (`TIKAL_BIN`) and **LibreOffice** (`SOFFICE_BIN`, PDF conversion).
+
+Alternatively, **Docker**: the `Dockerfile` bundles Node, Java, Okapi 1.47 and LibreOffice, applies migrations on start and serves on 3000; `docker-compose.yml` adds Redis and persistent volumes for `storage/` and `public/files` (`docker compose up -d --build`; MySQL stays external via `DATABASE_URL`).
 
 ## High-level architecture
 
@@ -53,11 +55,13 @@ This is a **Next.js 16** application using the **App Router** (`app/` directory)
 `memory/` – Translation Memories and Glossaries, persisted in an **external DAAIT API** (not the local DB). Sub-domains `tm/` and `glossary/` each have identical layers:
 `repository.js` (adapts to `lib/daait.js`) → `service.js` (CRUD / import / export) ← `tmx.js` / `glossary/*.service.js`.
 
-`projects/` – Local projects, persisted in **MySQL via Prisma**. Contains `repository.js`, `service.js`, `import-service.js`, `logs-service.js`, and `schemas.js`.
+`projects/` – Local projects, persisted in **MySQL via Prisma**. Contains `repository.js`, `service.js`, `import-service.js`, `import-worker.js` (BullMQ worker, started from `instrumentation.js`), `logs-service.js`, and `schemas.js`. Imports are processed asynchronously through the **BullMQ + Redis** queue (`lib/queue.js`): the upload enqueues a job and the in-process worker runs extraction → NexRelay MT → MTQE with retries.
+
+`documents/` – Full document lifecycle for every non-SDLXLIFF format, handled **natively in this project**: `lib/tikal.js` (Okapi Tikal CLI, extraction with SRX sentence segmentation from `okapi/srx/pdocs.srx` + merge, custom filter params in `okapi/filters/`) and `lib/soffice.js` (LibreOffice headless, PDF → docx). Each document gets a working folder `storage/{documentId}/` (original + bilingual XLIFF — the source of truth the export merges from); `Project.documentId` links a project to it. `xliff.js` exposes one segment per sentence (`id = <transUnit>::<mid>`) with inline-code placeholders (`<g1>…</g1>`, `<x2/>`, `<b1/>`, `<e1/>`) that must reach the translated target unchanged; the export writes reviewed targets into the XLIFF and rebuilds with `tikal -m`. Also owns the shared-download flow (share uuid + `/api/file`). Requires Java + Okapi (`TIKAL_BIN`) and LibreOffice (`SOFFICE_BIN`, PDFs only) on the host — both preinstalled in the Docker image.
 
 `tus/` – **Translation Units inside a project** (Prisma model `Tu`, MySQL). Distinct from `modules/memory/tu`, which are **TUs inside a Translation Memory** stored in DAAIT. These are separate concepts despite the similar name.
 
-`users/` / `workspaces/` / `files/` – Domain-specific modules following the same layout.
+`users/` / `workspaces/` – Domain-specific modules following the same layout.
 
 `shared/` – Cross-cutting concerns: `auth.js` (`requireAuthUser`), `http-error.js` (`HttpError`), `http.js` (`toErrorResponse`), `similarity.js`.
 
@@ -105,12 +109,12 @@ All route handlers should follow this pattern:
 
 Core models: `User`, `Account`, `Session`, `VerificationToken` (NextAuth), `Workspace` (org unit owning projects/TMs/glossaries/members), `Project`, `Tu` (project TU), `Tm` / `Glossary` (DAAIT-backed metadata mirrored locally), and the `ProjectTm` / `ProjectGlossary` join tables. Note: `Tm` and `Glossary` rows hold local metadata only — the actual TUs/entries live in DAAIT.
 
-Key enums: `Role` (SUPER, ADMIN, USER), `Status` (segment review state: EDITED, ACCEPTED, TRANSLATED_MT, NOT_REVIEWED, REJECTED), `ProjectStatus` (UPLOADED, PROCESSING, OXIGEN_PROCESSING, MTQE_PROCESSING, READY, OXIGEN_ERROR, MTQE_ERROR).
+Key enums: `Role` (SUPER, ADMIN, USER), `Status` (segment review state: EDITED, ACCEPTED, TRANSLATED_MT, NOT_REVIEWED, REJECTED), `ProjectStatus` (UPLOADED, PROCESSING, FILE_PROCESSING, MTQE_PROCESSING, READY, FILE_ERROR, MTQE_ERROR).
 
 ### Environment variables
 
 Required (app fails to start without): `DATABASE_URL` (must be a MySQL URI), `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `NEXT_PUBLIC_API_BASE_URL`.
-Optional: `DAAIT_API_HOST` (defaults to `https://api-priv.pangeanic.com/service/autope2`), `SEGMENTED_TEXTS_HOST`, `MT_TEXTS_HOST`, `OXIGEN_API_HOST`, `MINT_CLIENT_ID`, `MINT_CLIENT_SECRET`, `MTQE`.
+Optional: `DAAIT_API_HOST` (defaults to `https://api-priv.pangeanic.com/service/autope2`), `REDIS_URL` (BullMQ queue, defaults to `redis://127.0.0.1:6379`), `TIKAL_BIN` (Okapi Tikal, defaults to `tikal`), `SOFFICE_BIN` (LibreOffice, defaults to `soffice`), `STORAGE_DIR` (document working folders, defaults to `./storage`), `MTQE`.
 
 ### Further reading
 

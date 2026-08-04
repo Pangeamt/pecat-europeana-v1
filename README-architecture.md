@@ -79,7 +79,7 @@ Son conceptos distintos aunque tengan nombre similar.
 - `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `NEXT_PUBLIC_API_BASE_URL`
 - La integracion de memorias usa `DAAIT_API_HOST` cuando se quiere sobreescribir el host por defecto.
 
-Opcionales: `SEGMENTED_TEXTS_HOST`, `MT_TEXTS_HOST`, `OXIGEN_API_HOST`, `DAAIT_API_HOST`, `MINT_CLIENT_ID`, `MINT_CLIENT_SECRET`, `MTQE`.
+Opcionales: `REDIS_URL`, `TIKAL_BIN`, `SOFFICE_BIN`, `STORAGE_DIR`, `DAAIT_API_HOST`, `MTQE`.
 
 ## Errores
 
