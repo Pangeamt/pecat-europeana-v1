@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+.env
+storage
+public/files
+graphify-out
+*.log
+Dockerfile
+docker-compose.yml
