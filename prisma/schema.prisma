@@ -92,6 +92,9 @@ model Project {
   tmMode            String            @default("standard")
   tmThreshold       Float             @default(0)
   extension         String            @default("json")
+  /// pdocs document id (module-pdocs service); set for projects whose file was
+  /// extracted there and needed to rebuild the translated document on export.
+  documentId        String?
   sourceLanguage    String?
   targetLanguage    String?
   exampleXml        String?
