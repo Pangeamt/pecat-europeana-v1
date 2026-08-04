@@ -184,12 +184,12 @@
       "noneSelected": "Ninguno seleccionado",
       "step4Eyebrow": "Paso 4",
       "step4Title": "Subir archivo",
-      "step4Subtitle": "Suelta aquí tu archivo de origen o examina. Máx. 500 MB.",
+      "step4Subtitle": "Suelta aquí tu archivo de origen o examina. Máx. 500 MB (100 MB para formatos de documento).",
       "dropText": "Suelta el archivo o haz clic para examinar",
       "dropHint": "Los formatos admitidos dependen de la configuración de tu espacio de trabajo.",
       "uploadSuccess": "{name} subido correctamente",
       "uploadError": "Error al subir {name}.",
-      "tooLarge": "Los archivos deben ser menores de 500 MB",
+      "tooLarge": "Los archivos deben ser menores de {max} MB",
       "invalidType": "Tipo de archivo no admitido"
     }
   },

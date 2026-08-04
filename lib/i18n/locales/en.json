@@ -184,12 +184,12 @@
       "noneSelected": "None selected",
       "step4Eyebrow": "Step 4",
       "step4Title": "Upload file",
-      "step4Subtitle": "Drop your source file here or browse. Max 500MB.",
+      "step4Subtitle": "Drop your source file here or browse. Max 500MB (100MB for document formats).",
       "dropText": "Drop file or click to browse",
       "dropHint": "Supported formats depend on your workspace configuration.",
       "uploadSuccess": "{name} uploaded successfully",
       "uploadError": "{name} upload failed.",
-      "tooLarge": "Files must be smaller than 500MB",
+      "tooLarge": "Files must be smaller than {max}MB",
       "invalidType": "File type not supported"
     }
   },

@@ -293,14 +293,16 @@ const ProjectAdd = ({ add, refetch }) => {
       }
     },
     beforeUpload: (file) => {
-      const isLt = file.size / 1024 / 1024 < 500;
-      if (!isLt) {
-        message.error(t("documents.add.tooLarge"));
-        return false;
-      }
       const extension = checkFile(file);
       if (!extension) {
         message.error(t("documents.add.invalidType"));
+        return false;
+      }
+      // sdlxliff is parsed locally; every other format goes through the
+      // document service (pdocs), which caps uploads at 100 MB.
+      const maxMb = extension === "sdlxliff" ? 500 : 100;
+      if (file.size / 1024 / 1024 >= maxMb) {
+        message.error(t("documents.add.tooLarge", { max: maxMb }));
         return false;
       }
       return true;
