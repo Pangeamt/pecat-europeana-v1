@@ -66,3 +66,5 @@ sdlxliff/*
 
 # Document working folders (originals + XLIFF), rebuildable from re-imports
 /storage/
+/testFiles
+/testFiles/*
