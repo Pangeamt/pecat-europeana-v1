@@ -25,8 +25,11 @@ import {
 } from "./repository";
 
 // Working folders live in this project: storage/{documentId}/ holds the
-// original file, the LibreOffice conversion (PDFs) and the bilingual XLIFF —
-// the source of truth the export merges from.
+// original file, the LibreOffice conversion (PDFs) and the bilingual XLIFF.
+// The XLIFF is the STRUCTURAL template the export merges from (segment ids,
+// inline codes, skeleton); the reviewed targets come from MySQL on every
+// export and are written into a throwaway copy — the stored file never
+// changes after extraction.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const METADATA_FILE = "metadata.json";
 
@@ -324,21 +327,45 @@ export async function buildProjectDownloadService({ uuid, projectId }) {
 
   return withDocumentLock(project.documentId, async () => {
     const dir = documentDir(project.documentId);
-    const xlfPath = join(dir, `${metadata.workingName}.xlf`);
 
-    const { updates, skipped } = buildSegmentUpdatesFromTus(tus);
-    if (skipped > 0) {
-      console.warn(
-        `[documents] Project ${project.id}: ${skipped} segment(s) skipped on export (broken inline codes); their source text will be kept`,
+    // Targets, fill and merge all happen on a throwaway COPY: MySQL is the
+    // only source of truth and the stored XLIFF stays exactly as the
+    // extraction produced it. A download must never mutate the working
+    // folder — the pre-merge fill writes source copies into untranslated
+    // segments, which would otherwise persist there. tikal -m derives the
+    // original's filename from the .xlf name, so both copies keep their
+    // names and only change directory. A crash at worst leaves .merge/
+    // behind; the next download removes it before starting.
+    const tmpDir = join(dir, ".merge");
+    await fs.promises.rm(tmpDir, { recursive: true, force: true });
+    await fs.promises.mkdir(tmpDir);
+    let body;
+    try {
+      const tmpXlf = join(tmpDir, `${metadata.workingName}.xlf`);
+      await fs.promises.copyFile(
+        join(dir, metadata.workingName),
+        join(tmpDir, metadata.workingName),
       );
-    }
-    if (updates.length > 0) {
-      await updateXliffTargets(xlfPath, updates);
-    }
-    await prepareXliffForMerge(xlfPath);
+      await fs.promises.copyFile(join(dir, `${metadata.workingName}.xlf`), tmpXlf);
 
-    const outPath = await mergeFromXliff(xlfPath);
-    const body = await fs.promises.readFile(outPath);
+      const { updates, skipped } = buildSegmentUpdatesFromTus(tus);
+      if (skipped > 0) {
+        console.warn(
+          `[documents] Project ${project.id}: ${skipped} segment(s) skipped on export (broken inline codes); their source text will be kept`,
+        );
+      }
+      if (updates.length > 0) {
+        await updateXliffTargets(tmpXlf, updates);
+      }
+      await prepareXliffForMerge(tmpXlf);
+
+      const outPath = await mergeFromXliff(tmpXlf);
+      body = await fs.promises.readFile(outPath);
+    } finally {
+      await fs.promises
+        .rm(tmpDir, { recursive: true, force: true })
+        .catch(() => undefined);
+    }
 
     // For PDFs the deliverable is the LibreOffice .docx conversion, so the
     // download name follows the working extension, not the upload one.
