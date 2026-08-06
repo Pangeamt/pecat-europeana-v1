@@ -7,9 +7,11 @@ export async function findProjectForTus(projectId, actorUser) {
   return prisma.project.findFirst({ where });
 }
 
+// Review UI listing: hidden segments (visibility rules) are not shown. The
+// export/merge paths use their own unfiltered queries on purpose.
 export async function findTusByProjectId(projectId) {
   return prisma.tu.findMany({
-    where: { projectId },
+    where: { projectId, visible: true },
   });
 }
 

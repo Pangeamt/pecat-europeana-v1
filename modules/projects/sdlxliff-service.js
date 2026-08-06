@@ -287,8 +287,15 @@ export async function enrichSdlxliffSegments(segments, {
   tmIds = [],
   glossaryIds = [],
 } = {}) {
-  const toTranslate = segments.filter((seg) => !seg.locked && !seg.target);
-  const toScore = segments.filter((seg) => !seg.locked && seg.target);
+  // Hidden segments (visibility rules, e.g. URL-only footnotes) are never
+  // machine-translated nor scored: their target stays empty and the export
+  // fills them back from the source.
+  const toTranslate = segments.filter(
+    (seg) => !seg.locked && !seg.hiddenBy && !seg.target,
+  );
+  const toScore = segments.filter(
+    (seg) => !seg.locked && !seg.hiddenBy && seg.target,
+  );
 
   async function translateMissingTargets() {
     if (toTranslate.length === 0) return;
@@ -386,6 +393,8 @@ export function buildTusDataFromSdlxliffSegments(segments, projectId, sourceLang
     tmInfo: seg.tmInfo ?? null,
     glossaryInfo: seg.glossaryInfo ?? null,
     levenshteinDistance: seg.levenshteinDistance ?? null,
+    visible: !seg.hiddenBy,
+    hiddenBy: seg.hiddenBy ?? null,
     block: seg.locked || seg.tmExactMatch === true,
     sourceLanguage: sourceLanguage || '',
     targetLanguage: targetLanguage || '',

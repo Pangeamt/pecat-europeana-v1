@@ -137,14 +137,16 @@ export async function findTusByProjectId(projectId) {
 }
 
 export async function getProjectStatusCounts(projectId) {
+  // Hidden segments never reach the review queue, so they must not count
+  // towards progress either (a project with them could never hit 100%).
   const [countByStatus, totalCount] = await Promise.all([
     prisma.tu.groupBy({
       by: ["Status"],
       _count: true,
-      where: { projectId },
+      where: { projectId, visible: true },
     }),
     prisma.tu.count({
-      where: { projectId },
+      where: { projectId, visible: true },
     }),
   ]);
 

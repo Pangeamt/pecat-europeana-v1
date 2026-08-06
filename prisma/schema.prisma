@@ -134,6 +134,11 @@ model Tu {
   levenshteinDistance     Float?
   block                   Boolean  @default(false)
   belongTo                String?
+  /// false = hidden from the review UI and excluded from stats/MT, but kept
+  /// so the document export still reconstructs every segment.
+  visible                 Boolean  @default(true)
+  /// id of the visibility rule that hid this segment (modules/projects/visibility-rules.js)
+  hiddenBy                String?
   Project                 Project? @relation(fields: [projectId], references: [id])
 
   @@index([projectId], map: "tus_projectId_fkey")

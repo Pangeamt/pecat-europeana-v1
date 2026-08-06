@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE `tus` ADD COLUMN `hiddenBy` VARCHAR(191) NULL,
+    ADD COLUMN `visible` BOOLEAN NOT NULL DEFAULT true;

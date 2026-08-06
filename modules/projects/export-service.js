@@ -79,6 +79,8 @@ export async function exportProjectAsJsonService(projectId, actorUser) {
       review: tu.reviewLiteral,
       tmInfo: tu.tmInfo,
       glossaryInfo: tu.glossaryInfo,
+      visible: tu.visible,
+      hiddenBy: tu.hiddenBy,
     })),
   };
 }

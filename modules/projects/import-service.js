@@ -18,6 +18,7 @@ import {
   enrichSdlxliffSegments,
   buildTusDataFromSdlxliffSegments,
 } from "./sdlxliff-service";
+import { resolveHiddenBy } from "./visibility-rules";
 
 const pump = promisify(pipeline);
 const PROJECT_STATUS = {
@@ -196,11 +197,14 @@ async function processDocumentFile({
   const { documentId, segments } = extraction;
   await linkProjectDocumentService(projectId, documentId);
 
+  // hiddenBy is resolved BEFORE enrichment so hidden segments are never sent
+  // to NexRelay/MTQE (enrichSdlxliffSegments skips them).
   const working = segments.map((segment) => ({
     externalId: segment.id,
     source: segment.source,
     target: segment.target || null,
     locked: !segment.translatable,
+    hiddenBy: resolveHiddenBy(segment.source),
   }));
 
   if (mt) {
@@ -222,6 +226,8 @@ async function processDocumentFile({
     translationScorePercent: segment.mtqeScore ?? null,
     tmInfo: segment.tmInfo ?? null,
     glossaryInfo: segment.glossaryInfo ?? null,
+    visible: !segment.hiddenBy,
+    hiddenBy: segment.hiddenBy ?? null,
     block: segment.locked || segment.tmExactMatch === true,
     sourceLanguage: src ?? "",
     targetLanguage: tgt ?? "",
@@ -254,6 +260,8 @@ function toTusData(result, projectId) {
       exampleXml: item.exampleXml ?? null,
       Status: item.Status ?? "NOT_REVIEWED",
       levenshteinDistance: item.levenshteinDistance ?? null,
+      visible: item.visible !== false,
+      hiddenBy: item.hiddenBy ?? null,
       block:
         typeof item.block === "boolean"
           ? item.block
@@ -325,12 +333,18 @@ export async function handleSdlxliffImportJob({
     );
   }
 
+  // Resolved BEFORE enrichment so hidden segments skip NexRelay/MTQE.
+  for (const segment of segments) {
+    segment.hiddenBy = resolveHiddenBy(segment.source);
+  }
+
   console.log("[SDLXLIFF] parsed", {
     projectId,
     src: normalizedSrc,
     tgt: normalizedTgt,
     segments: segments.length,
     locked: segments.filter((s) => s.locked).length,
+    hidden: segments.filter((s) => s.hiddenBy).length,
   });
 
   const { translated, scored } = await enrichSdlxliffSegments(segments, {

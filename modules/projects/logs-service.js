@@ -13,10 +13,12 @@ export async function getProjectLogsStatsService({
     throw new HttpError(404, "Project not found");
   }
 
-  const [tus, tmTus] = await Promise.all([
+  const [allTus, tmTus] = await Promise.all([
     findTusByProjectId(project.id),
     listAllTranslationUnitsService(tmId, actorUser),
   ]);
+  // Hidden segments (visibility rules) carry no reviewable words.
+  const tus = allTus.filter((tu) => tu.visible !== false);
   const docs = tmTus.docs;
 
   const stats = {
