@@ -43,6 +43,8 @@ import { appendTu, confirmTu, getTus } from "@/services/tus.services";
 import { userStore } from "@/store";
 import { getTextDirection } from "@/lib/locale-direction";
 import CustomTextArea from "../../components/CustomTextArea";
+import TagEditor from "@/components/TagEditor";
+import { TagText, hasInlineTags } from "@/components/shared/inline-tags";
 
 const stripHTML = (html) => {
   let temporalDiv = document.createElement("div");
@@ -302,19 +304,27 @@ const TusList = () => {
         }
       },
     },
-    render: (text) =>
-      searchedColumn === dataIndex ? (
-        <Highlighter
-          highlightStyle={{ backgroundColor: "#ffc069", padding: 0 }}
-          searchWords={[searchText]}
-          autoEscape
-          textToHighlight={text ? text.toString() : ""}
+    // Inline-code placeholders (<g1>, <x2/>…) render as chips, never as raw
+    // text; the search highlight applies only to the text between them.
+    render: (text) => (
+      <div style={{ wordWrap: "break-word", wordBreak: "break-word" }}>
+        <TagText
+          text={text ? text.toString() : ""}
+          renderText={
+            searchedColumn === dataIndex
+              ? (part) => (
+                  <Highlighter
+                    highlightStyle={{ backgroundColor: "#ffc069", padding: 0 }}
+                    searchWords={[searchText]}
+                    autoEscape
+                    textToHighlight={part}
+                  />
+                )
+              : undefined
+          }
         />
-      ) : (
-        <div style={{ wordWrap: "break-word", wordBreak: "break-word" }}>
-          {text}
-        </div>
-      ),
+      </div>
+    ),
   });
 
   const sourceDir = getTextDirection(projectConfig?.sourceLanguage);
@@ -392,11 +402,25 @@ const TusList = () => {
         }
 
         if (selectedRow && record.id === selectedRow.id) {
+          const initialValue =
+            selectedRow.reviewLiteral || selectedRow.translatedLiteral;
+          // Segments with inline-code placeholders use the chip editor: Quill
+          // parses the value as HTML and silently destroys the tags. The
+          // others keep Quill and its LanguageTool spellchecker.
+          const Editor =
+            hasInlineTags(selectedRow.srcLiteral) || hasInlineTags(initialValue)
+              ? TagEditor
+              : CustomTextArea;
           return (
-            <CustomTextArea
+            <Editor
+              key={record.id}
               dir={targetDir}
-              value={selectedRow.reviewLiteral || selectedRow.translatedLiteral}
-              setValue={changeTextInTextarea}
+              value={initialValue}
+              setValue={
+                Editor === TagEditor
+                  ? changeTextInTagEditor
+                  : changeTextInTextarea
+              }
               onKeyDown={async (e) => {
                 if (e.key === "Enter" && e.ctrlKey) {
                   e.preventDefault();
@@ -729,6 +753,17 @@ const TusList = () => {
       setSelectedRow((prev) => ({
         ...prev,
         reviewLiteral: html,
+      }));
+    }
+  };
+
+  // TagEditor already emits plain text with the placeholders inline;
+  // stripHTML here would eat the tags (<g1> parses as an HTML element).
+  const changeTextInTagEditor = (text) => {
+    if (selectedRow && selectedRow.reviewLiteral !== text) {
+      setSelectedRow((prev) => ({
+        ...prev,
+        reviewLiteral: text,
       }));
     }
   };

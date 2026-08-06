@@ -214,3 +214,69 @@
 #tus-list .ant-card-body {
     padding: 5px 5px;
 }
+/* Inline-code placeholders (<g1>, <x2/>, <b1/>…) as atomic chips — same
+   design as revisions-pangeanic-local. The caret cannot enter a chip and its
+   text cannot be selected separately, so it cannot be broken from inside. */
+.inline-tag {
+    display: inline-block;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    line-height: 1.4;
+    padding: 0 5px;
+    margin: 0 1px;
+    border-radius: 4px;
+    user-select: none;
+    cursor: default;
+    background: rgba(22, 119, 255, 0.12);
+    color: #1677ff;
+    border: 1px solid rgba(22, 119, 255, 0.4);
+    white-space: nowrap;
+    vertical-align: baseline;
+}
+
+.inline-tag.close {
+    background: rgba(22, 119, 255, 0.05);
+}
+
+.inline-tag.empty {
+    background: rgba(212, 136, 6, 0.12);
+    color: #d48806;
+    border-color: rgba(212, 136, 6, 0.45);
+}
+
+.inline-tag.open::before {
+    content: '‹';
+    opacity: 0.6;
+    margin-right: 1px;
+}
+
+.inline-tag.close::before {
+    content: '›';
+    opacity: 0.6;
+    margin-right: 1px;
+}
+
+/* Target editor for tagged segments (chip editor). Sized like the Quill
+   editor (.ql-container is 20px) so switching between both feels the same. */
+.tag-editor {
+    background-color: white;
+    border: 1px solid #d9d9d9;
+    border-radius: 6px;
+    padding: 8px 11px;
+    min-height: 48px;
+    font-size: 20px;
+    line-height: 1.45;
+    outline: none;
+    word-wrap: break-word;
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+
+.tag-editor:focus {
+    border-color: #98c441;
+    box-shadow: 0 0 0 2px rgba(152, 196, 68, 0.2);
+}
+
+.tag-editor .inline-tag {
+    font-size: 12px;
+}
