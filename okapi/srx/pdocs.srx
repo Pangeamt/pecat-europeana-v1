@@ -11686,6 +11686,28 @@ Allg|i\.\sd\.\sR|urspr|vgl|bspw|bzw|Abb|Nrn?|Bde?|V|S|z\.[BT]|z\.Zt|s\.u|[Gg]eb)
   <afterbreak>[^\s]+</afterbreak>
 </rule>
 
+<!--Clause segmentation: also break after ";" and ":" so the long chained
+      sentences of administrative/legal texts (EU style: "…terrorismo; en
+      particular, …; a través de…") become reviewable segments instead of a
+      70-word paragraph. The break requires whitespace + a letter after the
+      punctuation, so times ("12:30"), ratios, numeric references ("art. 3:2")
+      and URL schemes ("https://") never split; the two guards above make that
+      protection explicit and keep it if the break rule is ever loosened.
+      This rule lives in Default (cascade catch-all), so it applies to every
+      language after its specific rules.-->
+<rule break="no">
+  <beforebreak>\d[;:]</beforebreak>
+  <afterbreak>\d</afterbreak>
+</rule>
+<rule break="no">
+  <beforebreak>[;:]</beforebreak>
+  <afterbreak>//</afterbreak>
+</rule>
+<rule break="yes">
+  <beforebreak>[;:]</beforebreak>
+  <afterbreak>\s+\p{L}</afterbreak>
+</rule>
+
 <rule break="yes">
 <beforebreak>[\n]+</beforebreak>
 <afterbreak/>
