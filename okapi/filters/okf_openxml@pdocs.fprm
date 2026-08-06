@@ -8,4 +8,5 @@ bPreferenceTranslateExcelSheetNames.b=false
 bPreferenceTranslateExcelDiagramData.b=false
 bPreferenceTranslateExcelDrawings.b=false
 bPreferenceTranslatePowerpointHidden.b=false
+bPreferenceIgnorePlaceholdersInPowerpointMasters.b=true
 translatePowerpointGraphicName.b=false
