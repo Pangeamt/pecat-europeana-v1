@@ -11,6 +11,7 @@ import {
   IdcardOutlined,
   LeftOutlined,
   RightOutlined,
+  SlidersOutlined,
   UserOutlined,
   DatabaseOutlined,
 } from "@ant-design/icons";
@@ -26,6 +27,7 @@ const MENU_KEYS = {
   projects: "projects",
   tms: "tms",
   glossaries: "glossaries",
+  profiles: "profiles",
   users: "users",
   workspaces: "workspaces",
   profile: "profile",
@@ -34,6 +36,8 @@ const MENU_KEYS = {
 const isTusRoute = (pathname) => /^\/dashboard\/[^/]+\/tus$/.test(pathname);
 
 const getSelectedKey = (pathname) => {
+  // "profiles" must be matched before the "profile" (account) prefix.
+  if (pathname.startsWith("/dashboard/profiles")) return MENU_KEYS.profiles;
   if (pathname.startsWith("/dashboard/profile")) return MENU_KEYS.profile;
   if (pathname.startsWith("/dashboard/users")) return MENU_KEYS.users;
   if (pathname.startsWith("/dashboard/workspaces")) return MENU_KEYS.workspaces;
@@ -58,6 +62,11 @@ const buildMenuItems = (role, t) => {
       key: MENU_KEYS.glossaries,
       icon: <BookOutlined />,
       label: <Link href="/dashboard/glossaries">{t("nav.glossaries")}</Link>,
+    },
+    {
+      key: MENU_KEYS.profiles,
+      icon: <SlidersOutlined />,
+      label: <Link href="/dashboard/profiles">{t("nav.profiles")}</Link>,
     },
   ];
 
