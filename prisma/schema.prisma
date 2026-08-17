@@ -57,6 +57,7 @@ model User {
   workspace         Workspace? @relation("WorkspaceMembers", fields: [workspaceId], references: [id])
   createdTms        Tm[]       @relation("TmCreatedBy")
   createdGlossaries Glossary[] @relation("GlossaryCreatedBy")
+  createdProfiles   Profile[]  @relation("ProfileCreatedBy")
 
   @@index([workspaceId], map: "users_workspaceId_fkey")
   @@index([deletedAt], map: "users_deletedAt_idx")
@@ -72,6 +73,7 @@ model Workspace {
   projects   Project[]
   tms        Tm[]
   glossaries Glossary[]
+  profiles   Profile[]
 
   @@map("workspaces")
 }
@@ -159,6 +161,7 @@ model Tm {
   createdBy       User        @relation("TmCreatedBy", fields: [createdByUserId], references: [id])
   workspace       Workspace   @relation(fields: [workspaceId], references: [id])
   projectTms      ProjectTm[]
+  profileTms      ProfileTm[]
 
   @@index([workspaceId], map: "tms_workspaceId_fkey")
   @@index([createdByUserId], map: "tms_createdByUserId_fkey")
@@ -180,6 +183,7 @@ model Glossary {
   createdBy         User              @relation("GlossaryCreatedBy", fields: [createdByUserId], references: [id])
   workspace         Workspace         @relation(fields: [workspaceId], references: [id])
   projectGlossaries ProjectGlossary[]
+  profileGlossaries ProfileGlossary[]
 
   @@index([workspaceId], map: "glossaries_workspaceId_fkey")
   @@index([createdByUserId], map: "glossaries_createdByUserId_fkey")
@@ -214,6 +218,57 @@ model ProjectGlossary {
   @@map("project_glossaries")
 }
 
+/// Reusable translation configuration preset: formality, domain and free-text
+/// instructions plus the TMs and glossaries to apply when translating.
+model Profile {
+  id                String            @id @default(cuid())
+  name              String
+  description       String?           @db.Text
+  formality         Formality         @default(FORMAL)
+  instructions      String?           @db.Text
+  domain            String?
+  createdByUserId   String
+  workspaceId       String
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  deletedAt         DateTime?
+  createdBy         User              @relation("ProfileCreatedBy", fields: [createdByUserId], references: [id])
+  workspace         Workspace         @relation(fields: [workspaceId], references: [id])
+  profileTms        ProfileTm[]
+  profileGlossaries ProfileGlossary[]
+
+  @@index([workspaceId], map: "profiles_workspaceId_fkey")
+  @@index([createdByUserId], map: "profiles_createdByUserId_fkey")
+  @@index([deletedAt], map: "profiles_deletedAt_idx")
+  @@map("profiles")
+}
+
+model ProfileTm {
+  profileId String
+  tmId      String
+  createdAt DateTime @default(now())
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  tm      Tm      @relation(fields: [tmId], references: [id], onDelete: Cascade)
+
+  @@id([profileId, tmId])
+  @@index([tmId], map: "profile_tms_tmId_idx")
+  @@map("profile_tms")
+}
+
+model ProfileGlossary {
+  profileId  String
+  glossaryId String
+  createdAt  DateTime @default(now())
+
+  profile  Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  glossary Glossary @relation(fields: [glossaryId], references: [id], onDelete: Cascade)
+
+  @@id([profileId, glossaryId])
+  @@index([glossaryId], map: "profile_glossaries_glossaryId_idx")
+  @@map("profile_glossaries")
+}
+
 model VerificationToken {
   identifier String
   token      String   @unique
@@ -235,6 +290,12 @@ enum Status {
   TRANSLATED_MT
   NOT_REVIEWED
   REJECTED
+}
+
+enum Formality {
+  FORMAL
+  NEUTRO
+  INFORMAL
 }
 
 enum ProjectStatus {
