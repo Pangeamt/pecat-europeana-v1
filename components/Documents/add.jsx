@@ -328,13 +328,13 @@ const DocumentAdd = ({ project, refetch }) => {
       <section className="rounded-2xl border border-dashed border-[#98C441]/40 bg-white p-5">
         <div className="mb-4">
           <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7aa832]">
-            {t("documents.add.step4Eyebrow")}
+            {t("documents.add.step3Eyebrow")}
           </div>
           <h3 className="mt-1 text-lg font-semibold text-slate-900">
-            {t("documents.add.step4Title")}
+            {t("documents.add.step3Title")}
           </h3>
           <p className="mt-1 text-sm text-slate-500">
-            {t("documents.add.step4Subtitle")}
+            {t("documents.add.step3Subtitle")}
           </p>
         </div>
         <Dragger {...uploadProps}>
