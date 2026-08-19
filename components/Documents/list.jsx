@@ -142,6 +142,13 @@ const DocumentList = ({ documents, loading, onSave, onRefresh }) => {
         ),
     },
     {
+      title: t("table.segments"),
+      key: "segments",
+      width: 100,
+      align: "right",
+      render: (record) => record.totalCount ?? 0,
+    },
+    {
       title: t("table.createdAt"),
       dataIndex: "createdAt",
       key: "createdAt",

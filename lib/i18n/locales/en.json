@@ -36,6 +36,7 @@
     "domain": "Domain",
     "entries": "Entries",
     "status": "Status",
+    "segments": "Segments",
     "user": "User",
     "createdAt": "Created At",
     "progress": "Progress",
