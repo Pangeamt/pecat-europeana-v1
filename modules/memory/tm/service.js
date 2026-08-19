@@ -150,12 +150,21 @@ export async function listTranslationMemoriesService(queryParams, actorUser) {
   const daaitById = new Map();
 
   if (filters.workspaceId) {
-    const daaitResponse = await listTmsDaait({
-      owner: filters.workspaceId,
-      size,
-    });
-    for (const memory of daaitResponse?.items ?? []) {
-      daaitById.set(memory.id, memory);
+    // DAAIT only enriches the docs (status, total_entries); the source of
+    // truth is MySQL, so an unreachable DAAIT must not break the listing.
+    try {
+      const daaitResponse = await listTmsDaait({
+        owner: filters.workspaceId,
+        size,
+      });
+      for (const memory of daaitResponse?.items ?? []) {
+        daaitById.set(memory.id, memory);
+      }
+    } catch (error) {
+      console.error(
+        "DAAIT memory listing failed, returning local records only:",
+        error.message,
+      );
     }
   }
 

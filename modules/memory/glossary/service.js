@@ -161,12 +161,21 @@ export async function listGlossariesService(queryParams, actorUser) {
   const daaitById = new Map();
 
   if (filters.workspaceId) {
-    const daaitResponse = await listGlossariesDaait({
-      owner: filters.workspaceId,
-      size,
-    });
-    for (const glossary of daaitResponse?.items ?? []) {
-      daaitById.set(glossary.id, glossary);
+    // DAAIT only enriches the docs (status, total_entries); the source of
+    // truth is MySQL, so an unreachable DAAIT must not break the listing.
+    try {
+      const daaitResponse = await listGlossariesDaait({
+        owner: filters.workspaceId,
+        size,
+      });
+      for (const glossary of daaitResponse?.items ?? []) {
+        daaitById.set(glossary.id, glossary);
+      }
+    } catch (error) {
+      console.error(
+        "DAAIT glossary listing failed, returning local records only:",
+        error.message,
+      );
     }
   }
 
