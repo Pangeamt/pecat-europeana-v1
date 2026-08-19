@@ -829,6 +829,7 @@ const TusList = () => {
           }
           glossaryNames={projectConfig?.glossaryNames}
           projectId={projectId}
+          parentProjectId={projectConfig?.projectId}
           projectTms={projectConfig?.tms}
           onTmsUpdated={getProjectConfig}
         />

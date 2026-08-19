@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowLeftOutlined,
   ClockCircleOutlined,
   CloseCircleOutlined,
   EditOutlined,
@@ -8,6 +9,7 @@ import {
   PieChartOutlined,
 } from "@ant-design/icons";
 import { CircleCheck, Database, Dumbbell } from "lucide-react";
+import Link from "next/link";
 import PropTypes from "prop-types";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -423,6 +425,7 @@ const StatsTus = ({
   glossaryNames = [],
   totalSegments = 0,
   projectId,
+  parentProjectId,
   projectTms = [],
   onTmsUpdated,
 }) => {
@@ -432,8 +435,15 @@ const StatsTus = ({
 
   return (
     <>
-      <div className="tus-stats mb-2 px-2 py-1.5 ">
-        <div className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="tus-stats mb-2 flex items-center gap-1.5 px-2 py-1.5">
+        {parentProjectId ? (
+          <Tooltip title="Back to project">
+            <Link href={`/dashboard/projects/${parentProjectId}`}>
+              <Button size="small" icon={<ArrowLeftOutlined />} />
+            </Link>
+          </Tooltip>
+        ) : null}
+        <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {METRICS.map(({ key, label, icon: Icon, colorClass }) => (
             <span
               key={key}
@@ -606,6 +616,7 @@ StatsTus.propTypes = {
   glossaryNames: PropTypes.arrayOf(PropTypes.string),
   totalSegments: PropTypes.number,
   projectId: PropTypes.string,
+  parentProjectId: PropTypes.string,
   projectTms: PropTypes.arrayOf(
     PropTypes.shape({
       id: PropTypes.string,
