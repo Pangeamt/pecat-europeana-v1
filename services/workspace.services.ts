@@ -8,6 +8,7 @@ export interface Workspace {
   _count?: {
     members: number;
     projects: number;
+    documents: number;
     tms: number;
   };
   members?: Array<{

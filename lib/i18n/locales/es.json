@@ -42,7 +42,7 @@
     "actions": "Acciones"
   },
   "nav": {
-    "documents": "Documentos",
+    "projects": "Proyectos",
     "tms": "Memorias",
     "glossaries": "Glosarios",
     "profiles": "Perfiles",
@@ -107,8 +107,12 @@
     "removeTooltip": "Eliminar",
     "deleteTitle": "Eliminar la tarea",
     "deleteDescription": "¿Seguro que quieres eliminar esta tarea?",
-    "empty": "Aún no hay proyectos",
+    "empty": "Aún no hay documentos",
     "downloadError": "No se pudo descargar el archivo",
+    "removeError": "No se pudo eliminar el documento",
+    "editTooltip": "Editar etiqueta",
+    "editModalTitle": "Editar etiqueta del documento",
+    "editError": "No se pudo actualizar el documento",
     "status": {
       "UPLOADED": "Subido",
       "PROCESSING": "Procesando",
@@ -156,8 +160,9 @@
       "targetPlaceholder": "Selecciona el destino",
       "targetRequired": "Selecciona un idioma de destino",
       "step2Eyebrow": "Paso 2",
-      "step2Title": "Memorias de traducción",
+      "step2Title": "Usar el perfil del proyecto",
       "step2Subtitle": "Selecciona las memorias compatibles y configura el modo y el umbral de coincidencia.",
+      "useProjectProfileHint": "Hereda las memorias y glosarios del perfil del proyecto, o desactívalo para elegirlos manualmente.",
       "matchingTms": "Memorias compatibles",
       "selectTms": "Selecciona memorias de traducción",
       "noMatchingTms": "No hay memorias compatibles para este par de idiomas",
@@ -192,6 +197,69 @@
       "uploadError": "Error al subir {name}.",
       "tooLarge": "Los archivos deben ser menores de {max} MB",
       "invalidType": "Tipo de archivo no admitido"
+    }
+  },
+  "projects": {
+    "eyebrow": "Proyectos del espacio",
+    "title": "Proyectos",
+    "subtitle": "Agrupa documentos bajo un perfil, un umbral y ajustes compartidos.",
+    "createProject": "Crear proyecto",
+    "createModalTitle": "Crear proyecto",
+    "editModalTitle": "Editar proyecto",
+    "statsAria": "Estadísticas de proyectos",
+    "empty": "Aún no hay proyectos",
+    "profileColumn": "Perfil",
+    "docsColumn": "Documentos",
+    "segmentsColumn": "Segmentos",
+    "editTooltip": "Editar proyecto",
+    "deleteTooltip": "Eliminar proyecto",
+    "deleteBlockedTooltip": "Elimina antes sus documentos",
+    "deleteTitle": "Eliminar proyecto",
+    "deleteDescription": "¿Seguro que quieres eliminar este proyecto?",
+    "deleteBlockedDescription": "Este proyecto todavía tiene documentos. Elimínalos primero.",
+    "stats": {
+      "total": "Total de proyectos",
+      "totalHint": "Proyectos del espacio de trabajo",
+      "docs": "Documentos",
+      "docsHint": "Documentos de todos los proyectos",
+      "segments": "Segmentos",
+      "segmentsHint": "Segmentos de traducción de todos los proyectos",
+      "workspace": "Espacio de trabajo",
+      "workspaceSuperHint": "Vista de superadministrador",
+      "workspaceScopeHint": "Ámbito del espacio actual"
+    },
+    "messages": {
+      "fetchError": "Error al obtener los proyectos",
+      "updated": "Proyecto actualizado",
+      "updateError": "Error al actualizar el proyecto",
+      "deleting": "Eliminando proyecto...",
+      "deleted": "¡Proyecto eliminado correctamente!",
+      "deleteError": "Error al eliminar el proyecto"
+    },
+    "create": {
+      "detailsTitle": "Detalles del proyecto",
+      "detailsSubtitle": "Nombre y descripción.",
+      "nameLabel": "Nombre",
+      "namePlaceholder": "Nombre del proyecto",
+      "nameRequired": "¡Introduce un nombre!",
+      "descriptionLabel": "Descripción",
+      "descriptionPlaceholder": "¿Para qué sirve este proyecto?",
+      "settingsTitle": "Ajustes de traducción",
+      "settingsSubtitle": "Perfil por defecto y umbral de coincidencia de memorias para los documentos nuevos.",
+      "profileLabel": "Perfil",
+      "profilePlaceholder": "Selecciona un perfil",
+      "profileRequired": "Selecciona un perfil",
+      "noProfiles": "No hay perfiles disponibles en este espacio",
+      "thresholdLabel": "Umbral de coincidencia de memorias",
+      "creating": "Creando proyecto...",
+      "created": "¡Proyecto creado!",
+      "createError": "Error al crear el proyecto",
+      "submit": "Crear proyecto"
+    },
+    "detail": {
+      "subtitle": "Edita los detalles del proyecto y gestiona sus documentos.",
+      "notFound": "Proyecto no encontrado",
+      "documentsTitle": "Documentos"
     }
   },
   "tms": {

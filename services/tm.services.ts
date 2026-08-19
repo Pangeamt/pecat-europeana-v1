@@ -131,11 +131,11 @@ export const exportTMRequest = async (tmId: string): Promise<void> => {
 };
 
 export const getLogsRequest = async (
-  projectId: string,
+  documentId: string,
   tmId: string,
 ): Promise<ProjectLogsStats> => {
-  const response = await httpClient.get<ProjectLogsStats>("/api/projects/logs", {
-    params: { projectId, tmId },
+  const response = await httpClient.get<ProjectLogsStats>("/api/documents/logs", {
+    params: { documentId, tmId },
   });
   return response.data;
 };

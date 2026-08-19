@@ -42,7 +42,7 @@
     "actions": "Actions"
   },
   "nav": {
-    "documents": "Documents",
+    "projects": "Projects",
     "tms": "TMs",
     "glossaries": "Glossaries",
     "profiles": "Profiles",
@@ -107,8 +107,12 @@
     "removeTooltip": "Remove",
     "deleteTitle": "Delete the task",
     "deleteDescription": "Are you sure to delete this task?",
-    "empty": "No projects yet",
+    "empty": "No documents yet",
     "downloadError": "Could not download file",
+    "removeError": "Could not delete document",
+    "editTooltip": "Edit label",
+    "editModalTitle": "Edit document label",
+    "editError": "Could not update document",
     "status": {
       "UPLOADED": "Uploaded",
       "PROCESSING": "Processing",
@@ -156,8 +160,9 @@
       "targetPlaceholder": "Select target",
       "targetRequired": "Please select a target language",
       "step2Eyebrow": "Step 2",
-      "step2Title": "Translation memories",
+      "step2Title": "Use project profile",
       "step2Subtitle": "Select matching TMs and configure matching mode and threshold.",
+      "useProjectProfileHint": "Inherit the translation memories and glossaries from the project's profile, or turn this off to pick them manually.",
       "matchingTms": "Matching TMs",
       "selectTms": "Select translation memories",
       "noMatchingTms": "No matching memories for this language pair",
@@ -192,6 +197,69 @@
       "uploadError": "{name} upload failed.",
       "tooLarge": "Files must be smaller than {max}MB",
       "invalidType": "File type not supported"
+    }
+  },
+  "projects": {
+    "eyebrow": "Workspace projects",
+    "title": "Projects",
+    "subtitle": "Group documents under a profile, threshold and shared settings.",
+    "createProject": "Create Project",
+    "createModalTitle": "Create Project",
+    "editModalTitle": "Edit Project",
+    "statsAria": "Project statistics",
+    "empty": "No projects yet",
+    "profileColumn": "Profile",
+    "docsColumn": "Documents",
+    "segmentsColumn": "Segments",
+    "editTooltip": "Edit project",
+    "deleteTooltip": "Delete project",
+    "deleteBlockedTooltip": "Remove its documents first",
+    "deleteTitle": "Delete project",
+    "deleteDescription": "Are you sure you want to delete this project?",
+    "deleteBlockedDescription": "This project still has documents. Remove them first.",
+    "stats": {
+      "total": "Total projects",
+      "totalHint": "Workspace projects",
+      "docs": "Documents",
+      "docsHint": "Documents across all projects",
+      "segments": "Segments",
+      "segmentsHint": "Translation segments across all projects",
+      "workspace": "Workspace",
+      "workspaceSuperHint": "Super admin view",
+      "workspaceScopeHint": "Current workspace scope"
+    },
+    "messages": {
+      "fetchError": "Error fetching projects",
+      "updated": "Project updated",
+      "updateError": "Error updating project",
+      "deleting": "Deleting project...",
+      "deleted": "Project deleted successfully!",
+      "deleteError": "Error deleting project"
+    },
+    "create": {
+      "detailsTitle": "Project details",
+      "detailsSubtitle": "Name and description.",
+      "nameLabel": "Name",
+      "namePlaceholder": "Project name",
+      "nameRequired": "Please introduce a name!",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "What is this project for?",
+      "settingsTitle": "Translation settings",
+      "settingsSubtitle": "Default profile and TM match threshold for new documents.",
+      "profileLabel": "Profile",
+      "profilePlaceholder": "Select a profile",
+      "profileRequired": "Please select a profile",
+      "noProfiles": "No profiles available in this workspace",
+      "thresholdLabel": "TM match threshold",
+      "creating": "Creating project...",
+      "created": "Project created!",
+      "createError": "Error creating project",
+      "submit": "Create Project"
+    },
+    "detail": {
+      "subtitle": "Edit the project details and manage its documents.",
+      "notFound": "Project not found",
+      "documentsTitle": "Documents"
     }
   },
   "tms": {

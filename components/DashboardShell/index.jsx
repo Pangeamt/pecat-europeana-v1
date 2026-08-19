@@ -7,7 +7,7 @@ import { Button, Layout, Menu } from "antd";
 import {
   ApartmentOutlined,
   BookOutlined,
-  FileTextOutlined,
+  FolderOutlined,
   IdcardOutlined,
   LeftOutlined,
   RightOutlined,
@@ -46,12 +46,16 @@ const getSelectedKey = (pathname) => {
   return MENU_KEYS.projects;
 };
 
+// The document review editor (/dashboard/{docId}/tus) is reached from inside
+// a project, but there is no project id in that URL — keep it under the
+// "Projects" nav entry rather than adding a false project match.
+
 const buildMenuItems = (role, t) => {
   const items = [
     {
       key: MENU_KEYS.projects,
-      icon: <FileTextOutlined />,
-      label: <Link href="/dashboard">{t("nav.documents")}</Link>,
+      icon: <FolderOutlined />,
+      label: <Link href="/dashboard">{t("nav.projects")}</Link>,
     },
     {
       key: MENU_KEYS.tms,

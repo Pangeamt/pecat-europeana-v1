@@ -111,8 +111,8 @@ const WorkspaceList = () => {
     (sum, workspace) => sum + (workspace._count?.members ?? 0),
     0,
   );
-  const totalProjects = workspaces.reduce(
-    (sum, workspace) => sum + (workspace._count?.projects ?? 0),
+  const totalDocuments = workspaces.reduce(
+    (sum, workspace) => sum + (workspace._count?.documents ?? 0),
     0,
   );
   const totalTms = workspaces.reduce(
@@ -148,9 +148,9 @@ const WorkspaceList = () => {
     },
     {
       title: "Documents",
-      key: "projects",
+      key: "documents",
       render: (record) => (
-        <Tag color="geekblue">{record._count?.projects ?? 0}</Tag>
+        <Tag color="geekblue">{record._count?.documents ?? 0}</Tag>
       ),
     },
     {
@@ -252,10 +252,10 @@ const WorkspaceList = () => {
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
-            Projects
+            Documents
           </div>
           <div className="mt-2 text-2xl font-semibold text-indigo-600">
-            {totalProjects}
+            {totalDocuments}
           </div>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4">

@@ -21,7 +21,7 @@ import {
   message,
 } from "antd";
 
-import { updateProjectTms } from "@/services/project.services";
+import { updateDocumentTms as updateProjectTms } from "@/services/document.services";
 
 const METRICS = [
   {

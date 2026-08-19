@@ -38,7 +38,7 @@ import XMLViewer from "react-xml-viewer";
 import GlossaryTool from "@/components/Tus/glossaryTool";
 import StatsTus from "@/components/Tus/statsTus";
 import TmTool from "@/components/Tus/tmTool";
-import { getProject } from "@/services/project.services";
+import { getDocument as getProject } from "@/services/document.services";
 import { appendTu, confirmTu, getTus } from "@/services/tus.services";
 import { userStore } from "@/store";
 import { getTextDirection } from "@/lib/locale-direction";
