@@ -52,7 +52,8 @@ model User {
   workspaceId       String?
   deletedAt         DateTime?
   accounts          Account[]
-  projects          Project[]
+  documents         Document[]
+  projects          Project[]  @relation("ProjectCreatedBy")
   sessions          Session[]
   workspace         Workspace? @relation("WorkspaceMembers", fields: [workspaceId], references: [id])
   createdTms        Tm[]       @relation("TmCreatedBy")
@@ -70,6 +71,7 @@ model Workspace {
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
   members    User[]     @relation("WorkspaceMembers")
+  documents  Document[]
   projects   Project[]
   tms        Tm[]
   glossaries Glossary[]
@@ -78,89 +80,129 @@ model Workspace {
   @@map("workspaces")
 }
 
+/// Grouping entity: a workspace project that holds documents and defines the
+/// translation defaults (profile, threshold) they inherit.
 model Project {
-  id                String            @id @default(cuid())
-  label             String?
-  filename          String
-  filePath          String
-  uuid              String?           @unique
-  accessDeadline    DateTime?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  userId            String
-  workspaceId       String
-  deletedAt         DateTime?
-  mt                Boolean           @default(false)
-  tmMode            String            @default("standard")
-  tmThreshold       Float             @default(0)
-  extension         String            @default("json")
-  /// pdocs document id (module-pdocs service); set for projects whose file was
+  id              String     @id @default(cuid())
+  name            String
+  description     String?    @db.Text
+  /// Nullable in DB only for backfilled legacy "General" projects; the create
+  /// API requires it.
+  profileId       String?
+  tmThreshold     Float      @default(0.75)
+  /// Free-form bag for future per-project options (no migration needed).
+  settings        Json?
+  createdByUserId String
+  workspaceId     String
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  deletedAt       DateTime?
+  profile         Profile?   @relation(fields: [profileId], references: [id])
+  createdBy       User       @relation("ProjectCreatedBy", fields: [createdByUserId], references: [id])
+  workspace       Workspace  @relation(fields: [workspaceId], references: [id])
+  documents       Document[]
+
+  @@index([workspaceId], map: "client_projects_workspaceId_fkey")
+  @@index([profileId], map: "client_projects_profileId_fkey")
+  @@index([createdByUserId], map: "client_projects_createdByUserId_fkey")
+  @@index([deletedAt], map: "client_projects_deletedAt_idx")
+  @@map("client_projects")
+}
+
+/// One uploaded document. Legacy table name "projects" is kept because the
+/// database is shared with the running production deployment.
+model Document {
+  id                 String             @id @default(cuid())
+  label              String?
+  filename           String
+  filePath           String
+  uuid               String?            @unique
+  accessDeadline     DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  userId             String
+  workspaceId        String
+  deletedAt          DateTime?
+  mt                 Boolean            @default(false)
+  tmMode             String             @default("standard")
+  tmThreshold        Float              @default(0)
+  extension          String             @default("json")
+  /// pdocs document id (module-pdocs service); set for documents whose file was
   /// extracted there and needed to rebuild the translated document on export.
-  documentId        String?
-  sourceLanguage    String?
-  targetLanguage    String?
-  exampleXml        String?
-  status            ProjectStatus     @default(UPLOADED)
-  User              User              @relation(fields: [userId], references: [id])
-  workspace         Workspace         @relation(fields: [workspaceId], references: [id])
-  tus               Tu[]
-  projectTms        ProjectTm[]
-  projectGlossaries ProjectGlossary[]
+  documentId         String?
+  sourceLanguage     String?
+  targetLanguage     String?
+  exampleXml         String?
+  /// Lifecycle state as plain string so adding states needs no migration;
+  /// the source of truth is lib/document-status.js.
+  status             String             @default("UPLOADED")
+  /// Parent project; nullable only for legacy rows until the deploy backfill.
+  projectId          String?            @map("clientProjectId")
+  /// true = TMs/glossaries were materialized from the project profile at
+  /// creation; false = they were hand-picked in the upload wizard.
+  inheritProfile     Boolean            @default(true)
+  User               User               @relation(fields: [userId], references: [id])
+  workspace          Workspace          @relation(fields: [workspaceId], references: [id])
+  project            Project?           @relation(fields: [projectId], references: [id])
+  tus                Tu[]
+  documentTms        DocumentTm[]
+  documentGlossaries DocumentGlossary[]
 
   @@index([userId], map: "projects_userId_fkey")
   @@index([workspaceId], map: "projects_workspaceId_fkey")
+  @@index([projectId], map: "projects_clientProjectId_idx")
   @@map("projects")
 }
 
 model Tu {
-  id                      String   @id @default(cuid())
+  id                      String    @id @default(cuid())
   externalId              String?
   translationLiteralId    Int?
   translationId           Int?
   count                   Int?
   fieldName               String?
   shortFieldname          String?
-  srcLiteral              String   @db.Text
-  translatedLiteral       String?  @db.Text
-  reviewLiteral           String?  @db.Text
+  srcLiteral              String    @db.Text
+  translatedLiteral       String?   @db.Text
+  reviewLiteral           String?   @db.Text
   sourceLanguage          String
   targetLanguage          String
   translationScorePercent Float?
   tmInfo                  Json?
   glossaryInfo            Json?
-  createdAt               DateTime @default(now())
-  exampleXml              String?  @db.VarChar(500)
-  updatedAt               DateTime @updatedAt
-  Status                  Status   @default(NOT_REVIEWED)
-  projectId               String?
+  createdAt               DateTime  @default(now())
+  exampleXml              String?   @db.VarChar(500)
+  updatedAt               DateTime  @updatedAt
+  Status                  Status    @default(NOT_REVIEWED)
+  documentId              String?   @map("projectId")
   levenshteinDistance     Float?
-  block                   Boolean  @default(false)
+  block                   Boolean   @default(false)
   belongTo                String?
   /// false = hidden from the review UI and excluded from stats/MT, but kept
   /// so the document export still reconstructs every segment.
-  visible                 Boolean  @default(true)
+  visible                 Boolean   @default(true)
   /// id of the visibility rule that hid this segment (modules/projects/visibility-rules.js)
   hiddenBy                String?
-  Project                 Project? @relation(fields: [projectId], references: [id])
+  document                Document? @relation(fields: [documentId], references: [id])
 
-  @@index([projectId], map: "tus_projectId_fkey")
+  @@index([documentId], map: "tus_projectId_fkey")
   @@map("tus")
 }
 
 model Tm {
-  id              String      @id @default(cuid())
+  id              String       @id @default(cuid())
   name            String
   domain          String?
   sourceLanguage  String
   targetLanguage  String
   createdByUserId String
   workspaceId     String
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
   deletedAt       DateTime?
-  createdBy       User        @relation("TmCreatedBy", fields: [createdByUserId], references: [id])
-  workspace       Workspace   @relation(fields: [workspaceId], references: [id])
-  projectTms      ProjectTm[]
+  createdBy       User         @relation("TmCreatedBy", fields: [createdByUserId], references: [id])
+  workspace       Workspace    @relation(fields: [workspaceId], references: [id])
+  documentTms     DocumentTm[]
   profileTms      ProfileTm[]
 
   @@index([workspaceId], map: "tms_workspaceId_fkey")
@@ -170,20 +212,20 @@ model Tm {
 }
 
 model Glossary {
-  id                String            @id @default(cuid())
-  name              String
-  domain            String?
-  sourceLanguage    String
-  targetLanguage    String
-  createdByUserId   String
-  workspaceId       String
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  deletedAt         DateTime?
-  createdBy         User              @relation("GlossaryCreatedBy", fields: [createdByUserId], references: [id])
-  workspace         Workspace         @relation(fields: [workspaceId], references: [id])
-  projectGlossaries ProjectGlossary[]
-  profileGlossaries ProfileGlossary[]
+  id                 String             @id @default(cuid())
+  name               String
+  domain             String?
+  sourceLanguage     String
+  targetLanguage     String
+  createdByUserId    String
+  workspaceId        String
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  deletedAt          DateTime?
+  createdBy          User               @relation("GlossaryCreatedBy", fields: [createdByUserId], references: [id])
+  workspace          Workspace          @relation(fields: [workspaceId], references: [id])
+  documentGlossaries DocumentGlossary[]
+  profileGlossaries  ProfileGlossary[]
 
   @@index([workspaceId], map: "glossaries_workspaceId_fkey")
   @@index([createdByUserId], map: "glossaries_createdByUserId_fkey")
@@ -191,29 +233,29 @@ model Glossary {
   @@map("glossaries")
 }
 
-model ProjectTm {
-  projectId String
-  tmId      String
-  updateTm  Boolean  @default(false)
-  createdAt DateTime @default(now())
+model DocumentTm {
+  documentId String   @map("projectId")
+  tmId       String
+  updateTm   Boolean  @default(false)
+  createdAt  DateTime @default(now())
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  tm      Tm      @relation(fields: [tmId], references: [id], onDelete: Cascade)
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  tm       Tm       @relation(fields: [tmId], references: [id], onDelete: Cascade)
 
-  @@id([projectId, tmId])
+  @@id([documentId, tmId])
   @@index([tmId], map: "project_tms_tmId_idx")
   @@map("project_tms")
 }
 
-model ProjectGlossary {
-  projectId  String
+model DocumentGlossary {
+  documentId String   @map("projectId")
   glossaryId String
   createdAt  DateTime @default(now())
 
-  project  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
   glossary Glossary @relation(fields: [glossaryId], references: [id], onDelete: Cascade)
 
-  @@id([projectId, glossaryId])
+  @@id([documentId, glossaryId])
   @@index([glossaryId], map: "project_glossaries_glossaryId_idx")
   @@map("project_glossaries")
 }
@@ -236,6 +278,7 @@ model Profile {
   workspace         Workspace         @relation(fields: [workspaceId], references: [id])
   profileTms        ProfileTm[]
   profileGlossaries ProfileGlossary[]
+  projects          Project[]
 
   @@index([workspaceId], map: "profiles_workspaceId_fkey")
   @@index([createdByUserId], map: "profiles_createdByUserId_fkey")
@@ -296,14 +339,4 @@ enum Formality {
   FORMAL
   NEUTRO
   INFORMAL
-}
-
-enum ProjectStatus {
-  UPLOADED
-  PROCESSING
-  FILE_PROCESSING
-  MTQE_PROCESSING
-  READY
-  FILE_ERROR
-  MTQE_ERROR
 }
