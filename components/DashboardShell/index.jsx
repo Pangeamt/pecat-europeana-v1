@@ -34,6 +34,18 @@ const MENU_KEYS = {
 };
 
 const isTusRoute = (pathname) => /^\/dashboard\/[^/]+\/tus$/.test(pathname);
+// The project detail page (where the documents table lives).
+const isProjectDetailRoute = (pathname) =>
+  /^\/dashboard\/projects\/[^/]+$/.test(pathname);
+
+// Both routes need more horizontal room for their tables, so the sidebar
+// starts collapsed on entry; the user can still expand it manually and it
+// stays expanded while navigating within the same route family.
+const getAutoCollapseKey = (pathname) => {
+  if (isTusRoute(pathname)) return "tus";
+  if (isProjectDetailRoute(pathname)) return "documents";
+  return "default";
+};
 
 const getSelectedKey = (pathname) => {
   // "profiles" must be matched before the "profile" (account) prefix.
@@ -58,6 +70,11 @@ const buildMenuItems = (role, t) => {
       label: <Link href="/dashboard">{t("nav.projects")}</Link>,
     },
     {
+      key: MENU_KEYS.profiles,
+      icon: <SlidersOutlined />,
+      label: <Link href="/dashboard/profiles">{t("nav.profiles")}</Link>,
+    },
+    {
       key: MENU_KEYS.tms,
       icon: <DatabaseOutlined />,
       label: <Link href="/dashboard/tms">{t("nav.tms")}</Link>,
@@ -66,11 +83,6 @@ const buildMenuItems = (role, t) => {
       key: MENU_KEYS.glossaries,
       icon: <BookOutlined />,
       label: <Link href="/dashboard/glossaries">{t("nav.glossaries")}</Link>,
-    },
-    {
-      key: MENU_KEYS.profiles,
-      icon: <SlidersOutlined />,
-      label: <Link href="/dashboard/profiles">{t("nav.profiles")}</Link>,
     },
   ];
 
@@ -130,14 +142,14 @@ const DashboardShell = ({ initialUser, children }) => {
   const storeUser = userStore((state) => state.user);
   const user = storeUser ?? initialUser;
 
-  const routeKey = isTusRoute(pathname) ? "tus" : "default";
+  const routeKey = getAutoCollapseKey(pathname);
   const [collapsedState, setCollapsedState] = useState(() => ({
     key: routeKey,
-    value: isTusRoute(pathname),
+    value: routeKey !== "default",
   }));
 
   if (collapsedState.key !== routeKey) {
-    setCollapsedState({ key: routeKey, value: routeKey === "tus" });
+    setCollapsedState({ key: routeKey, value: routeKey !== "default" });
   }
 
   const collapsed = collapsedState.value;
