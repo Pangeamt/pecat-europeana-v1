@@ -380,7 +380,7 @@ export async function enrichSdlxliffSegments(segments, {
 // export: "<trans-unit id>::<mrk mid>" (or just the trans-unit id when
 // unsegmented). Locked segments (<sdl:seg locked="true">) are blocked from
 // editing, and so are NexRelay exact TM matches (tm_score === 1).
-export function buildTusDataFromSdlxliffSegments(segments, projectId, sourceLanguage, targetLanguage) {
+export function buildTusDataFromSdlxliffSegments(segments, documentId, sourceLanguage, targetLanguage) {
   return segments.map((seg, index) => ({
     externalId: seg.mid != null ? `${seg.transUnitId}::${seg.mid}` : seg.transUnitId,
     count: index,
@@ -403,7 +403,7 @@ export function buildTusDataFromSdlxliffSegments(segments, projectId, sourceLang
       : seg.machineTranslated || seg.origin === 'mt'
         ? 'TRANSLATED_MT'
         : 'NOT_REVIEWED',
-    projectId,
+    documentId,
   }));
 }
 
@@ -463,7 +463,7 @@ export async function translateWithNexRelay({
   }
 }
 
-export function normalizeNexRelaySegmentsToTusData(segments, projectId, sourceLanguage, targetLanguage) {
+export function normalizeNexRelaySegmentsToTusData(segments, documentId, sourceLanguage, targetLanguage) {
   return segments.map((segment, index) => {
     const tmInfoArray = Array.isArray(segment.tm_info) ? segment.tm_info : [];
     const bestTm = tmInfoArray.find((tm) => tm.tm_match === true && tm.tm_score === 1);
@@ -481,7 +481,7 @@ export function normalizeNexRelaySegmentsToTusData(segments, projectId, sourceLa
       targetLanguage: targetLanguage || '',
       Status: bestTm ? 'ACCEPTED' : 'NOT_REVIEWED',
       levenshteinDistance: bestTm ? bestTm.tm_score : null,
-      projectId,
+      documentId,
     };
   });
 }

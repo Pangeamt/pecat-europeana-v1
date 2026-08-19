@@ -1,8 +1,8 @@
 import { requireAuthUser, toErrorResponse } from '@/modules/shared';
 import {
-  exportProjectAsSdlxliffService,
-  exportProjectAsJsonService,
-} from '@/modules/projects/export-service';
+  exportDocumentAsSdlxliffService,
+  exportDocumentAsJsonService,
+} from '@/modules/documents/export-service';
 
 export const GET = async (req, { params }) => {
   try {
@@ -11,12 +11,12 @@ export const GET = async (req, { params }) => {
     const format = req.nextUrl.searchParams.get('format') || 'sdlxliff';
 
     if (format === 'json') {
-      const jsonData = await exportProjectAsJsonService(id, actorUser);
+      const jsonData = await exportDocumentAsJsonService(id, actorUser);
       return Response.json(jsonData);
     }
 
     if (format === 'sdlxliff') {
-      const sdlxliffContent = await exportProjectAsSdlxliffService(id, actorUser);
+      const sdlxliffContent = await exportDocumentAsSdlxliffService(id, actorUser);
 
       return new Response(sdlxliffContent, {
         headers: {
@@ -31,7 +31,7 @@ export const GET = async (req, { params }) => {
       message: 'Invalid export format. Supported: sdlxliff, json',
     });
   } catch (error) {
-    console.error('GET /api/projects/[id]/export failed:', error);
+    console.error('GET /api/documents/[id]/export failed:', error);
     return toErrorResponse(error);
   }
 };

@@ -1,20 +1,20 @@
 import { HttpError } from "@/modules/shared/http-error";
 import { levenshteinSimilarity } from "@/modules/shared/similarity";
 import { listAllTranslationUnitsService } from "@/modules/memory/tu";
-import { findProjectForActor, findTusByProjectId } from "./repository";
+import { findDocumentForActor, findTusByDocumentId } from "./repository";
 
-export async function getProjectLogsStatsService({
-  projectId,
+export async function getDocumentLogsStatsService({
+  documentId,
   tmId,
   actorUser,
 }) {
-  const project = await findProjectForActor(projectId, actorUser);
-  if (!project) {
-    throw new HttpError(404, "Project not found");
+  const document = await findDocumentForActor(documentId, actorUser);
+  if (!document) {
+    throw new HttpError(404, "Document not found");
   }
 
   const [allTus, tmTus] = await Promise.all([
-    findTusByProjectId(project.id),
+    findTusByDocumentId(document.id),
     listAllTranslationUnitsService(tmId, actorUser),
   ]);
   // Hidden segments (visibility rules) carry no reviewable words.
@@ -60,5 +60,5 @@ export async function getProjectLogsStatsService({
     }
   }
 
-  return { projectId, tmId, stats };
+  return { documentId, tmId, stats };
 }

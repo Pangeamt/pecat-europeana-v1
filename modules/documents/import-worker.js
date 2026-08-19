@@ -1,15 +1,16 @@
 import prisma from "@/lib/prisma";
 import { startProjectImportWorker } from "@/lib/queue";
+import { DOCUMENT_STATUS } from "@/lib/document-status";
 import {
   handleSdlxliffImportJob,
   handleUploadImportJob,
-  resolveProjectErrorStatus,
+  resolveDocumentErrorStatus,
 } from "./import-service";
 
 // Statuses shown to the user when a job exhausts its retries.
 function errorStatusFor(job, error) {
-  if (job.name === "import-sdlxliff") return "FILE_ERROR";
-  return resolveProjectErrorStatus(error);
+  if (job.name === "import-sdlxliff") return DOCUMENT_STATUS.FILE_ERROR;
+  return resolveDocumentErrorStatus(error);
 }
 
 /**
@@ -23,15 +24,17 @@ export function startImportWorker() {
       "import-sdlxliff": handleSdlxliffImportJob,
     },
     onFinalFailure: async (job, error) => {
-      const projectId = job.data?.projectId;
+      // Payload key `projectId` carries the document row id (kept for
+      // compatibility with jobs enqueued before the hierarchy refactor).
+      const documentId = job.data?.projectId;
       console.error(
-        `[import-worker] Job ${job.name} for project ${projectId} failed permanently:`,
+        `[import-worker] Job ${job.name} for document ${documentId} failed permanently:`,
         error?.message ?? error,
       );
-      if (!projectId) return;
-      await prisma.project
+      if (!documentId) return;
+      await prisma.document
         .update({
-          where: { id: projectId },
+          where: { id: documentId },
           data: { status: errorStatusFor(job, error) },
         })
         .catch(() => {});

@@ -1,22 +1,23 @@
 import { HttpError } from "../shared/http-error";
+import { DOCUMENT_STATUS } from "../../lib/document-status";
 import {
-  findProjectForTus,
+  findDocumentForTus,
   findTuById,
-  findTusByProjectId,
+  findTusByDocumentId,
   findTusWithSameSource,
   updateTuById,
 } from "./repository";
 
 async function assertTuAccessibleByActor(tu, actorUser) {
-  if (!tu.projectId) {
-    throw new HttpError(403, "Translation unit is not attached to a project");
+  if (!tu.documentId) {
+    throw new HttpError(403, "Translation unit is not attached to a document");
   }
 
-  const project = await findProjectForTus(tu.projectId, actorUser);
-  if (!project) {
-    throw new HttpError(404, "Project not found");
+  const document = await findDocumentForTus(tu.documentId, actorUser);
+  if (!document) {
+    throw new HttpError(404, "Document not found");
   }
-  return project;
+  return document;
 }
 
 function clearText(txt) {
@@ -24,30 +25,30 @@ function clearText(txt) {
     .normalize("NFKC")
     .replace(/<[^>]*>/g, " ")
     .replace(/&nbsp;/gi, " ")
-    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/[​-‍﻿]/g, "")
     .replace(/[\r\n\t]+/g, " ")
     .replace(/\s+/g, " ")
     .replace(/\s([.,;:!?])/g, "$1")
     .trim();
 }
 
-export async function listTusByProjectService(projectId, actorUser) {
-  if (!projectId) {
+export async function listTusByDocumentService(documentId, actorUser) {
+  if (!documentId) {
     throw new HttpError(400, "projectId is required");
   }
 
-  const project = await findProjectForTus(projectId, actorUser);
-  if (!project) {
-    throw new HttpError(404, "Project not found");
+  const document = await findDocumentForTus(documentId, actorUser);
+  if (!document) {
+    throw new HttpError(404, "Document not found");
   }
-  if (project.status !== "READY") {
+  if (document.status !== DOCUMENT_STATUS.READY) {
     throw new HttpError(
       409,
-      "Project is not ready yet. Wait until background processing finishes.",
+      "Document is not ready yet. Wait until background processing finishes.",
     );
   }
 
-  const tus = await findTusByProjectId(projectId);
+  const tus = await findTusByDocumentId(documentId);
   return {
     total: tus.length,
     docs: tus,
@@ -71,7 +72,7 @@ export async function updateTuStatusService(payload, actorUser) {
   await assertTuAccessibleByActor(tu, actorUser);
 
   const tusWithSameSrcLiteral = await findTusWithSameSource(
-    tu.projectId,
+    tu.documentId,
     tu.srcLiteral,
     tuId,
   );

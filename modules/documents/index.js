@@ -1,14 +1,18 @@
 export {
-  extractDocumentSegmentsService,
-  linkProjectDocumentService,
-  deleteProjectDocumentService,
-  generateProjectShareUuidService,
-  buildProjectDownloadService,
-  buildSegmentUpdatesFromTus,
-  hasSameInlineCodes,
+  getDocumentByIdService,
+  listDocumentsByProjectService,
+  updateDocumentLabelService,
+  softDeleteDocumentService,
+  updateDocumentTmsService,
 } from "./service";
 
+export { importDocumentsService } from "./import-service";
+
 export {
-  documentShareParamsSchema,
-  documentDownloadQuerySchema,
-} from "./schemas";
+  exportDocumentAsSdlxliffService,
+  exportDocumentAsJsonService,
+} from "./export-service";
+
+export { getDocumentLogsStatsService } from "./logs-service";
+
+export { updateDocumentSchema, updateDocumentTmsSchema } from "./schemas";

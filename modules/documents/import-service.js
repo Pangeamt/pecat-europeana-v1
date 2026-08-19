@@ -5,14 +5,22 @@ import { promisify } from "util";
 import prisma from "../../lib/prisma";
 import { checkFile } from "../../lib/utils";
 import { enqueueProjectImport } from "../../lib/queue";
+import { DOCUMENT_STATUS } from "../../lib/document-status";
 import { HttpError } from "../shared/http-error";
-import { findValidGlossaryIdsInWorkspace, findValidTmIdsInWorkspace } from "./repository";
+import {
+  findValidGlossaryIdsInWorkspace,
+  findValidTmIdsInWorkspace,
+} from "./repository";
+// Direct file import on purpose: the barrels of modules/projects and
+// modules/documents reference each other, so going through them here would
+// close an import cycle before the bindings are initialized.
+import { findProjectWithProfileForActor } from "../projects/repository";
 import { UnrecoverableError } from "bullmq";
 import {
   deleteProjectDocumentService,
   extractDocumentSegmentsService,
   linkProjectDocumentService,
-} from "@/modules/documents";
+} from "@/modules/extraction";
 import {
   parseSdlxliffFile,
   enrichSdlxliffSegments,
@@ -21,31 +29,28 @@ import {
 import { resolveHiddenBy } from "./visibility-rules";
 
 const pump = promisify(pipeline);
-const PROJECT_STATUS = {
-  UPLOADED: "UPLOADED",
-  PROCESSING: "PROCESSING",
-  FILE_PROCESSING: "FILE_PROCESSING",
-  MTQE_PROCESSING: "MTQE_PROCESSING",
-  READY: "READY",
-  FILE_ERROR: "FILE_ERROR",
-  MTQE_ERROR: "MTQE_ERROR",
-};
 
-async function setProjectStatus(projectId, status) {
-  await prisma.project.update({
-    where: { id: projectId },
+async function setDocumentStatus(documentId, status) {
+  await prisma.document.update({
+    where: { id: documentId },
     data: { status },
   });
 }
 
-function parseProjectTmSettings(formData) {
+function normalizeThreshold(rawValue, fallback) {
+  if (rawValue === null || rawValue === undefined || rawValue === "") {
+    return fallback;
+  }
+  const parsed = Number.parseFloat(rawValue);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(Math.max(parsed > 1 ? parsed / 100 : parsed, 0), 1);
+}
+
+function parseDocumentTmSettings(formData) {
   const requestedTmMode = formData.get("tm_mode") || "standard";
   const tmMode = ["standard", "smart"].includes(requestedTmMode)
     ? requestedTmMode
     : "standard";
-  const parsedThreshold = Number.parseFloat(
-    formData.get("tm_threshold") || "0.75",
-  );
   const rawTmIds = formData.get("tm_ids");
   let tmIds = [];
 
@@ -70,21 +75,12 @@ function parseProjectTmSettings(formData) {
 
   return {
     tmMode,
-    tmThreshold: Number.isFinite(parsedThreshold)
-      ? Math.min(
-          Math.max(
-            parsedThreshold > 1 ? parsedThreshold / 100 : parsedThreshold,
-            0,
-          ),
-          1,
-        )
-      : 0,
     tmIds: Array.isArray(tmIds) ? tmIds : [],
     updateTmIds: Array.isArray(updateTmIds) ? updateTmIds : [],
   };
 }
 
-function parseProjectGlossarySettings(formData) {
+function parseDocumentGlossarySettings(formData) {
   const rawGlossaryIds = formData.get("glossary_ids");
   let glossaryIds = [];
 
@@ -101,20 +97,20 @@ function parseProjectGlossarySettings(formData) {
   };
 }
 
-function normalizeTmIds(tmIds) {
-  if (!Array.isArray(tmIds)) return [];
-  return [...new Set(tmIds.filter((tmId) => typeof tmId === "string" && tmId))];
+function normalizeIds(ids) {
+  if (!Array.isArray(ids)) return [];
+  return [...new Set(ids.filter((id) => typeof id === "string" && id))];
 }
 
-async function linkProjectTms(projectId, tmIds, updateTmIds = []) {
-  const normalized = normalizeTmIds(tmIds);
+async function linkDocumentTms(documentId, tmIds, updateTmIds = []) {
+  const normalized = normalizeIds(tmIds);
   if (normalized.length === 0) return;
 
-  const updateSet = new Set(normalizeTmIds(updateTmIds));
+  const updateSet = new Set(normalizeIds(updateTmIds));
 
-  await prisma.projectTm.createMany({
+  await prisma.documentTm.createMany({
     data: normalized.map((tmId) => ({
-      projectId,
+      documentId,
       tmId,
       updateTm: updateSet.has(tmId),
     })),
@@ -122,23 +118,12 @@ async function linkProjectTms(projectId, tmIds, updateTmIds = []) {
   });
 }
 
-function normalizeGlossaryIds(glossaryIds) {
-  if (!Array.isArray(glossaryIds)) return [];
-  return [
-    ...new Set(
-      glossaryIds.filter(
-        (glossaryId) => typeof glossaryId === "string" && glossaryId,
-      ),
-    ),
-  ];
-}
-
-async function linkProjectGlossaries(projectId, glossaryIds) {
-  const normalized = normalizeGlossaryIds(glossaryIds);
+async function linkDocumentGlossaries(documentId, glossaryIds) {
+  const normalized = normalizeIds(glossaryIds);
   if (normalized.length === 0) return;
 
-  await prisma.projectGlossary.createMany({
-    data: normalized.map((glossaryId) => ({ projectId, glossaryId })),
+  await prisma.documentGlossary.createMany({
+    data: normalized.map((glossaryId) => ({ documentId, glossaryId })),
     skipDuplicates: true,
   });
 }
@@ -148,10 +133,10 @@ async function linkProjectGlossaries(projectId, glossaryIds) {
 // like <g1>…</g1>/<b1/> that must survive translation for the final merge).
 // Enrichment (NexRelay MT with TM/glossary + MTQE score) runs here, with the
 // same helper the SDLXLIFF pipeline uses. The storage/{documentId}/ working
-// folder stays alive for the whole project lifetime: the export rebuilds the
+// folder stays alive for the whole document lifetime: the export rebuilds the
 // translated file from its XLIFF.
 async function processDocumentFile({
-  projectId,
+  documentId,
   filePath,
   filename,
   src,
@@ -164,8 +149,8 @@ async function processDocumentFile({
 }) {
   // A retried job re-extracts from scratch; drop the working folder the
   // previous attempt created so storage/ does not accumulate orphans.
-  const previous = await prisma.project.findUnique({
-    where: { id: projectId },
+  const previous = await prisma.document.findUnique({
+    where: { id: documentId },
     select: { documentId: true },
   });
   if (previous?.documentId) {
@@ -194,8 +179,8 @@ async function processDocumentFile({
     throw error;
   }
 
-  const { documentId, segments } = extraction;
-  await linkProjectDocumentService(projectId, documentId);
+  const { documentId: storageId, segments } = extraction;
+  await linkProjectDocumentService(documentId, storageId);
 
   // hiddenBy is resolved BEFORE enrichment so hidden segments are never sent
   // to NexRelay/MTQE (enrichSdlxliffSegments skips them).
@@ -241,7 +226,7 @@ async function processDocumentFile({
   }));
 }
 
-function toTusData(result, projectId) {
+function toTusData(result, documentId) {
   return result.map((item) => {
     const data = {
       externalId: item.externalId ?? null,
@@ -269,7 +254,7 @@ function toTusData(result, projectId) {
             ? item.blocks
             : false,
       belongTo: item.belongTo ?? null,
-      projectId,
+      documentId,
     };
 
     const tmInfo = item.tmInfo ?? item.tm_info ?? null;
@@ -286,18 +271,22 @@ function toTusData(result, projectId) {
   });
 }
 
-export function resolveProjectErrorStatus(error) {
-  if (error?.code === "MTQE_ERROR") return PROJECT_STATUS.MTQE_ERROR;
-  return PROJECT_STATUS.FILE_ERROR;
+export function resolveDocumentErrorStatus(error) {
+  if (error?.code === "MTQE_ERROR") return DOCUMENT_STATUS.MTQE_ERROR;
+  return DOCUMENT_STATUS.FILE_ERROR;
 }
 
 // Queue handlers throw on failure so BullMQ retries with backoff; the final
 // failure is turned into an error status by the worker (see import-worker.js).
-// A retried job re-runs from scratch, so every handler clears the project TUs
+// A retried job re-runs from scratch, so every handler clears the document TUs
 // first to stay idempotent.
-async function resetProjectTus(projectId) {
-  await prisma.tu.deleteMany({ where: { projectId } });
+async function resetDocumentTus(documentId) {
+  await prisma.tu.deleteMany({ where: { documentId } });
 }
+
+// NOTE: the job payload key is still `projectId` (it carries the document row
+// id). Kept for compatibility with jobs already sitting in Redis when this
+// code deploys — do not rename it or the queue/job names.
 
 // SDLXLIFF import pipeline:
 //  1. Read source + target per segment from the file itself; keep the
@@ -307,7 +296,7 @@ async function resetProjectTus(projectId) {
 //     without target, and score with MTQE the unlocked ones that already have
 //     a target (see enrichSdlxliffSegments).
 export async function handleSdlxliffImportJob({
-  projectId,
+  projectId: documentId,
   filePath,
   src,
   tgt,
@@ -316,10 +305,11 @@ export async function handleSdlxliffImportJob({
   tmIds,
   glossaryIds,
 }) {
-  await resetProjectTus(projectId);
-  await setProjectStatus(projectId, PROJECT_STATUS.PROCESSING);
+  await resetDocumentTus(documentId);
+  await setDocumentStatus(documentId, DOCUMENT_STATUS.PROCESSING);
 
-  const { sourceLanguage, targetLanguage, segments } = await parseSdlxliffFile(filePath);
+  const { sourceLanguage, targetLanguage, segments } =
+    await parseSdlxliffFile(filePath);
 
   const normalizedSrc = src || sourceLanguage;
   const normalizedTgt = tgt || targetLanguage;
@@ -339,7 +329,7 @@ export async function handleSdlxliffImportJob({
   }
 
   console.log("[SDLXLIFF] parsed", {
-    projectId,
+    documentId,
     src: normalizedSrc,
     tgt: normalizedTgt,
     segments: segments.length,
@@ -357,14 +347,14 @@ export async function handleSdlxliffImportJob({
   });
 
   console.log("[SDLXLIFF] enriched", {
-    projectId,
+    documentId,
     translatedWithNexRelay: translated,
     scoredWithMtqe: scored,
   });
 
   const tusData = buildTusDataFromSdlxliffSegments(
     segments,
-    projectId,
+    documentId,
     normalizedSrc,
     normalizedTgt,
   );
@@ -373,11 +363,11 @@ export async function handleSdlxliffImportJob({
     data: tusData,
   });
 
-  await setProjectStatus(projectId, PROJECT_STATUS.READY);
+  await setDocumentStatus(documentId, DOCUMENT_STATUS.READY);
 }
 
 export async function handleUploadImportJob({
-  projectId,
+  projectId: documentId,
   filePath,
   filename,
   mt,
@@ -388,10 +378,10 @@ export async function handleUploadImportJob({
   tmIds,
   glossaryIds,
 }) {
-  await resetProjectTus(projectId);
-  await setProjectStatus(projectId, PROJECT_STATUS.FILE_PROCESSING);
+  await resetDocumentTus(documentId);
+  await setDocumentStatus(documentId, DOCUMENT_STATUS.FILE_PROCESSING);
   const result = await processDocumentFile({
-    projectId,
+    documentId,
     filePath,
     filename,
     src,
@@ -404,49 +394,91 @@ export async function handleUploadImportJob({
   });
 
   await prisma.tu.createMany({
-    data: toTusData(result, projectId),
+    data: toTusData(result, documentId),
   });
-  await setProjectStatus(projectId, PROJECT_STATUS.READY);
+  await setDocumentStatus(documentId, DOCUMENT_STATUS.READY);
 }
 
-// If Redis is down the job cannot be scheduled: mark the project as failed
+// If Redis is down the job cannot be scheduled: mark the document as failed
 // (instead of leaving it stuck in UPLOADED) and surface the 503 to the caller.
 async function enqueueImportJobOrFail(jobName, data) {
   try {
     await enqueueProjectImport(jobName, data);
   } catch (error) {
-    await setProjectStatus(data.projectId, PROJECT_STATUS.FILE_ERROR).catch(
+    await setDocumentStatus(data.projectId, DOCUMENT_STATUS.FILE_ERROR).catch(
       () => {},
     );
     throw error;
   }
 }
 
-export async function importProjectsFromUploadService({
+// Resolves the effective TM/glossary configuration for a new document: by
+// default it inherits (materializes) the project profile's assets; with
+// inherit_profile=false the wizard's manual selection is used instead.
+async function resolveDocumentAssets({ formData, project }) {
+  const inheritProfile = formData.get("inherit_profile") !== "false";
+  const tmThreshold = normalizeThreshold(
+    formData.get("tm_threshold"),
+    project.tmThreshold ?? 0.75,
+  );
+
+  if (inheritProfile) {
+    const profileTmIds =
+      project.profile?.profileTms?.map((link) => link.tmId) ?? [];
+    const profileGlossaryIds =
+      project.profile?.profileGlossaries?.map((link) => link.glossaryId) ?? [];
+
+    return {
+      inheritProfile: true,
+      tmMode: "standard",
+      tmThreshold,
+      tmIds: profileTmIds,
+      updateTmIds: [],
+      glossaryIds: profileGlossaryIds,
+    };
+  }
+
+  const tmSettings = parseDocumentTmSettings(formData);
+  const glossarySettings = parseDocumentGlossarySettings(formData);
+  const [validTmIds, validGlossaryIds] = await Promise.all([
+    findValidTmIdsInWorkspace(tmSettings.tmIds, project.workspaceId),
+    findValidGlossaryIdsInWorkspace(
+      glossarySettings.glossaryIds,
+      project.workspaceId,
+    ),
+  ]);
+
+  return {
+    inheritProfile: false,
+    tmMode: tmSettings.tmMode,
+    tmThreshold,
+    tmIds: validTmIds,
+    updateTmIds: tmSettings.updateTmIds,
+    glossaryIds: validGlossaryIds,
+  };
+}
+
+export async function importDocumentsService({
   formData,
-  userId,
-  workspaceId,
+  projectId,
+  actorUser,
 }) {
-  if (!workspaceId) {
-    throw new HttpError(400, "A workspace is required to import a project");
+  const project = await findProjectWithProfileForActor(projectId, actorUser);
+  if (!project) {
+    throw new HttpError(404, "Project not found");
   }
 
   const files = formData.getAll("file");
   const mt = formData.get("mt") === "true";
   const src = formData.get("src");
   const tgt = formData.get("tgt");
-  const tmSettings = parseProjectTmSettings(formData);
-  const glossarySettings = parseProjectGlossarySettings(formData);
-  const [validTmIds, validGlossaryIds] = await Promise.all([
-    findValidTmIdsInWorkspace(tmSettings.tmIds, workspaceId),
-    findValidGlossaryIdsInWorkspace(glossarySettings.glossaryIds, workspaceId),
-  ]);
+  const assets = await resolveDocumentAssets({ formData, project });
 
   if (files.length === 0) {
     throw new HttpError(400, "No file uploaded");
   }
 
-  const createdProjectIds = [];
+  const createdDocumentIds = [];
   for (const file of files) {
     if (!file || !file.name) continue;
 
@@ -460,57 +492,55 @@ export async function importProjectsFromUploadService({
     const filePath = `./public/files/${uid()}_${file.name}`;
     await pump(file.stream(), fs.createWriteStream(filePath));
 
-    const createdProject = await prisma.project.create({
+    const createdDocument = await prisma.document.create({
       data: {
         filename: file.name.trim(),
-        userId,
-        workspaceId,
+        userId: actorUser.id,
+        workspaceId: project.workspaceId,
+        projectId: project.id,
+        inheritProfile: assets.inheritProfile,
         filePath,
         mt,
-        tmMode: tmSettings.tmMode,
-        tmThreshold: tmSettings.tmThreshold,
+        tmMode: assets.tmMode,
+        tmThreshold: assets.tmThreshold,
         extension: fileExtension,
         sourceLanguage: src,
         targetLanguage: tgt,
-        status: PROJECT_STATUS.UPLOADED,
+        status: DOCUMENT_STATUS.UPLOADED,
       },
     });
 
-    await linkProjectTms(
-      createdProject.id,
-      validTmIds,
-      tmSettings.updateTmIds,
-    );
-    await linkProjectGlossaries(createdProject.id, validGlossaryIds);
+    await linkDocumentTms(createdDocument.id, assets.tmIds, assets.updateTmIds);
+    await linkDocumentGlossaries(createdDocument.id, assets.glossaryIds);
 
-    createdProjectIds.push(createdProject.id);
+    createdDocumentIds.push(createdDocument.id);
 
     if (fileExtension === "sdlxliff") {
       await enqueueImportJobOrFail("import-sdlxliff", {
-        projectId: createdProject.id,
+        projectId: createdDocument.id,
         filePath,
         src,
         tgt,
-        tmMode: tmSettings.tmMode,
-        tmThreshold: tmSettings.tmThreshold,
-        tmIds: validTmIds,
-        glossaryIds: validGlossaryIds,
+        tmMode: assets.tmMode,
+        tmThreshold: assets.tmThreshold,
+        tmIds: assets.tmIds,
+        glossaryIds: assets.glossaryIds,
       });
     } else {
       await enqueueImportJobOrFail("import-upload", {
-        projectId: createdProject.id,
+        projectId: createdDocument.id,
         filePath,
         filename: file.name.trim(),
         mt,
         src,
         tgt,
-        tmMode: tmSettings.tmMode,
-        tmThreshold: tmSettings.tmThreshold,
-        tmIds: validTmIds,
-        glossaryIds: validGlossaryIds,
+        tmMode: assets.tmMode,
+        tmThreshold: assets.tmThreshold,
+        tmIds: assets.tmIds,
+        glossaryIds: assets.glossaryIds,
       });
     }
   }
 
-  return { projectIds: createdProjectIds };
+  return { documentIds: createdDocumentIds };
 }

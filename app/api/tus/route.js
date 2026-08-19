@@ -1,7 +1,7 @@
 "use server";
 import { requireAuthUser, toErrorResponse } from "@/modules/shared";
 import {
-  listTusByProjectService,
+  listTusByDocumentService,
   updateTuStatusService,
   updateTuSchema,
 } from "@/modules/tus";
@@ -16,8 +16,9 @@ export const GET = async (req) => {
     const actorUser = await requireAuthUser();
     const url = new URL(req.url);
     const searchParams = new URLSearchParams(url.searchParams);
-    const projectId = searchParams.get("projectId");
-    const result = await listTusByProjectService(projectId, actorUser);
+    // The query param keeps its historical name; it carries the document id.
+    const documentId = searchParams.get("projectId");
+    const result = await listTusByDocumentService(documentId, actorUser);
     return Response.json(result);
   } catch (error) {
     return toErrorResponse(error);

@@ -2,7 +2,7 @@ import { toErrorResponse } from "@/modules/shared";
 import {
   buildProjectDownloadService,
   documentDownloadQuerySchema,
-} from "@/modules/documents";
+} from "@/modules/extraction";
 
 export const GET = async (req) => {
   try {

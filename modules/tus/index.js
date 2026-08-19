@@ -1,5 +1,5 @@
 export {
-  listTusByProjectService,
+  listTusByDocumentService,
   updateTuStatusService,
 } from "./service";
 

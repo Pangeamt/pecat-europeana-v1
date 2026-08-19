@@ -80,7 +80,7 @@ export async function deleteWorkspaceService(id, actorUser) {
     if (error?.code === "P2003") {
       throw new HttpError(
         409,
-        "Cannot delete a workspace with projects, TMs or members. Remove or reassign them first.",
+        "Cannot delete a workspace with projects, documents, TMs or members. Remove or reassign them first.",
       );
     }
     throw error;

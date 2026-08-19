@@ -2,7 +2,7 @@ import { requireAuthUser, toErrorResponse } from "@/modules/shared";
 import {
   documentShareParamsSchema,
   generateProjectShareUuidService,
-} from "@/modules/documents";
+} from "@/modules/extraction";
 
 export const GET = async (req, { params }) => {
   try {

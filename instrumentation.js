@@ -8,7 +8,7 @@ export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
   try {
     const { startImportWorker } = await import(
-      "@/modules/projects/import-worker"
+      "@/modules/documents/import-worker"
     );
     startImportWorker();
     console.log("[instrumentation] Project import worker started");

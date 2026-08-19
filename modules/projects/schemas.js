@@ -1,15 +1,15 @@
 import Joi from "joi";
 
+export const createProjectSchema = Joi.object({
+  name: Joi.string().trim().min(1).max(191).required(),
+  description: Joi.string().trim().max(2000).optional().allow("", null),
+  profileId: Joi.string().required(),
+  threshold: Joi.number().min(0).max(1).optional().default(0.75),
+});
+
 export const updateProjectSchema = Joi.object({
-  label: Joi.string().required(),
-  projectId: Joi.string().required(),
+  name: Joi.string().trim().min(1).max(191).optional(),
+  description: Joi.string().trim().max(2000).optional().allow("", null),
+  profileId: Joi.string().optional(),
+  threshold: Joi.number().min(0).max(1).optional(),
 });
-
-export const deleteProjectSchema = Joi.object({
-  projectId: Joi.string().required(),
-});
-
-export const updateProjectTmsSchema = Joi.object({
-  updateTmIds: Joi.array().items(Joi.string()).required(),
-});
-

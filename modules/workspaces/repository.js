@@ -6,7 +6,12 @@ const workspaceInclude = {
       members: {
         where: { deletedAt: null },
       },
+      // `projects` counts the client-facing grouping entity; `documents`
+      // counts individual uploaded files (what `projects` used to mean).
       projects: {
+        where: { deletedAt: null },
+      },
+      documents: {
         where: { deletedAt: null },
       },
       tms: {

@@ -1,22 +1,9 @@
 export {
-  getProjectByIdService,
   listProjectsService,
-  updateProjectLabelService,
+  createProjectService,
+  getProjectDetailService,
+  updateProjectService,
   softDeleteProjectService,
-  updateProjectTmsService,
 } from "./service";
 
-export { importProjectsFromUploadService } from "./import-service";
-
-export {
-  exportProjectAsSdlxliffService,
-  exportProjectAsJsonService,
-} from "./export-service";
-
-export { getProjectLogsStatsService } from "./logs-service";
-
-export {
-  updateProjectSchema,
-  deleteProjectSchema,
-  updateProjectTmsSchema,
-} from "./schemas";
+export { createProjectSchema, updateProjectSchema } from "./schemas";

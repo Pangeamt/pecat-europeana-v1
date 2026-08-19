@@ -1,16 +1,16 @@
 import { requireAuthUser, toErrorResponse } from "@/modules/shared";
-import { getProjectLogsStatsService } from "@/modules/projects";
+import { getDocumentLogsStatsService } from "@/modules/documents";
 
 export const GET = async (req) => {
   try {
     const actorUser = await requireAuthUser();
     const url = new URL(req.url);
     const searchParams = new URLSearchParams(url.searchParams);
-    const projectId = searchParams.get("projectId");
+    const documentId = searchParams.get("documentId");
     const tmId = searchParams.get("tmId");
 
-    const result = await getProjectLogsStatsService({
-      projectId,
+    const result = await getDocumentLogsStatsService({
+      documentId,
       tmId,
       actorUser,
     });
