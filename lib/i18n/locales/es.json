@@ -357,7 +357,6 @@
     "subtitle": "Preajustes de traducción reutilizables que combinan formalidad, instrucciones, memorias y glosarios.",
     "createProfile": "Crear perfil",
     "createModalTitle": "Crear perfil",
-    "editModalTitle": "Editar perfil",
     "statsAria": "Estadísticas de perfiles",
     "empty": "Aún no hay perfiles",
     "formality": "Formalidad",
@@ -444,8 +443,22 @@
       "glossariesPlaceholder": "Selecciona glosarios",
       "noGlossaries": "No hay glosarios disponibles",
       "assetsError": "Error al obtener memorias y glosarios",
-      "submit": "Crear perfil",
-      "submitEdit": "Guardar cambios"
+      "submit": "Crear perfil"
+    },
+    "detail": {
+      "subtitle": "Edita los detalles del perfil y sus recursos vinculados.",
+      "notFound": "Perfil no encontrado",
+      "add": "Añadir",
+      "addTmsTitle": "Añadir memorias de traducción",
+      "addGlossariesTitle": "Añadir glosarios",
+      "noAvailableTms": "No quedan memorias disponibles en este espacio",
+      "noAvailableGlossaries": "No quedan glosarios disponibles en este espacio",
+      "removeTmTitle": "Quitar memoria",
+      "removeTmDescription": "¿Quitar esta memoria del perfil?",
+      "removeGlossaryTitle": "Quitar glosario",
+      "removeGlossaryDescription": "¿Quitar este glosario del perfil?",
+      "emptyTms": "Sin memorias vinculadas",
+      "emptyGlossaries": "Sin glosarios vinculados"
     }
   },
   "users": {

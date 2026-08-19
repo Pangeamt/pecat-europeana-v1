@@ -357,7 +357,6 @@
     "subtitle": "Reusable translation presets combining formality, instructions, TMs and glossaries.",
     "createProfile": "Create Profile",
     "createModalTitle": "Create Profile",
-    "editModalTitle": "Edit Profile",
     "statsAria": "Profile statistics",
     "empty": "No profiles yet",
     "formality": "Formality",
@@ -444,8 +443,22 @@
       "glossariesPlaceholder": "Select glossaries",
       "noGlossaries": "No glossaries available",
       "assetsError": "Error fetching TMs and glossaries",
-      "submit": "Create Profile",
-      "submitEdit": "Save changes"
+      "submit": "Create Profile"
+    },
+    "detail": {
+      "subtitle": "Edit the profile details and its linked resources.",
+      "notFound": "Profile not found",
+      "add": "Add",
+      "addTmsTitle": "Add translation memories",
+      "addGlossariesTitle": "Add glossaries",
+      "noAvailableTms": "No more memories available in this workspace",
+      "noAvailableGlossaries": "No more glossaries available in this workspace",
+      "removeTmTitle": "Remove memory",
+      "removeTmDescription": "Remove this memory from the profile?",
+      "removeGlossaryTitle": "Remove glossary",
+      "removeGlossaryDescription": "Remove this glossary from the profile?",
+      "emptyTms": "No memories linked",
+      "emptyGlossaries": "No glossaries linked"
     }
   },
   "users": {

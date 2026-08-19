@@ -21,9 +21,9 @@ import {
   listProfilesRequest,
 } from "@/services/profiles.services";
 import { userStore } from "@/store";
+import Link from "next/link";
 import { Building2, Database, SlidersHorizontal } from "lucide-react";
 import ProfileAdd from "./add";
-import EditProfileModal from "./EditProfileModal";
 
 const FORMALITY_TAG_COLORS = {
   FORMAL: "geekblue",
@@ -36,8 +36,6 @@ const ProfileList = () => {
   const { user } = userStore();
   const { label: workspaceLabel, loading: workspaceLabelLoading } =
     useWorkspaceScopeLabel(user);
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [profileEdit, setProfileEdit] = useState(null);
   const [loading, setLoading] = useState(false);
   const [profiles, setProfiles] = useState([]);
 
@@ -97,11 +95,6 @@ const ProfileList = () => {
     }
   };
 
-  const openEditModal = (record) => {
-    setProfileEdit(record);
-    setIsEditOpen(true);
-  };
-
   const linkedResources = profiles.reduce(
     (total, profile) =>
       total + (profile.tms?.length ?? 0) + (profile.glossaries?.length ?? 0),
@@ -125,7 +118,12 @@ const ProfileList = () => {
       key: "name",
       render: (name, record) => (
         <div>
-          <span className="font-semibold text-slate-900">{name}</span>
+          <Link
+            href={`/dashboard/profiles/${record.id}`}
+            className="font-semibold text-slate-900 hover:text-blue-600"
+          >
+            {name}
+          </Link>
           {record.description ? (
             <div className="mt-1 max-w-xs truncate text-xs text-slate-500">
               {record.description}
@@ -198,12 +196,9 @@ const ProfileList = () => {
       render: (record) => (
         <Space size={6}>
           <Tooltip title={t("profiles.editTooltip")}>
-            <Button
-              icon={<EditOutlined />}
-              type="text"
-              onClick={() => openEditModal(record)}
-              size="small"
-            />
+            <Link href={`/dashboard/profiles/${record.id}`}>
+              <Button icon={<EditOutlined />} type="text" size="small" />
+            </Link>
           </Tooltip>
           <Popconfirm
             title={t("profiles.deleteTitle")}
@@ -295,19 +290,6 @@ const ProfileList = () => {
           rowClassName="align-top"
         />
       </Card>
-
-      <EditProfileModal
-        open={isEditOpen}
-        profile={profileEdit}
-        user={user}
-        onClose={() => {
-          setProfileEdit(null);
-          setIsEditOpen(false);
-        }}
-        onUpdated={async () => {
-          await fetchProfiles();
-        }}
-      />
     </>
   );
 };
