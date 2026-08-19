@@ -255,9 +255,13 @@
       "submit": "Create Project"
     },
     "detail": {
-      "subtitle": "Edit the project details and manage its documents.",
+      "subtitle": "No description yet — click Edit to add one.",
       "notFound": "Project not found",
-      "documentsTitle": "Documents"
+      "documentsTitle": "Documents",
+      "statsAria": "Project statistics",
+      "noProfile": "No profile assigned",
+      "docsHint": "{count} segments",
+      "progressHint": "{finished}/{total} segments reviewed"
     }
   },
   "tms": {

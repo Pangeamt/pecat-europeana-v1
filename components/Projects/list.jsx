@@ -4,8 +4,6 @@ import {
   Button,
   Card,
   Empty,
-  Form,
-  Input,
   message,
   Modal,
   Popconfirm,
@@ -24,11 +22,11 @@ import { useWorkspaceScopeLabel } from "@/components/shared/useWorkspaceScopeLab
 import {
   deleteProjectRequest,
   listProjectsRequest,
-  updateProjectRequest,
 } from "@/services/project.services";
 import { userStore } from "@/store";
 import { Building2, Database, FolderKanban } from "lucide-react";
 import ProjectAdd from "./add";
+import EditProjectModal from "./EditProjectModal";
 
 const ProjectList = () => {
   const { t } = useTranslation();
@@ -36,7 +34,6 @@ const ProjectList = () => {
   const { label: workspaceLabel, loading: workspaceLabelLoading } =
     useWorkspaceScopeLabel(user);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editForm] = Form.useForm();
   const [projectEdit, setProjectEdit] = useState(null);
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState([]);
@@ -77,27 +74,6 @@ const ProjectList = () => {
           error?.response?.data?.message || t("projects.messages.deleteError"),
         key: "delete-project",
       });
-    }
-  };
-
-  const openEditModal = (record) => {
-    setProjectEdit(record);
-    editForm.setFieldsValue({ name: record.name });
-  };
-
-  const handleEditOk = async () => {
-    try {
-      const values = await editForm.validateFields();
-      await updateProjectRequest(projectEdit.id, { name: values.name });
-      setProjectEdit(null);
-      await fetchProjects();
-      message.success(t("projects.messages.updated"));
-    } catch (error) {
-      if (error?.errorFields) return;
-      console.error(error);
-      message.error(
-        error?.response?.data?.message || t("projects.messages.updateError"),
-      );
     }
   };
 
@@ -181,7 +157,7 @@ const ProjectList = () => {
               icon={<EditOutlined />}
               type="text"
               size="small"
-              onClick={() => openEditModal(record)}
+              onClick={() => setProjectEdit(record)}
             />
           </Tooltip>
           <Popconfirm
@@ -318,25 +294,15 @@ const ProjectList = () => {
         />
       </Modal>
 
-      <Modal
-        title={t("projects.editModalTitle")}
+      <EditProjectModal
         open={Boolean(projectEdit)}
-        onCancel={() => setProjectEdit(null)}
-        onOk={handleEditOk}
-        destroyOnHidden
-      >
-        <Form form={editForm} layout="vertical">
-          <Form.Item
-            label={t("projects.create.nameLabel")}
-            name="name"
-            rules={[
-              { required: true, message: t("projects.create.nameRequired") },
-            ]}
-          >
-            <Input />
-          </Form.Item>
-        </Form>
-      </Modal>
+        project={projectEdit}
+        onClose={() => setProjectEdit(null)}
+        onSaved={async () => {
+          setProjectEdit(null);
+          await fetchProjects();
+        }}
+      />
     </>
   );
 };

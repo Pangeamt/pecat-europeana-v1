@@ -1,30 +1,48 @@
 "use client";
-import { ArrowLeftOutlined } from "@ant-design/icons";
-import { Button, Card, Empty, Form, Input, InputNumber, Select, Slider, Space, Spin, message } from "antd";
+import { ArrowLeftOutlined, EditOutlined } from "@ant-design/icons";
+import { Button, Card, Empty, Space, Spin, message } from "antd";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { CircleCheck, Files, Percent, SlidersHorizontal } from "lucide-react";
 
 import { useTranslation } from "@/components/i18n/LanguageProvider";
+import { StatCard, StatCardGrid } from "@/components/shared/StatCard";
 import { DOCUMENT_PENDING_STATUSES } from "@/lib/document-status";
-import { listProfilesRequest } from "@/services/profiles.services";
-import {
-  fetchProjectByIdRequest,
-  updateProjectRequest,
-} from "@/services/project.services";
+import { fetchProjectByIdRequest } from "@/services/project.services";
 import { saveDocumentLabel } from "@/services/document.services";
-import { userStore } from "@/store";
 import DocumentAdd from "@/components/Documents/add";
 import DocumentList from "@/components/Documents/list";
+import EditProjectModal from "./EditProjectModal";
+
+function summarizeDocuments(documents) {
+  let segmentsCount = 0;
+  let finishedCount = 0;
+
+  for (const doc of documents) {
+    const total = doc.totalCount ?? 0;
+    segmentsCount += total;
+    const pending = (doc.countByStatus ?? [])
+      .filter(
+        (item) =>
+          item.Status === "NOT_REVIEWED" || item.Status === "TRANSLATED_MT",
+      )
+      .reduce((sum, item) => sum + item._count, 0);
+    finishedCount += total - pending;
+  }
+
+  return {
+    segmentsCount,
+    finishedCount,
+    progress:
+      segmentsCount > 0 ? Math.round((finishedCount * 100) / segmentsCount) : 0,
+  };
+}
 
 const ProjectDetail = ({ projectId }) => {
   const { t } = useTranslation();
-  const { user } = userStore();
-  const [form] = Form.useForm();
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [profiles, setProfiles] = useState([]);
-  const thresholdValue = Form.useWatch("threshold", form);
+  const [isEditOpen, setIsEditOpen] = useState(false);
 
   const fetchProject = useCallback(async () => {
     try {
@@ -46,13 +64,6 @@ const ProjectDetail = ({ projectId }) => {
   }, [fetchProject]);
 
   useEffect(() => {
-    if (!user?.workspaceId) return;
-    listProfilesRequest({ workspaceId: user.workspaceId })
-      .then((response) => setProfiles(response?.profiles ?? []))
-      .catch((error) => console.error(error));
-  }, [user?.workspaceId]);
-
-  useEffect(() => {
     const hasPending = (project?.documents ?? []).some((doc) =>
       DOCUMENT_PENDING_STATUSES.includes(doc.status),
     );
@@ -63,27 +74,6 @@ const ProjectDetail = ({ projectId }) => {
     }, 5000);
     return () => clearInterval(timer);
   }, [project?.documents]);
-
-  const handleSaveDetails = async (values) => {
-    try {
-      setSaving(true);
-      await updateProjectRequest(projectId, {
-        name: values.name,
-        description: values.description,
-        profileId: values.profileId,
-        threshold: values.threshold,
-      });
-      await fetchProject();
-      message.success(t("projects.messages.updated"));
-    } catch (error) {
-      console.error(error);
-      message.error(
-        error?.response?.data?.message || t("projects.messages.updateError"),
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const handleSaveDocumentLabel = async ({ documentId, label }) => {
     try {
@@ -118,6 +108,11 @@ const ProjectDetail = ({ projectId }) => {
     );
   }
 
+  const docsCount = project.documentsTotal ?? project.documents?.length ?? 0;
+  const { segmentsCount, finishedCount, progress } = summarizeDocuments(
+    project.documents ?? [],
+  );
+
   return (
     <Card style={{ marginLeft: 20 }} className="overflow-hidden">
       <div className="mb-5 rounded-2xl bg-slate-950 p-5 text-white">
@@ -128,102 +123,67 @@ const ProjectDetail = ({ projectId }) => {
             </div>
             <h2 className="mb-1 mt-2 text-2xl font-semibold">{project.name}</h2>
             <p className="m-0 text-sm text-slate-300">
-              {t("projects.detail.subtitle")}
+              {project.description || t("projects.detail.subtitle")}
             </p>
           </div>
           <Space wrap>
             <Link href="/dashboard">
               <Button icon={<ArrowLeftOutlined />}>{t("common.back")}</Button>
             </Link>
+            <Button
+              type="primary"
+              icon={<EditOutlined />}
+              onClick={() => setIsEditOpen(true)}
+            >
+              {t("actions.edit")}
+            </Button>
           </Space>
         </div>
       </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSaveDetails}
-          initialValues={{
-            name: project.name,
-            description: project.description ?? "",
-            profileId: project.profileId ?? undefined,
-            threshold: project.tmThreshold ?? 0.75,
-          }}
-        >
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <Form.Item
-              label={t("projects.create.nameLabel")}
-              name="name"
-              rules={[
-                { required: true, message: t("projects.create.nameRequired") },
-              ]}
-            >
-              <Input />
-            </Form.Item>
-            <Form.Item
-              label={t("projects.create.profileLabel")}
-              name="profileId"
-              rules={[
-                {
-                  required: true,
-                  message: t("projects.create.profileRequired"),
-                },
-              ]}
-            >
-              <Select
-                showSearch
-                optionFilterProp="label"
-                options={profiles.map((profile) => ({
-                  value: profile.id,
-                  label: profile.name,
-                }))}
-              />
-            </Form.Item>
-          </div>
-          <Form.Item
-            label={t("projects.create.descriptionLabel")}
-            name="description"
-          >
-            <Input.TextArea rows={2} />
-          </Form.Item>
-          <Form.Item
-            label={t("projects.create.thresholdLabel")}
-            name="threshold"
-          >
-            <div className="flex items-center gap-3">
-              <Slider
-                className="flex-1"
-                min={0}
-                max={1}
-                step={0.01}
-                value={thresholdValue}
-                onChange={(value) => form.setFieldsValue({ threshold: value })}
-              />
-              <InputNumber
-                min={0}
-                max={1}
-                step={0.01}
-                value={thresholdValue}
-                onChange={(value) => form.setFieldsValue({ threshold: value })}
-              />
-            </div>
-          </Form.Item>
-          <div className="flex justify-end">
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={saving}
-              style={{
-                background: "linear-gradient(135deg, #111827 0%, #2563eb 100%)",
-                border: 0,
-              }}
-            >
-              {t("common.save")}
-            </Button>
-          </div>
-        </Form>
-      </section>
+      <StatCardGrid columns={4} ariaLabel={t("projects.detail.statsAria")}>
+        <StatCard
+          label={t("projects.profileColumn")}
+          value={
+            project.profileId ? (
+              <Link
+                href={`/dashboard/profiles/${project.profileId}`}
+                className="hover:text-blue-600"
+              >
+                {project.profileName ?? t("projects.detail.noProfile")}
+              </Link>
+            ) : (
+              t("projects.detail.noProfile")
+            )
+          }
+          icon={SlidersHorizontal}
+          theme="violet"
+          compactValue
+        />
+        <StatCard
+          label={t("projects.create.thresholdLabel")}
+          value={`${Math.round((project.tmThreshold ?? 0) * 100)}%`}
+          icon={Percent}
+          theme="sky"
+        />
+        <StatCard
+          label={t("projects.docsColumn")}
+          value={docsCount}
+          hint={t("projects.detail.docsHint", { count: segmentsCount })}
+          icon={Files}
+          theme="slate"
+        />
+        <StatCard
+          label={t("table.progress")}
+          value={`${progress}%`}
+          hint={t("projects.detail.progressHint", {
+            finished: finishedCount,
+            total: segmentsCount,
+          })}
+          icon={CircleCheck}
+          theme="emerald"
+        />
+      </StatCardGrid>
 
       <section className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-center justify-between gap-3">
@@ -238,6 +198,16 @@ const ProjectDetail = ({ projectId }) => {
           onRefresh={fetchProject}
         />
       </section>
+
+      <EditProjectModal
+        open={isEditOpen}
+        project={project}
+        onClose={() => setIsEditOpen(false)}
+        onSaved={async () => {
+          setIsEditOpen(false);
+          await fetchProject();
+        }}
+      />
     </Card>
   );
 };

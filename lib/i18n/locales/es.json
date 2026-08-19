@@ -255,9 +255,13 @@
       "submit": "Crear proyecto"
     },
     "detail": {
-      "subtitle": "Edita los detalles del proyecto y gestiona sus documentos.",
+      "subtitle": "Sin descripción todavía — pulsa Editar para añadir una.",
       "notFound": "Proyecto no encontrado",
-      "documentsTitle": "Documentos"
+      "documentsTitle": "Documentos",
+      "statsAria": "Estadísticas del proyecto",
+      "noProfile": "Sin perfil asignado",
+      "docsHint": "{count} segmentos",
+      "progressHint": "{finished}/{total} segmentos revisados"
     }
   },
   "tms": {
