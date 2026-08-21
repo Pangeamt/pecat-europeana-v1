@@ -167,7 +167,7 @@ const WorkspaceList = () => {
       dataIndex: "createdAt",
       key: "createdAt",
       render: (value) => (
-        <span className="text-sm text-slate-600">{formatDate(value)}</span>
+        <span className="text-xs text-slate-600">{formatDate(value)}</span>
       ),
     },
     {

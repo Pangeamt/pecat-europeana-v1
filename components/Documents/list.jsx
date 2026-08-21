@@ -156,7 +156,7 @@ const DocumentList = ({ documents, loading, onSave, onRefresh }) => {
       sorter: (a, b) =>
         new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
       render: (text) => (
-        <span className="text-sm text-slate-600">
+        <span className="text-xs text-slate-600">
           {new Date(text).toLocaleString()}
         </span>
       ),
