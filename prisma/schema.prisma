@@ -114,48 +114,53 @@ model Project {
 /// One uploaded document. Legacy table name "projects" is kept because the
 /// database is shared with the running production deployment.
 model Document {
-  id                 String             @id @default(cuid())
-  label              String?
-  filename           String
-  filePath           String
-  uuid               String?            @unique
-  accessDeadline     DateTime?
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
-  userId             String
-  workspaceId        String
-  deletedAt          DateTime?
-  mt                 Boolean            @default(false)
-  tmMode             String             @default("standard")
-  tmThreshold        Float              @default(0)
-  extension          String             @default("json")
+  id                       String             @id @default(cuid())
+  label                    String?
+  filename                 String
+  filePath                 String
+  uuid                     String?            @unique
+  accessDeadline           DateTime?
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
+  userId                   String
+  workspaceId              String
+  deletedAt                DateTime?
+  mt                       Boolean            @default(false)
+  tmMode                   String             @default("standard")
+  tmThreshold              Float              @default(0)
+  extension                String             @default("json")
   /// pdocs document id (module-pdocs service); set for documents whose file was
   /// extracted there and needed to rebuild the translated document on export.
-  documentId         String?
-  sourceLanguage     String?
-  targetLanguage     String?
-  exampleXml         String?
+  documentId               String?
+  sourceLanguage           String?
+  targetLanguage           String?
+  exampleXml               String?
   /// Lifecycle state as plain string so adding states needs no migration;
   /// the source of truth is lib/document-status.js.
-  status             String             @default("UPLOADED")
+  status                   String             @default("UPLOADED")
   /// Parent project; nullable only for legacy rows until the deploy backfill.
-  projectId          String?            @map("clientProjectId")
+  projectId                String?            @map("clientProjectId")
   /// true = TMs/glossaries were materialized from the project profile at
   /// creation; false = they were hand-picked in the upload wizard.
-  inheritProfile     Boolean            @default(true)
+  inheritProfile           Boolean            @default(true)
   /// Assigned reviewer/translator (each workspace user, not necessarily the
   /// uploader): drive both the "who works this document" UI and — for the
   /// USER role — document visibility itself. See buildDocumentScopeWhere.
-  translatorId       String?
-  reviewerId         String?
-  User               User               @relation(fields: [userId], references: [id])
-  workspace          Workspace          @relation(fields: [workspaceId], references: [id])
-  project            Project?           @relation(fields: [projectId], references: [id])
-  translator         User?              @relation("DocumentTranslator", fields: [translatorId], references: [id])
-  reviewer           User?              @relation("DocumentReviewer", fields: [reviewerId], references: [id])
-  tus                Tu[]
-  documentTms        DocumentTm[]
-  documentGlossaries DocumentGlossary[]
+  translatorId             String?
+  reviewerId               String?
+  /// Anonymous, no-login translator link: possession of this token is the
+  /// authorization (same bypass pattern as uuid/accessDeadline above), but
+  /// it lives indefinitely until an ADMIN/SUPER revokes it — no auto-expiry.
+  translatorShareToken     String?            @unique
+  translatorShareCreatedAt DateTime?
+  User                     User               @relation(fields: [userId], references: [id])
+  workspace                Workspace          @relation(fields: [workspaceId], references: [id])
+  project                  Project?           @relation(fields: [projectId], references: [id])
+  translator               User?              @relation("DocumentTranslator", fields: [translatorId], references: [id])
+  reviewer                 User?              @relation("DocumentReviewer", fields: [reviewerId], references: [id])
+  tus                      Tu[]
+  documentTms              DocumentTm[]
+  documentGlossaries       DocumentGlossary[]
 
   @@index([userId], map: "projects_userId_fkey")
   @@index([workspaceId], map: "projects_workspaceId_fkey")

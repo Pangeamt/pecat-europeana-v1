@@ -6,6 +6,13 @@ import {
   searchMemoryTus,
   updateMemoryTu,
 } from "@/lib/daait";
+import { findDocumentWithTmsByShareToken } from "@/modules/documents/repository";
+
+// Public "share as translator" link: the document (and the TMs it's
+// actually linked to) is resolved by token, no actorUser involved.
+export async function findDocumentForTmAppendByShareToken(token) {
+  return findDocumentWithTmsByShareToken(token);
+}
 
 export async function listTus(translationMemoryId, size = 10000) {
   return getMemoryTus(translationMemoryId, { size });

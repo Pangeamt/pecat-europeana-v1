@@ -1,3 +1,4 @@
+import { uid } from "uid";
 import { HttpError } from "../shared/http-error";
 import { assertWorkspaceAssetAccess } from "../shared/roles";
 import {
@@ -5,6 +6,7 @@ import {
   findDocuments,
   findDocumentForActor,
   findDocumentWithTmsForActor,
+  findDocumentWithTmsByShareToken,
   findWorkspaceUserById,
   getDocumentStatusCounts,
   setDocumentTmUpdateFlags,
@@ -18,12 +20,7 @@ function mapUserImage(user) {
   return { ...user, image: user.image ? user.image.toString("utf-8") : null };
 }
 
-export async function getDocumentByIdService(documentId, actorUser) {
-  const document = await findDocumentWithTmsForActor(documentId, actorUser);
-  if (!document) {
-    throw new HttpError(404, "Document not found");
-  }
-
+function shapeDocumentWithTms(document) {
   const tmIds = [];
   const tmNames = [];
   const tms = [];
@@ -56,6 +53,77 @@ export async function getDocumentByIdService(documentId, actorUser) {
     glossaryIds,
     glossaryNames,
   };
+}
+
+export async function getDocumentByIdService(documentId, actorUser) {
+  const document = await findDocumentWithTmsForActor(documentId, actorUser);
+  if (!document) {
+    throw new HttpError(404, "Document not found");
+  }
+
+  return shapeDocumentWithTms(document);
+}
+
+// Public "share as translator" link consumer: resolves the document by
+// token only, no actorUser — feeds the standalone /share/tu/[token] editor.
+export async function getDocumentConfigByShareTokenService(token) {
+  const document = await findDocumentWithTmsByShareToken(token);
+  if (!document) {
+    throw new HttpError(404, "Document not found");
+  }
+
+  return shapeDocumentWithTms(document);
+}
+
+// Only ADMIN/SUPER manage the translator share link — it grants full,
+// no-login write access to the document's segments to anyone holding the
+// URL, so creating/revoking it is a management action like assignment.
+export async function getDocumentTranslatorShareService(documentId, actorUser) {
+  assertWorkspaceAssetAccess(actorUser);
+
+  const document = await findDocumentForActor(documentId, actorUser);
+  if (!document) {
+    throw new HttpError(404, "Document not found");
+  }
+
+  return { token: document.translatorShareToken ?? null };
+}
+
+export async function generateDocumentTranslatorShareService(
+  documentId,
+  actorUser,
+) {
+  assertWorkspaceAssetAccess(actorUser);
+
+  const document = await findDocumentForActor(documentId, actorUser);
+  if (!document) {
+    throw new HttpError(404, "Document not found");
+  }
+
+  const token = uid();
+  await updateDocumentById(documentId, {
+    translatorShareToken: token,
+    translatorShareCreatedAt: new Date(),
+  });
+
+  return { token };
+}
+
+export async function revokeDocumentTranslatorShareService(
+  documentId,
+  actorUser,
+) {
+  assertWorkspaceAssetAccess(actorUser);
+
+  const document = await findDocumentForActor(documentId, actorUser);
+  if (!document) {
+    throw new HttpError(404, "Document not found");
+  }
+
+  await updateDocumentById(documentId, {
+    translatorShareToken: null,
+    translatorShareCreatedAt: null,
+  });
 }
 
 export async function updateDocumentTmsService(documentId, updateTmIds, actorUser) {

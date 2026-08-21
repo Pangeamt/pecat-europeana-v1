@@ -8,6 +8,7 @@ import { findTmRecordById } from "@/modules/memory/tm/prisma-repository";
 import {
   createTu,
   deleteTu,
+  findDocumentForTmAppendByShareToken,
   getTmById,
   listAllTus,
   listTus,
@@ -286,6 +287,34 @@ export async function appendTranslationUnitService(payload, actorUser) {
   await Promise.all(
     tmIds.map(async (tmId) => {
       await assertTmAccessibleByActor(tmId, actorUser);
+      await assertTranslationMemoryExists(tmId);
+      await appendTu(tmId, source, target);
+    }),
+  );
+
+  return { success: true, tmIds, source, target };
+}
+
+// Public "share as translator" link consumer: there's no actorUser/workspace
+// to check tmIds against, so — more strictly than the authenticated path —
+// only TMs actually linked to the token's own document are allowed.
+export async function appendTranslationUnitByShareTokenService(token, payload) {
+  const { tmIds, source, target } = payload;
+
+  const document = await findDocumentForTmAppendByShareToken(token);
+  if (!document) {
+    throw new HttpError(404, "Document not found");
+  }
+
+  const allowedTmIds = new Set(document.documentTms.map((link) => link.tmId));
+  for (const tmId of tmIds) {
+    if (!allowedTmIds.has(tmId)) {
+      throw new HttpError(403, "Translation memory not linked to this document");
+    }
+  }
+
+  await Promise.all(
+    tmIds.map(async (tmId) => {
       await assertTranslationMemoryExists(tmId);
       await appendTu(tmId, source, target);
     }),

@@ -7,6 +7,7 @@ export {
   deleteTranslationUnitService,
   updateTranslationUnitService,
   appendTranslationUnitService,
+  appendTranslationUnitByShareTokenService,
 } from "./service";
 
 export {

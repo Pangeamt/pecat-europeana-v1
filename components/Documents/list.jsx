@@ -3,6 +3,7 @@ import {
   ArrowRightOutlined,
   DeleteOutlined,
   DownloadOutlined,
+  LinkOutlined,
   PlusOutlined,
 } from "@ant-design/icons";
 import { Button, Empty, message, Popconfirm, Progress, Space, Table, Tag, Tooltip } from "antd";
@@ -23,6 +24,7 @@ import {
 import UserAvatar from "@/components/shared/UserAvatar";
 import AssignUserModal from "./AssignUserModal";
 import DocumentEdit from "./edit";
+import TranslatorShareModal from "./TranslatorShareModal";
 
 const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -37,6 +39,7 @@ const DocumentList = ({
   const { t } = useTranslation();
   const [requesting, setRequesting] = useState("");
   const [assignTarget, setAssignTarget] = useState(null);
+  const [shareTarget, setShareTarget] = useState(null);
 
   const getDocumentStatusTag = (status) => {
     const color = DOCUMENT_STATUS_COLORS[status] ?? "default";
@@ -271,6 +274,16 @@ const DocumentList = ({
             />
           </Tooltip>
           <DocumentEdit document={record} save={onSave} />
+          {canAssign ? (
+            <Tooltip title={t("documents.share.tooltip")}>
+              <Button
+                size="small"
+                type="text"
+                icon={<LinkOutlined />}
+                onClick={() => setShareTarget(record.id)}
+              />
+            </Tooltip>
+          ) : null}
           <Popconfirm
             title={t("documents.deleteTitle")}
             description={t("documents.deleteDescription")}
@@ -319,6 +332,12 @@ const DocumentList = ({
           setAssignTarget(null);
           await onRefresh?.();
         }}
+      />
+
+      <TranslatorShareModal
+        open={Boolean(shareTarget)}
+        documentId={shareTarget}
+        onClose={() => setShareTarget(null)}
       />
     </>
   );

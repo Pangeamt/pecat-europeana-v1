@@ -70,3 +70,34 @@ export const assignDocumentUser = async (
   );
   return response.data;
 };
+
+// Public "share as translator" link — no login required, the token in the
+// URL is the authorization. Used by the standalone /share/tu/[token] editor.
+export const getDocumentConfigByShareToken = async (token: string) => {
+  return await httpClient({
+    method: "get",
+    url: `/api/share/tu/${token}`,
+  });
+};
+
+// Admin-only lifecycle of that link: get current state, (re)generate, revoke.
+export const getTranslatorShareLink = async (documentId: string) => {
+  const response = await httpClient.get(
+    `/api/documents/${documentId}/translator-share`,
+  );
+  return response.data;
+};
+
+export const createTranslatorShareLink = async (documentId: string) => {
+  const response = await httpClient.post(
+    `/api/documents/${documentId}/translator-share`,
+  );
+  return response.data;
+};
+
+export const revokeTranslatorShareLink = async (documentId: string) => {
+  const response = await httpClient.delete(
+    `/api/documents/${documentId}/translator-share`,
+  );
+  return response.data;
+};

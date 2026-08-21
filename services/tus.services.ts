@@ -71,6 +71,39 @@ export const getTus = async (
   });
 };
 
+// Public "share as translator" link — no login required, the token is the
+// authorization.
+export const getTusByShareToken = async (
+  token: string,
+): Promise<AxiosResponse<{ total: number; docs: ProjectTu[] }>> => {
+  return await httpClient({
+    method: "get",
+    url: `/api/share/tu/${token}/tus`,
+  });
+};
+
+export const confirmTuByShareToken = async (
+  token: string,
+  payload: UpdateProjectTuPayload,
+): Promise<AxiosResponse<{ tu: ProjectTu; alsoUpdated: ProjectTu[] }>> => {
+  return await httpClient({
+    method: "patch",
+    url: `/api/share/tu/${token}/tus`,
+    data: payload,
+  });
+};
+
+export const appendTuByShareToken = async (
+  token: string,
+  payload: tuAppendPayload,
+): Promise<AxiosResponse<unknown>> => {
+  return await httpClient({
+    method: "post",
+    url: `/api/share/tu/${token}/tus`,
+    data: payload,
+  });
+};
+
 export const getTmTus = async (
   params: SearchTuQuery,
 ): Promise<AxiosResponse<TuListResponse>> => {

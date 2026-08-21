@@ -54,6 +54,48 @@ export async function findDocumentById(id) {
   });
 }
 
+// Public "share as translator" link: the token itself is the authorization,
+// no actor/workspace scoping — mirrors the existing uuid/accessDeadline
+// download-share bypass (see modules/extraction/service.js).
+export async function findDocumentByShareToken(token) {
+  if (!token) return null;
+  return prisma.document.findFirst({
+    where: { translatorShareToken: token, deletedAt: null },
+  });
+}
+
+export async function findDocumentWithTmsByShareToken(token) {
+  if (!token) return null;
+  return prisma.document.findFirst({
+    where: { translatorShareToken: token, deletedAt: null },
+    include: {
+      documentTms: {
+        select: {
+          tmId: true,
+          updateTm: true,
+          tm: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      },
+      documentGlossaries: {
+        select: {
+          glossaryId: true,
+          glossary: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
 export function buildDocumentScopeWhere(actorUser, extra = {}) {
   const role = String(actorUser?.role || "").toUpperCase();
 

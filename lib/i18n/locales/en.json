@@ -124,6 +124,22 @@
       "saved": "Assignment updated",
       "saveError": "Could not update the assignment"
     },
+    "share": {
+      "tooltip": "Share as translator (no login)",
+      "modalTitle": "Share as translator",
+      "description": "Generate a link that gives full translate/review access to this document, without logging in. It stays active until you revoke it.",
+      "generate": "Generate link",
+      "copy": "Copy",
+      "copied": "Link copied",
+      "copyError": "Could not copy the link",
+      "created": "Link created",
+      "activeWarning": "Anyone with this link can edit and approve segments in this document, without logging in.",
+      "revoke": "Revoke link",
+      "revokeTitle": "Revoke this link?",
+      "revokeDescription": "The link will stop working immediately.",
+      "revoked": "Link revoked",
+      "saveError": "Could not update the link"
+    },
     "status": {
       "UPLOADED": "Uploaded",
       "PROCESSING": "Processing",

@@ -38,8 +38,18 @@ import XMLViewer from "react-xml-viewer";
 import GlossaryTool from "@/components/Tus/glossaryTool";
 import StatsTus from "@/components/Tus/statsTus";
 import TmTool from "@/components/Tus/tmTool";
-import { getDocument as getProject } from "@/services/document.services";
-import { appendTu, confirmTu, getTus } from "@/services/tus.services";
+import {
+  getDocument as getProject,
+  getDocumentConfigByShareToken,
+} from "@/services/document.services";
+import {
+  appendTu,
+  appendTuByShareToken,
+  confirmTu,
+  confirmTuByShareToken,
+  getTus,
+  getTusByShareToken,
+} from "@/services/tus.services";
 import { userStore } from "@/store";
 import { getTextDirection } from "@/lib/locale-direction";
 import CustomTextArea from "../../components/CustomTextArea";
@@ -73,8 +83,14 @@ const EMPTY_STATS = {
   mtqe100Words: 0,
 };
 
-const TusList = () => {
-  const { projectId } = useParams();
+// Pass `shareToken` to render the standalone, no-login "share as translator"
+// editor (app/share/tu/[token]/page.jsx): every network call is routed
+// through the token-authenticated /api/share/tu/[token]/* endpoints instead
+// of the session-authenticated ones, and the document id is never taken
+// from the URL (there is none) — it comes back from the config fetch.
+const TusList = ({ shareToken } = {}) => {
+  const { projectId: routeProjectId } = useParams();
+  const projectId = shareToken ? null : routeProjectId;
   const [data, setData] = useState([]);
   const [projectConfig, setProjectConfig] = useState(null);
   const [showUnderThreshold, setShowUnderThreshold] = useState(false);
@@ -114,7 +130,9 @@ const TusList = () => {
     const get = async () => {
       try {
         setRequesting(true);
-        const response = await getTus(projectId);
+        const response = shareToken
+          ? await getTusByShareToken(shareToken)
+          : await getTus(projectId);
         const docs = response.data.docs || [];
         setData(docs);
         setSelectedRow((prev) => prev || docs[0] || null);
@@ -129,12 +147,14 @@ const TusList = () => {
         setRequesting(false);
       }
     };
-    if (projectId) get();
-  }, [projectId, messageApi]);
+    if (shareToken || projectId) get();
+  }, [shareToken, projectId, messageApi]);
 
   const getProjectConfig = useCallback(async () => {
     try {
-      const response = await getProject(projectId);
+      const response = shareToken
+        ? await getDocumentConfigByShareToken(shareToken)
+        : await getProject(projectId);
       setProjectConfig(response.data);
     } catch (error) {
       console.error(error);
@@ -143,7 +163,7 @@ const TusList = () => {
       );
       setProjectConfig(null);
     }
-  }, [projectId, messageApi]);
+  }, [shareToken, projectId, messageApi]);
 
   useEffect(() => {
     const run = async () => {
@@ -611,7 +631,9 @@ const TusList = () => {
   ];
 
   const confirm = async ({ tuId, reviewLiteral, action }) => {
-    const response = await confirmTu({ tuId, reviewLiteral, action });
+    const response = shareToken
+      ? await confirmTuByShareToken(shareToken, { tuId, reviewLiteral, action })
+      : await confirmTu({ tuId, reviewLiteral, action });
     const { tu, alsoUpdated = [] } = response.data;
     const updatedById = new Map(
       [tu, ...alsoUpdated].map((item) => [item.id, item]),
@@ -700,11 +722,15 @@ const TusList = () => {
             (tmId) => projectConfig.tms.find((tm) => tm.id === tmId)?.updateTm,
           );
           if (tmIds.length > 0) {
-            appendTu({
+            const appendPayload = {
               tmIds,
               source: currentRow.srcLiteral,
               target: reviewLiteral,
-            }).catch((appendError) => {
+            };
+            const appendPromise = shareToken
+              ? appendTuByShareToken(shareToken, appendPayload)
+              : appendTu(appendPayload);
+            appendPromise.catch((appendError) => {
               console.error(appendError);
               messageApi.warning("Segment saved, but TM update failed");
             });
@@ -828,8 +854,8 @@ const TusList = () => {
             projectConfig?.glossaryIds?.length
           }
           glossaryNames={projectConfig?.glossaryNames}
-          projectId={projectId}
-          parentProjectId={projectConfig?.projectId}
+          projectId={shareToken ? undefined : projectId}
+          parentProjectId={shareToken ? undefined : projectConfig?.projectId}
           projectTms={projectConfig?.tms}
           onTmsUpdated={getProjectConfig}
         />

@@ -1,5 +1,9 @@
 export {
   getDocumentByIdService,
+  getDocumentConfigByShareTokenService,
+  getDocumentTranslatorShareService,
+  generateDocumentTranslatorShareService,
+  revokeDocumentTranslatorShareService,
   listDocumentsByProjectService,
   updateDocumentLabelService,
   softDeleteDocumentService,

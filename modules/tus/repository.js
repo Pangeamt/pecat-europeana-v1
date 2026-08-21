@@ -1,10 +1,19 @@
 import prisma from "../../lib/prisma";
-import { buildDocumentScopeWhere } from "../documents/repository";
+import {
+  buildDocumentScopeWhere,
+  findDocumentByShareToken,
+} from "../documents/repository";
 
 export async function findDocumentForTus(documentId, actorUser) {
   if (!documentId) return null;
   const where = buildDocumentScopeWhere(actorUser, { id: documentId });
   return prisma.document.findFirst({ where });
+}
+
+// Public "share as translator" link: the token is the authorization,
+// no actorUser involved.
+export async function findDocumentByTusShareToken(token) {
+  return findDocumentByShareToken(token);
 }
 
 // Review UI listing: hidden segments (visibility rules) are not shown. The

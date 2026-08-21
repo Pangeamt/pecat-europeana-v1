@@ -124,6 +124,22 @@
       "saved": "Asignación actualizada",
       "saveError": "No se pudo actualizar la asignación"
     },
+    "share": {
+      "tooltip": "Compartir como traductor (sin login)",
+      "modalTitle": "Compartir como traductor",
+      "description": "Genera un enlace que da acceso completo de traducción/revisión a este documento, sin necesidad de iniciar sesión. Queda activo hasta que lo elimines.",
+      "generate": "Generar enlace",
+      "copy": "Copiar",
+      "copied": "Enlace copiado",
+      "copyError": "No se pudo copiar el enlace",
+      "created": "Enlace creado",
+      "activeWarning": "Cualquiera con este enlace puede editar y aprobar segmentos de este documento, sin iniciar sesión.",
+      "revoke": "Eliminar enlace",
+      "revokeTitle": "¿Eliminar este enlace?",
+      "revokeDescription": "El enlace dejará de funcionar de inmediato.",
+      "revoked": "Enlace eliminado",
+      "saveError": "No se pudo actualizar el enlace"
+    },
     "status": {
       "UPLOADED": "Subido",
       "PROCESSING": "Procesando",
