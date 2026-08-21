@@ -128,7 +128,18 @@ const HEADER_STYLE = {
 
 const CONTENT_STYLE = { padding: 15 };
 
-const SIDER_STYLE = { paddingRight: 10, background: "transparent" };
+// Pinned below the sticky header so it never scrolls out of view with a
+// tall main content area; scrolls internally if the menu itself ever grows
+// taller than the viewport.
+const SIDER_STYLE = {
+  paddingRight: 10,
+  background: "transparent",
+  position: "sticky",
+  top: HEADER_STYLE.height,
+  height: `calc(100vh - ${HEADER_STYLE.height}px)`,
+  overflowY: "auto",
+  alignSelf: "flex-start",
+};
 
 const MENU_STYLE = {
   background: "transparent",
