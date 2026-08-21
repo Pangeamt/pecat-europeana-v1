@@ -1,4 +1,5 @@
 import { HttpError } from "../shared/http-error";
+import { assertWorkspaceAssetAccess } from "../shared/roles";
 // Direct file import (not the modules/documents barrel) to avoid closing the
 // import cycle documents/import-service -> projects/repository.
 import { listDocumentsByProjectService } from "../documents/service";
@@ -74,6 +75,8 @@ export async function createProjectService(payload, actorUser) {
   if (!actorUser?.id) {
     throw new HttpError(401, "Unauthorized");
   }
+  // USER never manages projects, only works documents it's assigned to.
+  assertWorkspaceAssetAccess(actorUser);
 
   const workspaceId = actorUser.workspaceId;
   if (!workspaceId) {

@@ -209,15 +209,17 @@ const ProjectList = () => {
                 {t("projects.subtitle")}
               </p>
             </div>
-            <Space wrap>
-              <Button
-                icon={<PlusOutlined />}
-                type="primary"
-                onClick={() => setIsCreateOpen(true)}
-              >
-                {t("projects.createProject")}
-              </Button>
-            </Space>
+            {user?.role !== "USER" ? (
+              <Space wrap>
+                <Button
+                  icon={<PlusOutlined />}
+                  type="primary"
+                  onClick={() => setIsCreateOpen(true)}
+                >
+                  {t("projects.createProject")}
+                </Button>
+              </Space>
+            ) : null}
           </div>
         </div>
 

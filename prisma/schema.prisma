@@ -39,26 +39,28 @@ model Session {
 }
 
 model User {
-  id                String     @id @default(cuid())
-  name              String
-  email             String     @unique
-  salt              String?
-  hash              String?
-  emailVerified     DateTime?
-  image             Bytes?
-  role              Role       @default(USER)
-  language          String     @default("en")
-  provider          String?
-  workspaceId       String?
-  deletedAt         DateTime?
-  accounts          Account[]
-  documents         Document[]
-  projects          Project[]  @relation("ProjectCreatedBy")
-  sessions          Session[]
-  workspace         Workspace? @relation("WorkspaceMembers", fields: [workspaceId], references: [id])
-  createdTms        Tm[]       @relation("TmCreatedBy")
-  createdGlossaries Glossary[] @relation("GlossaryCreatedBy")
-  createdProfiles   Profile[]  @relation("ProfileCreatedBy")
+  id                    String     @id @default(cuid())
+  name                  String
+  email                 String     @unique
+  salt                  String?
+  hash                  String?
+  emailVerified         DateTime?
+  image                 Bytes?
+  role                  Role       @default(USER)
+  language              String     @default("en")
+  provider              String?
+  workspaceId           String?
+  deletedAt             DateTime?
+  accounts              Account[]
+  documents             Document[]
+  projects              Project[]  @relation("ProjectCreatedBy")
+  sessions              Session[]
+  workspace             Workspace? @relation("WorkspaceMembers", fields: [workspaceId], references: [id])
+  createdTms            Tm[]       @relation("TmCreatedBy")
+  createdGlossaries     Glossary[] @relation("GlossaryCreatedBy")
+  createdProfiles       Profile[]  @relation("ProfileCreatedBy")
+  documentsAsTranslator Document[] @relation("DocumentTranslator")
+  documentsAsReviewer   Document[] @relation("DocumentReviewer")
 
   @@index([workspaceId], map: "users_workspaceId_fkey")
   @@index([deletedAt], map: "users_deletedAt_idx")
@@ -141,9 +143,16 @@ model Document {
   /// true = TMs/glossaries were materialized from the project profile at
   /// creation; false = they were hand-picked in the upload wizard.
   inheritProfile     Boolean            @default(true)
+  /// Assigned reviewer/translator (each workspace user, not necessarily the
+  /// uploader): drive both the "who works this document" UI and — for the
+  /// USER role — document visibility itself. See buildDocumentScopeWhere.
+  translatorId       String?
+  reviewerId         String?
   User               User               @relation(fields: [userId], references: [id])
   workspace          Workspace          @relation(fields: [workspaceId], references: [id])
   project            Project?           @relation(fields: [projectId], references: [id])
+  translator         User?              @relation("DocumentTranslator", fields: [translatorId], references: [id])
+  reviewer           User?              @relation("DocumentReviewer", fields: [reviewerId], references: [id])
   tus                Tu[]
   documentTms        DocumentTm[]
   documentGlossaries DocumentGlossary[]
@@ -151,6 +160,8 @@ model Document {
   @@index([userId], map: "projects_userId_fkey")
   @@index([workspaceId], map: "projects_workspaceId_fkey")
   @@index([projectId], map: "projects_clientProjectId_idx")
+  @@index([translatorId], map: "projects_translatorId_fkey")
+  @@index([reviewerId], map: "projects_reviewerId_fkey")
   @@map("projects")
 }
 

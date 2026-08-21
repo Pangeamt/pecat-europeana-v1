@@ -7,6 +7,7 @@ import { checkFile } from "../../lib/utils";
 import { enqueueProjectImport } from "../../lib/queue";
 import { DOCUMENT_STATUS } from "../../lib/document-status";
 import { HttpError } from "../shared/http-error";
+import { assertWorkspaceAssetAccess } from "../shared/roles";
 import {
   findValidGlossaryIdsInWorkspace,
   findValidTmIdsInWorkspace,
@@ -463,6 +464,10 @@ export async function importDocumentsService({
   projectId,
   actorUser,
 }) {
+  // Uploading is a management action: USER only ever works documents it's
+  // already assigned to, it never creates new ones.
+  assertWorkspaceAssetAccess(actorUser);
+
   const project = await findProjectWithProfileForActor(projectId, actorUser);
   if (!project) {
     throw new HttpError(404, "Project not found");

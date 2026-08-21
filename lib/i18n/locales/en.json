@@ -114,6 +114,16 @@
     "editTooltip": "Edit label",
     "editModalTitle": "Edit document label",
     "editError": "Could not update document",
+    "assign": {
+      "translator": "Translator",
+      "reviewer": "Reviewer",
+      "addTooltip": "Assign",
+      "removeTooltip": "Remove assignment",
+      "modalTitle": "Assign {role}",
+      "selectPlaceholder": "Select a workspace user",
+      "saved": "Assignment updated",
+      "saveError": "Could not update the assignment"
+    },
     "status": {
       "UPLOADED": "Uploaded",
       "PROCESSING": "Processing",

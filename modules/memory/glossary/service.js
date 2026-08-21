@@ -1,4 +1,5 @@
 import { HttpError } from "@/modules/shared/http-error";
+import { assertWorkspaceAssetAccess } from "@/modules/shared/roles";
 import {
   createGlossaryWithIdDaait,
   deleteGlossaryDaait,
@@ -87,6 +88,7 @@ export async function createGlossaryService(payload, actorUser) {
   if (!actorUser?.id) {
     throw new HttpError(401, "Unauthorized");
   }
+  assertWorkspaceAssetAccess(actorUser);
 
   const workspaceId = payload.workspaceId ?? actorUser.workspaceId;
   if (!workspaceId) {
@@ -132,6 +134,7 @@ export async function createGlossaryService(payload, actorUser) {
 }
 
 export async function listGlossariesService(queryParams, actorUser) {
+  assertWorkspaceAssetAccess(actorUser);
   const {
     name,
     domain,
@@ -186,6 +189,7 @@ export async function listGlossariesService(queryParams, actorUser) {
 }
 
 export async function getGlossaryService(id, actorUser) {
+  assertWorkspaceAssetAccess(actorUser);
   const record = await assertGlossaryInWorkspace(id, actorUser);
 
   let daaitGlossary = null;
@@ -199,6 +203,7 @@ export async function getGlossaryService(id, actorUser) {
 }
 
 export async function updateGlossaryService(payload, actorUser) {
+  assertWorkspaceAssetAccess(actorUser);
   const { id, name, domain } = payload;
   await assertGlossaryInWorkspace(id, actorUser);
 
@@ -216,6 +221,7 @@ export async function updateGlossaryService(payload, actorUser) {
 }
 
 export async function deleteGlossaryService(id, actorUser) {
+  assertWorkspaceAssetAccess(actorUser);
   try {
     await assertGlossaryInWorkspace(id, actorUser);
     await softDeleteGlossaryRecord(id);
@@ -298,6 +304,7 @@ export async function listGlossaryEntriesService(
   actorUser,
   { page = 1, size = 100, filter } = {},
 ) {
+  assertWorkspaceAssetAccess(actorUser);
   const record = await assertGlossaryInWorkspace(glossaryId, actorUser);
 
   let response;

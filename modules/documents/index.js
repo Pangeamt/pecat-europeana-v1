@@ -4,6 +4,7 @@ export {
   updateDocumentLabelService,
   softDeleteDocumentService,
   updateDocumentTmsService,
+  assignDocumentUserService,
 } from "./service";
 
 export { importDocumentsService } from "./import-service";
@@ -15,4 +16,8 @@ export {
 
 export { getDocumentLogsStatsService } from "./logs-service";
 
-export { updateDocumentSchema, updateDocumentTmsSchema } from "./schemas";
+export {
+  updateDocumentSchema,
+  updateDocumentTmsSchema,
+  assignDocumentUserSchema,
+} from "./schemas";

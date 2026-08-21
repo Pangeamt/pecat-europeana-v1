@@ -1,4 +1,5 @@
 import { HttpError } from "../shared/http-error";
+import { assertWorkspaceAssetAccess } from "../shared/roles";
 import {
   createProfile,
   findProfileById,
@@ -77,6 +78,7 @@ async function resolveAssetIds(tmIds, glossaryIds, workspaceId) {
 }
 
 export async function listProfilesService(query, actorUser) {
+  assertWorkspaceAssetAccess(actorUser);
   const where = {};
 
   if (actorUser.role === "SUPER") {
@@ -91,6 +93,7 @@ export async function listProfilesService(query, actorUser) {
 }
 
 export async function getProfileByIdService(id, actorUser) {
+  assertWorkspaceAssetAccess(actorUser);
   await assertProfileInWorkspace(id, actorUser);
   const record = await findProfileById(id);
   return toProfileDoc(record);
@@ -100,6 +103,7 @@ export async function createProfileService(payload, actorUser) {
   if (!actorUser?.id) {
     throw new HttpError(401, "Unauthorized");
   }
+  assertWorkspaceAssetAccess(actorUser);
 
   const workspaceId = payload.workspaceId ?? actorUser.workspaceId;
   if (!workspaceId) {
@@ -137,6 +141,7 @@ export async function createProfileService(payload, actorUser) {
 }
 
 export async function updateProfileService(id, payload, actorUser) {
+  assertWorkspaceAssetAccess(actorUser);
   const existing = await assertProfileInWorkspace(id, actorUser);
 
   const data = {};
@@ -181,6 +186,7 @@ export async function updateProfileService(id, payload, actorUser) {
 }
 
 export async function deleteProfileService(id, actorUser) {
+  assertWorkspaceAssetAccess(actorUser);
   await assertProfileInWorkspace(id, actorUser);
   await softDeleteProfileRecord(id);
 }

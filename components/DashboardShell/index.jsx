@@ -63,35 +63,41 @@ const getSelectedKey = (pathname) => {
 // "Projects" nav entry rather than adding a false project match.
 
 const buildMenuItems = (role, t) => {
+  // USER is a restricted translator/reviewer role: it only works the
+  // documents it's assigned to, so Profiles/TMs/Glossaries (workspace-wide
+  // asset management) are hidden — matches the server-side 403s in
+  // assertWorkspaceAssetAccess.
   const items = [
     {
       key: MENU_KEYS.projects,
       icon: <FolderOutlined />,
       label: <Link href="/dashboard">{t("nav.projects")}</Link>,
     },
-    {
-      key: MENU_KEYS.profiles,
-      icon: <SlidersOutlined />,
-      label: <Link href="/dashboard/profiles">{t("nav.profiles")}</Link>,
-    },
-    {
-      key: MENU_KEYS.tms,
-      icon: <DatabaseOutlined />,
-      label: <Link href="/dashboard/tms">{t("nav.tms")}</Link>,
-    },
-    {
-      key: MENU_KEYS.glossaries,
-      icon: <BookOutlined />,
-      label: <Link href="/dashboard/glossaries">{t("nav.glossaries")}</Link>,
-    },
   ];
 
   if (role === "ADMIN" || role === "SUPER") {
-    items.push({
-      key: MENU_KEYS.users,
-      icon: <UserOutlined />,
-      label: <Link href="/dashboard/users">{t("nav.users")}</Link>,
-    });
+    items.push(
+      {
+        key: MENU_KEYS.profiles,
+        icon: <SlidersOutlined />,
+        label: <Link href="/dashboard/profiles">{t("nav.profiles")}</Link>,
+      },
+      {
+        key: MENU_KEYS.tms,
+        icon: <DatabaseOutlined />,
+        label: <Link href="/dashboard/tms">{t("nav.tms")}</Link>,
+      },
+      {
+        key: MENU_KEYS.glossaries,
+        icon: <BookOutlined />,
+        label: <Link href="/dashboard/glossaries">{t("nav.glossaries")}</Link>,
+      },
+      {
+        key: MENU_KEYS.users,
+        icon: <UserOutlined />,
+        label: <Link href="/dashboard/users">{t("nav.users")}</Link>,
+      },
+    );
   }
 
   if (role === "SUPER") {

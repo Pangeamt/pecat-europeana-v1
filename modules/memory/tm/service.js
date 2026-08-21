@@ -1,4 +1,5 @@
 import { HttpError } from "@/modules/shared/http-error";
+import { assertWorkspaceAssetAccess } from "@/modules/shared/roles";
 import {
   createTmWithIdDaait,
   deleteTmDaait,
@@ -71,6 +72,7 @@ export async function createTranslationMemoryService(payload, actorUser) {
   if (!actorUser?.id) {
     throw new HttpError(401, "Unauthorized");
   }
+  assertWorkspaceAssetAccess(actorUser);
 
   const workspaceId = payload.workspaceId ?? actorUser.workspaceId;
   if (!workspaceId) {
@@ -121,6 +123,7 @@ export async function createTranslationMemoryService(payload, actorUser) {
 }
 
 export async function listTranslationMemoriesService(queryParams, actorUser) {
+  assertWorkspaceAssetAccess(actorUser);
   const {
     name,
     domain,
@@ -175,6 +178,7 @@ export async function listTranslationMemoriesService(queryParams, actorUser) {
 }
 
 export async function getTranslationMemoryService(id, actorUser) {
+  assertWorkspaceAssetAccess(actorUser);
   const [record, daaitMemory] = await Promise.all([
     assertTmInWorkspace(id, actorUser),
     getTmDaait(id),
@@ -183,6 +187,7 @@ export async function getTranslationMemoryService(id, actorUser) {
 }
 
 export async function updateTranslationMemoryService(payload, actorUser) {
+  assertWorkspaceAssetAccess(actorUser);
   const { id, name, domain } = payload;
   await assertTmInWorkspace(id, actorUser);
 
@@ -200,6 +205,7 @@ export async function updateTranslationMemoryService(payload, actorUser) {
 }
 
 export async function deleteTranslationMemoryService(id, actorUser) {
+  assertWorkspaceAssetAccess(actorUser);
   try {
     await assertTmInWorkspace(id, actorUser);
     await softDeleteTmRecord(id);

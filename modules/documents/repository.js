@@ -16,6 +16,8 @@ export async function findDocuments(where) {
       targetLanguage: true,
       projectId: true,
       inheritProfile: true,
+      translatorId: true,
+      reviewerId: true,
       User: {
         select: {
           name: true,
@@ -28,7 +30,21 @@ export async function findDocuments(where) {
           name: true,
         },
       },
+      translator: {
+        select: { id: true, name: true, email: true, image: true },
+      },
+      reviewer: {
+        select: { id: true, name: true, email: true, image: true },
+      },
     },
+  });
+}
+
+export async function findWorkspaceUserById(userId, workspaceId) {
+  if (!userId) return null;
+  return prisma.user.findFirst({
+    where: { id: userId, workspaceId, deletedAt: null },
+    select: { id: true, name: true, email: true, image: true },
   });
 }
 
@@ -53,8 +69,10 @@ export function buildDocumentScopeWhere(actorUser, extra = {}) {
     where.workspaceId = "__no_workspace__";
   }
 
+  // USER visibility is assignment-only (translator or reviewer) — being the
+  // uploader no longer grants access on its own.
   if (role === "USER") {
-    where.userId = actorUser.id;
+    where.OR = [{ translatorId: actorUser.id }, { reviewerId: actorUser.id }];
   }
 
   return where;

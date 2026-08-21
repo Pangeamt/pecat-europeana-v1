@@ -3,6 +3,7 @@ import {
   ArrowRightOutlined,
   DeleteOutlined,
   DownloadOutlined,
+  PlusOutlined,
 } from "@ant-design/icons";
 import { Button, Empty, message, Popconfirm, Progress, Space, Table, Tag, Tooltip } from "antd";
 import Link from "next/link";
@@ -15,16 +16,27 @@ import {
   DOCUMENT_STATUS_COLORS,
 } from "@/lib/document-status";
 import {
+  assignDocumentUser,
   getDocumentShareLink,
   removeDocument,
 } from "@/services/document.services";
+import UserAvatar from "@/components/shared/UserAvatar";
+import AssignUserModal from "./AssignUserModal";
 import DocumentEdit from "./edit";
 
 const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
-const DocumentList = ({ documents, loading, onSave, onRefresh }) => {
+const DocumentList = ({
+  documents,
+  loading,
+  onSave,
+  onRefresh,
+  canAssign = false,
+  workspaceId,
+}) => {
   const { t } = useTranslation();
   const [requesting, setRequesting] = useState("");
+  const [assignTarget, setAssignTarget] = useState(null);
 
   const getDocumentStatusTag = (status) => {
     const color = DOCUMENT_STATUS_COLORS[status] ?? "default";
@@ -55,6 +67,50 @@ const DocumentList = ({ documents, loading, onSave, onRefresh }) => {
       console.error(error);
       message.error(t("documents.removeError"));
     }
+  };
+
+  const handleUnassign = async (documentId, role) => {
+    try {
+      await assignDocumentUser(documentId, role, null);
+      await onRefresh?.();
+    } catch (error) {
+      console.error(error);
+      message.error(
+        error?.response?.data?.message || t("documents.assign.saveError"),
+      );
+    }
+  };
+
+  const renderAssignmentCell = (record, role) => {
+    const assignee = record[role];
+    const openAssign = () => setAssignTarget({ document: record, role });
+
+    if (assignee) {
+      return (
+        <UserAvatar
+          user={assignee}
+          onClick={canAssign ? openAssign : undefined}
+          onRemove={canAssign ? () => handleUnassign(record.id, role) : undefined}
+          removeLabel={t("documents.assign.removeTooltip")}
+        />
+      );
+    }
+
+    if (!canAssign) {
+      return <span className="text-slate-300">—</span>;
+    }
+
+    return (
+      <Tooltip title={t("documents.assign.addTooltip")}>
+        <Button
+          shape="circle"
+          size="small"
+          type="dashed"
+          icon={<PlusOutlined />}
+          onClick={openAssign}
+        />
+      </Tooltip>
+    );
   };
 
   const columns = [
@@ -142,6 +198,20 @@ const DocumentList = ({ documents, loading, onSave, onRefresh }) => {
         ),
     },
     {
+      title: t("documents.assign.translator"),
+      key: "translator",
+      width: 70,
+      align: "center",
+      render: (record) => renderAssignmentCell(record, "translator"),
+    },
+    {
+      title: t("documents.assign.reviewer"),
+      key: "reviewer",
+      width: 70,
+      align: "center",
+      render: (record) => renderAssignmentCell(record, "reviewer"),
+    },
+    {
       title: t("table.segments"),
       key: "segments",
       width: 100,
@@ -218,24 +288,39 @@ const DocumentList = ({ documents, loading, onSave, onRefresh }) => {
   ];
 
   return (
-    <Table
-      loading={loading}
-      columns={columns}
-      dataSource={documents}
-      rowKey={(record) => record.id}
-      size="small"
-      scroll={{ x: 800 }}
-      showSorterTooltip={false}
-      locale={{
-        emptyText: (
-          <Empty
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description={t("documents.empty")}
-          />
-        ),
-      }}
-      rowClassName="align-top"
-    />
+    <>
+      <Table
+        loading={loading}
+        columns={columns}
+        dataSource={documents}
+        rowKey={(record) => record.id}
+        size="small"
+        scroll={{ x: 800 }}
+        showSorterTooltip={false}
+        locale={{
+          emptyText: (
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description={t("documents.empty")}
+            />
+          ),
+        }}
+        rowClassName="align-top"
+      />
+
+      <AssignUserModal
+        open={Boolean(assignTarget)}
+        documentId={assignTarget?.document.id}
+        role={assignTarget?.role}
+        workspaceId={workspaceId}
+        currentUserId={assignTarget?.document[assignTarget.role]?.id ?? null}
+        onClose={() => setAssignTarget(null)}
+        onSaved={async () => {
+          setAssignTarget(null);
+          await onRefresh?.();
+        }}
+      />
+    </>
   );
 };
 

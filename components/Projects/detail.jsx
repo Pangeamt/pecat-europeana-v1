@@ -12,6 +12,7 @@ import { fetchProjectByIdRequest } from "@/services/project.services";
 import { saveDocumentLabel } from "@/services/document.services";
 import DocumentAdd from "@/components/Documents/add";
 import DocumentList from "@/components/Documents/list";
+import { userStore } from "@/store";
 import EditProjectModal from "./EditProjectModal";
 
 function summarizeDocuments(documents) {
@@ -40,6 +41,7 @@ function summarizeDocuments(documents) {
 
 const ProjectDetail = ({ projectId }) => {
   const { t } = useTranslation();
+  const { user } = userStore();
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -190,12 +192,16 @@ const ProjectDetail = ({ projectId }) => {
           <div className="font-semibold text-slate-900">
             {t("projects.detail.documentsTitle")}
           </div>
-          <DocumentAdd project={project} refetch={fetchProject} />
+          {user?.role !== "USER" ? (
+            <DocumentAdd project={project} refetch={fetchProject} />
+          ) : null}
         </div>
         <DocumentList
           documents={project.documents ?? []}
           onSave={handleSaveDocumentLabel}
           onRefresh={fetchProject}
+          canAssign={user?.role === "ADMIN" || user?.role === "SUPER"}
+          workspaceId={project.workspaceId}
         />
       </section>
 

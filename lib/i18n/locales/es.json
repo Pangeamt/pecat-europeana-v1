@@ -114,6 +114,16 @@
     "editTooltip": "Editar etiqueta",
     "editModalTitle": "Editar etiqueta del documento",
     "editError": "No se pudo actualizar el documento",
+    "assign": {
+      "translator": "Traductor",
+      "reviewer": "Revisor",
+      "addTooltip": "Asignar",
+      "removeTooltip": "Quitar asignación",
+      "modalTitle": "Asignar {role}",
+      "selectPlaceholder": "Selecciona un usuario del espacio de trabajo",
+      "saved": "Asignación actualizada",
+      "saveError": "No se pudo actualizar la asignación"
+    },
     "status": {
       "UPLOADED": "Subido",
       "PROCESSING": "Procesando",

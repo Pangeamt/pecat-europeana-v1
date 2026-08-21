@@ -1,13 +1,22 @@
 import { HttpError } from "../shared/http-error";
+import { assertWorkspaceAssetAccess } from "../shared/roles";
 import {
   buildDocumentScopeWhere,
   findDocuments,
   findDocumentForActor,
   findDocumentWithTmsForActor,
+  findWorkspaceUserById,
   getDocumentStatusCounts,
   setDocumentTmUpdateFlags,
   updateDocumentById,
 } from "./repository";
+
+const ASSIGNMENT_FIELDS = { translator: "translatorId", reviewer: "reviewerId" };
+
+function mapUserImage(user) {
+  if (!user) return user;
+  return { ...user, image: user.image ? user.image.toString("utf-8") : null };
+}
 
 export async function getDocumentByIdService(documentId, actorUser) {
   const document = await findDocumentWithTmsForActor(documentId, actorUser);
@@ -75,7 +84,13 @@ export async function listDocumentsByProjectService(projectId, actorUser) {
       const { countByStatus, totalCount } = await getDocumentStatusCounts(
         document.id,
       );
-      return { ...document, countByStatus, totalCount };
+      return {
+        ...document,
+        translator: mapUserImage(document.translator),
+        reviewer: mapUserImage(document.reviewer),
+        countByStatus,
+        totalCount,
+      };
     }),
   );
 
@@ -101,4 +116,41 @@ export async function softDeleteDocumentService(documentId, actorUser) {
   }
 
   await updateDocumentById(documentId, { deletedAt: new Date() });
+}
+
+// Only ADMIN/SUPER assign — a document's translator/reviewer are the only
+// thing that grants a USER visibility into it, so this is a management
+// action, not something the affected users can do themselves.
+export async function assignDocumentUserService(
+  documentId,
+  role,
+  userId,
+  actorUser,
+) {
+  assertWorkspaceAssetAccess(actorUser);
+
+  const field = ASSIGNMENT_FIELDS[role];
+  if (!field) {
+    throw new HttpError(400, `Invalid assignment role: ${role}`);
+  }
+
+  const document = await findDocumentForActor(documentId, actorUser);
+  if (!document) {
+    throw new HttpError(404, "Document not found");
+  }
+
+  let assignee = null;
+  if (userId) {
+    assignee = await findWorkspaceUserById(userId, document.workspaceId);
+    if (!assignee) {
+      throw new HttpError(
+        400,
+        "The selected user does not exist or is not in this document's workspace",
+      );
+    }
+  }
+
+  await updateDocumentById(documentId, { [field]: userId || null });
+
+  return { [role]: mapUserImage(assignee) };
 }

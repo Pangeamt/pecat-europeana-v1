@@ -56,3 +56,17 @@ export const getDocumentShareLink = async (
   const { data } = await httpClient.get(`${baseURL}/api/file/${documentId}`);
   return `${baseURL}/api/file?uuid=${data.uuid}&projectId=${documentId}`;
 };
+
+export type DocumentAssignmentRole = "translator" | "reviewer";
+
+export const assignDocumentUser = async (
+  documentId: string,
+  role: DocumentAssignmentRole,
+  userId: string | null,
+) => {
+  const response = await httpClient.patch(
+    `/api/documents/${documentId}/assignments`,
+    { role, userId },
+  );
+  return response.data;
+};

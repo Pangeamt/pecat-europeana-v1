@@ -7,8 +7,9 @@ const projectInclude = {
   },
 };
 
-// Projects are workspace-level: every role sees the whole workspace (USER
-// scoping applies to the documents inside, not to the project list).
+// ADMIN/SUPER see every project in scope (workspace / global). USER only
+// sees a project if it contains at least one document assigned to them —
+// mirrors buildDocumentScopeWhere's assignment check one level up.
 export function buildProjectScopeWhere(actorUser, extra = {}) {
   const role = String(actorUser?.role || "").toUpperCase();
 
@@ -16,11 +17,22 @@ export function buildProjectScopeWhere(actorUser, extra = {}) {
     return { deletedAt: null, ...extra };
   }
 
-  return {
+  const where = {
     deletedAt: null,
     workspaceId: actorUser.workspaceId ?? "__no_workspace__",
     ...extra,
   };
+
+  if (role === "USER") {
+    where.documents = {
+      some: {
+        deletedAt: null,
+        OR: [{ translatorId: actorUser.id }, { reviewerId: actorUser.id }],
+      },
+    };
+  }
+
+  return where;
 }
 
 export async function createProject(data) {
@@ -82,8 +94,21 @@ export async function getProjectsWithStats(actorUser) {
     role === "SUPER"
       ? Prisma.empty
       : Prisma.sql`AND cp.workspaceId = ${actorUser.workspaceId ?? "__no_workspace__"}`;
+  // Both filters express the same "assigned as translator or reviewer" rule
+  // as buildDocumentScopeWhere/buildProjectScopeWhere, duplicated here
+  // because this query is raw SQL: keep them in sync if that rule changes.
   const documentUserFilter =
-    role === "USER" ? Prisma.sql`AND d.userId = ${actorUser.id}` : Prisma.empty;
+    role === "USER"
+      ? Prisma.sql`AND (d.translatorId = ${actorUser.id} OR d.reviewerId = ${actorUser.id})`
+      : Prisma.empty;
+  const assignmentExistsFilter =
+    role === "USER"
+      ? Prisma.sql`AND EXISTS (
+          SELECT 1 FROM projects d2
+          WHERE d2.clientProjectId = cp.id AND d2.deletedAt IS NULL
+            AND (d2.translatorId = ${actorUser.id} OR d2.reviewerId = ${actorUser.id})
+        )`
+      : Prisma.empty;
 
   const rows = await prisma.$queryRaw`
     SELECT cp.id,
@@ -102,7 +127,7 @@ export async function getProjectsWithStats(actorUser) {
     LEFT JOIN projects d
            ON d.clientProjectId = cp.id AND d.deletedAt IS NULL ${documentUserFilter}
     LEFT JOIN tus t ON t.projectId = d.id AND t.visible = 1
-    WHERE cp.deletedAt IS NULL ${workspaceFilter}
+    WHERE cp.deletedAt IS NULL ${workspaceFilter} ${assignmentExistsFilter}
     GROUP BY cp.id, cp.name, cp.description, cp.profileId, cp.tmThreshold,
              cp.createdAt, cp.updatedAt, pr.name
     ORDER BY cp.createdAt DESC
