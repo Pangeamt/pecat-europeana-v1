@@ -101,6 +101,12 @@ export async function softDeleteProfileRecord(id) {
   });
 }
 
+// Permanent delete (join rows cascade). Use only for rollback right after a
+// failed create; regular delete flows go through softDeleteProfileRecord.
+export async function hardDeleteProfileRecord(id) {
+  return prisma.profile.delete({ where: { id } });
+}
+
 // Rows (id + status) so the service can tell "does not exist in the
 // workspace" apart from "exists but its DAAIT build is not SUCCESS yet".
 export async function findTmAssetsInWorkspace(tmIds, workspaceId) {

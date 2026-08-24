@@ -8,9 +8,15 @@ import {
   findProfiles,
   findGlossaryAssetsInWorkspace,
   findTmAssetsInWorkspace,
+  hardDeleteProfileRecord,
   softDeleteProfileRecord,
   updateProfile,
 } from "./repository";
+import {
+  createProfileDaait,
+  deleteProfileDaait,
+  recreateProfileDaait,
+} from "./daait-repository";
 
 function optionalText(value) {
   if (value === undefined || value === null) return null;
@@ -144,19 +150,41 @@ export async function createProfileService(payload, actorUser) {
     workspaceId,
   );
 
-  const record = await createProfile(
-    {
-      name: payload.name,
-      description: optionalText(payload.description),
-      formality: payload.formality ?? "FORMAL",
-      instructions: optionalText(payload.instructions),
-      domain: optionalText(payload.domain),
-      createdByUserId: actorUser.id,
-      workspaceId,
-    },
-    validTmIds,
-    validGlossaryIds,
-  );
+  let record;
+  try {
+    record = await createProfile(
+      {
+        name: payload.name,
+        description: optionalText(payload.description),
+        formality: payload.formality ?? "FORMAL",
+        instructions: optionalText(payload.instructions),
+        domain: optionalText(payload.domain),
+        createdByUserId: actorUser.id,
+        workspaceId,
+      },
+      validTmIds,
+      validGlossaryIds,
+    );
+  } catch (error) {
+    throw new HttpError(
+      500,
+      `Failed to create profile in Prisma: ${error.message}`,
+      "PRISMA_CREATE_FAILED",
+    );
+  }
+
+  // Mirror the profile in DAAIT (same id) so translation requests can
+  // reference it; without the mirror the local profile is useless.
+  try {
+    await createProfileDaait(record);
+  } catch (error) {
+    await hardDeleteProfileRecord(record.id).catch(() => {});
+    throw new HttpError(
+      error.status || 500,
+      `Failed to create profile in Daait: ${error.message}`,
+      "DAAIT_CREATE_FAILED",
+    );
+  }
 
   return toProfileDoc(record);
 }
@@ -203,6 +231,21 @@ export async function updateProfileService(id, payload, actorUser) {
   }
 
   const record = await updateProfile(id, data, tmIds, glossaryIds);
+
+  // Refresh the DAAIT mirror only when profile fields changed; attaching or
+  // detaching TMs/glossaries is local-only and needs no recreate round-trip.
+  if (Object.keys(data).length > 0) {
+    try {
+      await recreateProfileDaait(record);
+    } catch (error) {
+      throw new HttpError(
+        error.status || 500,
+        `Failed to update profile in Daait: ${error.message}`,
+        "DAAIT_UPDATE_FAILED",
+      );
+    }
+  }
+
   return toProfileDoc(record);
 }
 
@@ -210,4 +253,18 @@ export async function deleteProfileService(id, actorUser) {
   assertWorkspaceAssetAccess(actorUser);
   await assertProfileInWorkspace(id, actorUser);
   await softDeleteProfileRecord(id);
+
+  // A missing mirror (pre-mirror profile) is fine; anything else must
+  // surface, or the DAAIT copy would silently outlive the local profile.
+  try {
+    await deleteProfileDaait(id);
+  } catch (error) {
+    if (error?.status !== 404) {
+      throw new HttpError(
+        error.status || 500,
+        `Failed to delete profile in Daait: ${error.message}`,
+        "DAAIT_DELETE_FAILED",
+      );
+    }
+  }
 }
