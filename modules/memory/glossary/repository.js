@@ -25,8 +25,8 @@ export async function listGlossariesDaait({ owner, page, size } = {}) {
   return listGlossaries({ owner, page, size });
 }
 
-export async function getGlossaryDaait(id) {
-  return getGlossary(id);
+export async function getGlossaryDaait(id, options) {
+  return getGlossary(id, options);
 }
 
 export async function deleteGlossaryDaait(id) {

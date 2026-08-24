@@ -21,8 +21,8 @@ export async function listTmsDaait({ owner, page, size } = {}) {
   return listMemories({ owner, page, size });
 }
 
-export async function getTmDaait(id) {
-  return getMemory(id);
+export async function getTmDaait(id, options) {
+  return getMemory(id, options);
 }
 
 export async function deleteTmDaait(id) {

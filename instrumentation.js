@@ -20,4 +20,19 @@ export async function register() {
       error?.message ?? error,
     );
   }
+
+  try {
+    const { startMemoryStatusWorker } = await import(
+      "@/modules/memory/status-worker"
+    );
+    startMemoryStatusWorker();
+    console.log("[instrumentation] Memory status worker started (15s sweep)");
+  } catch (error) {
+    // Without this worker TMs/glossaries stay in their last known status;
+    // listings still work because DAAIT enriches them live.
+    console.error(
+      "[instrumentation] Could not start the memory status worker:",
+      error?.message ?? error,
+    );
+  }
 }
