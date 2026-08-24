@@ -15,7 +15,7 @@ import {
 import {
   createProfileDaait,
   deleteProfileDaait,
-  recreateProfileDaait,
+  syncProfileDaait,
 } from "./daait-repository";
 
 function optionalText(value) {
@@ -35,6 +35,10 @@ function toProfileDoc(record) {
     formality: record.formality,
     instructions: record.instructions,
     domain: record.domain,
+    sourceLanguage: record.sourceLanguage,
+    targetLanguage: record.targetLanguage,
+    taskLevel: record.taskLevel,
+    llmModels: record.llmModels,
     workspaceId: record.workspaceId,
     createdByUserId: record.createdByUserId,
     createdBy: record.createdBy,
@@ -159,6 +163,10 @@ export async function createProfileService(payload, actorUser) {
         formality: payload.formality ?? "FORMAL",
         instructions: optionalText(payload.instructions),
         domain: optionalText(payload.domain),
+        sourceLanguage: optionalText(payload.sourceLanguage),
+        targetLanguage: optionalText(payload.targetLanguage),
+        taskLevel: payload.taskLevel ?? "MEDIUM",
+        llmModels: payload.llmModels ?? null,
         createdByUserId: actorUser.id,
         workspaceId,
       },
@@ -209,6 +217,12 @@ export async function updateProfileService(id, payload, actorUser) {
   if (payload.domain !== undefined) {
     data.domain = optionalText(payload.domain);
   }
+  if (payload.taskLevel !== undefined && payload.taskLevel !== null) {
+    data.taskLevel = payload.taskLevel;
+  }
+  if (payload.llmModels !== undefined) {
+    data.llmModels = payload.llmModels;
+  }
 
   let tmIds;
   let glossaryIds;
@@ -233,10 +247,10 @@ export async function updateProfileService(id, payload, actorUser) {
   const record = await updateProfile(id, data, tmIds, glossaryIds);
 
   // Refresh the DAAIT mirror only when profile fields changed; attaching or
-  // detaching TMs/glossaries is local-only and needs no recreate round-trip.
+  // detaching TMs/glossaries is local-only and needs no DAAIT round-trip.
   if (Object.keys(data).length > 0) {
     try {
-      await recreateProfileDaait(record);
+      await syncProfileDaait(record);
     } catch (error) {
       throw new HttpError(
         error.status || 500,

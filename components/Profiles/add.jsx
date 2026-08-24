@@ -9,10 +9,29 @@ import { Button, Form, Input, Modal, Select, Steps, Tag, message } from "antd";
 import { useState } from "react";
 
 import { useTranslation } from "@/components/i18n/LanguageProvider";
+import locales from "@/lib/locales.json";
 import { fetchGlossariesRequest } from "@/services/glossary.services";
 import { addProfileRequest } from "@/services/profiles.services";
 import { fetchTMRequest } from "@/services/tm.services";
 import { userStore } from "@/store";
+
+const languageOptions = Object.keys(locales).map((code) => ({
+  value: locales[code][0],
+  label: locales[code][0],
+}));
+
+// The selects show display names (same UX as CreateTmForm); DAAIT and the
+// backend want the locale code.
+const getLocaleCode = (locale) => {
+  if (!locale) return undefined;
+  return Object.keys(locales).find((key) => locales[key][0] === locale);
+};
+
+const TASK_LEVEL_OPTIONS = [
+  { value: "BASIC", label: "Basic" },
+  { value: "MEDIUM", label: "Medium" },
+  { value: "ADVANCED", label: "Advanced" },
+];
 
 const WIZARD_STEPS = [
   {
@@ -140,6 +159,9 @@ const ProfileAdd = ({ refetch }) => {
         formality: values.formality,
         instructions: values.instructions,
         domain: values.domain,
+        sourceLanguage: getLocaleCode(values.sourceLanguage),
+        targetLanguage: getLocaleCode(values.targetLanguage),
+        taskLevel: values.taskLevel,
         tmIds: values.tmIds ?? [],
         glossaryIds: values.glossaryIds ?? [],
       });
@@ -290,12 +312,44 @@ const ProfileAdd = ({ refetch }) => {
             <Form.Item
               label={t("profiles.form.descriptionLabel")}
               name="description"
+              rules={[
+                {
+                  required: true,
+                  message: t("profiles.form.descriptionRequired"),
+                },
+              ]}
             >
               <Input.TextArea
                 rows={2}
                 placeholder={t("profiles.form.descriptionPlaceholder")}
               />
             </Form.Item>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <Form.Item
+                label={t("profiles.form.sourceLanguageLabel")}
+                name="sourceLanguage"
+              >
+                <Select
+                  size="large"
+                  showSearch
+                  allowClear
+                  options={languageOptions}
+                  placeholder={t("profiles.form.optional")}
+                />
+              </Form.Item>
+              <Form.Item
+                label={t("profiles.form.targetLanguageLabel")}
+                name="targetLanguage"
+                rules={[
+                  {
+                    required: true,
+                    message: t("profiles.form.targetLanguageRequired"),
+                  },
+                ]}
+              >
+                <Select size="large" showSearch options={languageOptions} />
+              </Form.Item>
+            </div>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <Form.Item
                 label={t("profiles.form.formalityLabel")}
@@ -308,6 +362,14 @@ const ProfileAdd = ({ refetch }) => {
                 ]}
               >
                 <Select size="large" options={formalityOptions} />
+              </Form.Item>
+              <Form.Item
+                label={t("profiles.form.taskLevelLabel")}
+                name="taskLevel"
+                initialValue="MEDIUM"
+                tooltip={t("profiles.form.taskLevelHint")}
+              >
+                <Select size="large" options={TASK_LEVEL_OPTIONS} />
               </Form.Item>
             </div>
             <Form.Item
