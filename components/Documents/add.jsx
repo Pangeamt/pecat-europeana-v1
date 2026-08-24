@@ -99,9 +99,10 @@ const DocumentAdd = ({ project, refetch }) => {
     setIsModalOpen(true);
     if (!user?.workspaceId) return;
     setLoadingAssets(true);
+    // Only DAAIT-ready assets (SUCCESS) can be picked for a document.
     Promise.all([
-      fetchTMRequest({ workspaceId: user.workspaceId, size: 1000 }),
-      fetchGlossariesRequest({ workspaceId: user.workspaceId, size: 1000 }),
+      fetchTMRequest({ workspaceId: user.workspaceId, size: 1000, status: "SUCCESS" }),
+      fetchGlossariesRequest({ workspaceId: user.workspaceId, size: 1000, status: "SUCCESS" }),
     ])
       .then(([tmResponse, glossaryResponse]) => {
         setTms(tmResponse?.docs ?? []);

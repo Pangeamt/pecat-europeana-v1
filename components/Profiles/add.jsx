@@ -80,9 +80,10 @@ const ProfileAdd = ({ refetch }) => {
     setIsModalOpen(true);
 
     // The profile is always created in the user's own workspace, so only
-    // that workspace's assets are selectable.
+    // that workspace's assets are selectable — and only DAAIT-ready ones
+    // (a TM/glossary still building or failed cannot be attached).
     if (!user?.workspaceId) return;
-    const query = { workspaceId: user.workspaceId, size: 1000 };
+    const query = { workspaceId: user.workspaceId, size: 1000, status: "SUCCESS" };
 
     setLoadingAssets(true);
     Promise.all([fetchTMRequest(query), fetchGlossariesRequest(query)])

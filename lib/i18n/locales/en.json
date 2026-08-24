@@ -42,6 +42,14 @@
     "progress": "Progress",
     "actions": "Actions"
   },
+  "memoryStatus": {
+    "NOT_STARTED": "Not started",
+    "SCHEDULED": "Scheduled",
+    "IN_PROGRESS": "In progress",
+    "REBUILDING": "Rebuilding",
+    "SUCCESS": "Ready",
+    "FAILED": "Failed"
+  },
   "nav": {
     "projects": "Projects",
     "tms": "TMs",

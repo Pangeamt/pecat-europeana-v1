@@ -101,20 +101,20 @@ export async function softDeleteProfileRecord(id) {
   });
 }
 
-export async function findValidTmIdsInWorkspace(tmIds, workspaceId) {
+// Rows (id + status) so the service can tell "does not exist in the
+// workspace" apart from "exists but its DAAIT build is not SUCCESS yet".
+export async function findTmAssetsInWorkspace(tmIds, workspaceId) {
   if (!tmIds?.length) return [];
-  const rows = await prisma.tm.findMany({
+  return prisma.tm.findMany({
     where: { id: { in: tmIds }, workspaceId, deletedAt: null },
-    select: { id: true },
+    select: { id: true, status: true },
   });
-  return rows.map((row) => row.id);
 }
 
-export async function findValidGlossaryIdsInWorkspace(glossaryIds, workspaceId) {
+export async function findGlossaryAssetsInWorkspace(glossaryIds, workspaceId) {
   if (!glossaryIds?.length) return [];
-  const rows = await prisma.glossary.findMany({
+  return prisma.glossary.findMany({
     where: { id: { in: glossaryIds }, workspaceId, deletedAt: null },
-    select: { id: true },
+    select: { id: true, status: true },
   });
-  return rows.map((row) => row.id);
 }

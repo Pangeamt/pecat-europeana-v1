@@ -1,4 +1,5 @@
 import prisma from "../../lib/prisma";
+import { MEMORY_ASSET_READY_STATUS } from "../memory/status";
 
 export async function findDocuments(where) {
   return prisma.document.findMany({
@@ -160,6 +161,8 @@ export async function findDocumentWithTmsForActor(documentId, actorUser) {
   });
 }
 
+// Only DAAIT-ready assets (status SUCCESS) are usable on a document; anything
+// still building — or failed — is silently dropped from the selection.
 export async function findValidTmIdsInWorkspace(tmIds, workspaceId) {
   if (!Array.isArray(tmIds) || tmIds.length === 0) return [];
   if (!workspaceId) return [];
@@ -169,6 +172,7 @@ export async function findValidTmIdsInWorkspace(tmIds, workspaceId) {
       id: { in: tmIds },
       workspaceId,
       deletedAt: null,
+      status: MEMORY_ASSET_READY_STATUS,
     },
     select: { id: true },
   });
@@ -185,6 +189,7 @@ export async function findValidGlossaryIdsInWorkspace(glossaryIds, workspaceId) 
       id: { in: glossaryIds },
       workspaceId,
       deletedAt: null,
+      status: MEMORY_ASSET_READY_STATUS,
     },
     select: { id: true },
   });

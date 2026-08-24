@@ -31,6 +31,7 @@ import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { useWorkspaceScopeLabel } from "@/components/shared/useWorkspaceScopeLabel";
 import { userStore } from "@/store";
 import { BookMarked, Building2, Languages } from "lucide-react";
+import MemoryStatusTag from "@/components/shared/MemoryStatusTag";
 import CreateGlossaryForm from "./CreateGlossaryForm";
 import EditGlossaryModal from "./EditGlossaryModal";
 import ImportGlossaryButton from "./importGlossary";
@@ -215,6 +216,11 @@ const GlossaryList = () => {
           )}
         </span>
       ),
+    },
+    {
+      title: t("table.status"),
+      key: "status",
+      render: (record) => <MemoryStatusTag status={record.status} />,
     },
     {
       title: t("table.actions"),

@@ -132,7 +132,8 @@ const ProfileDetail = ({ profileId }) => {
 
   useEffect(() => {
     if (!profile?.workspaceId) return;
-    const query = { workspaceId: profile.workspaceId, size: 1000 };
+    // Only DAAIT-ready assets (SUCCESS) can be attached to the profile.
+    const query = { workspaceId: profile.workspaceId, size: 1000, status: "SUCCESS" };
     Promise.all([fetchTMRequest(query), fetchGlossariesRequest(query)])
       .then(([tmResponse, glossaryResponse]) => {
         setAssets({

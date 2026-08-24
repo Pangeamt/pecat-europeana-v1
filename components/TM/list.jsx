@@ -31,6 +31,7 @@ import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { useWorkspaceScopeLabel } from "@/components/shared/useWorkspaceScopeLabel";
 import { tmStore, userStore } from "@/store";
 import { Building2, Database, Languages } from "lucide-react";
+import MemoryStatusTag from "@/components/shared/MemoryStatusTag";
 import CreateTmForm from "./CreateTmForm";
 import EditTmModal from "./EditTmModal";
 import ImportTmButton from "./importTM";
@@ -194,6 +195,11 @@ const TmList = () => {
           </Tag>
         </Space>
       ),
+    },
+    {
+      title: t("table.status"),
+      key: "status",
+      render: (record) => <MemoryStatusTag status={record.status} />,
     },
     {
       title: t("table.actions"),

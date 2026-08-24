@@ -429,13 +429,20 @@ async function resolveDocumentAssets({ formData, project }) {
     const profileGlossaryIds =
       project.profile?.profileGlossaries?.map((link) => link.glossaryId) ?? [];
 
+    // Profile assets were SUCCESS when attached, but one may be rebuilding
+    // (re-import) right now — drop it rather than block the whole upload.
+    const [readyTmIds, readyGlossaryIds] = await Promise.all([
+      findValidTmIdsInWorkspace(profileTmIds, project.workspaceId),
+      findValidGlossaryIdsInWorkspace(profileGlossaryIds, project.workspaceId),
+    ]);
+
     return {
       inheritProfile: true,
       tmMode: "standard",
       tmThreshold,
-      tmIds: profileTmIds,
+      tmIds: readyTmIds,
       updateTmIds: [],
-      glossaryIds: profileGlossaryIds,
+      glossaryIds: readyGlossaryIds,
     };
   }
 

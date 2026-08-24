@@ -1,12 +1,13 @@
 import { HttpError } from "../shared/http-error";
 import { assertWorkspaceAssetAccess } from "../shared/roles";
+import { MEMORY_ASSET_READY_STATUS } from "../memory/status";
 import {
   createProfile,
   findProfileById,
   findProfileByIdBasic,
   findProfiles,
-  findValidGlossaryIdsInWorkspace,
-  findValidTmIdsInWorkspace,
+  findGlossaryAssetsInWorkspace,
+  findTmAssetsInWorkspace,
   softDeleteProfileRecord,
   updateProfile,
 } from "./repository";
@@ -55,26 +56,46 @@ async function assertProfileInWorkspace(id, actorUser) {
 }
 
 async function resolveAssetIds(tmIds, glossaryIds, workspaceId) {
-  const [validTmIds, validGlossaryIds] = await Promise.all([
-    findValidTmIdsInWorkspace(tmIds ?? [], workspaceId),
-    findValidGlossaryIdsInWorkspace(glossaryIds ?? [], workspaceId),
+  const [tmRows, glossaryRows] = await Promise.all([
+    findTmAssetsInWorkspace(tmIds ?? [], workspaceId),
+    findGlossaryAssetsInWorkspace(glossaryIds ?? [], workspaceId),
   ]);
 
-  if (tmIds?.length && validTmIds.length !== tmIds.length) {
+  if (tmIds?.length && tmRows.length !== tmIds.length) {
     throw new HttpError(
       400,
       "Some translation memories do not exist or are not in the workspace",
     );
   }
 
-  if (glossaryIds?.length && validGlossaryIds.length !== glossaryIds.length) {
+  if (glossaryIds?.length && glossaryRows.length !== glossaryIds.length) {
     throw new HttpError(
       400,
       "Some glossaries do not exist or are not in the workspace",
     );
   }
 
-  return { validTmIds, validGlossaryIds };
+  // Only DAAIT-ready assets (status SUCCESS) can be attached to a profile.
+  if (tmRows.some((row) => row.status !== MEMORY_ASSET_READY_STATUS)) {
+    throw new HttpError(
+      400,
+      "Some translation memories are not ready yet (status must be SUCCESS)",
+      "TM_NOT_READY",
+    );
+  }
+
+  if (glossaryRows.some((row) => row.status !== MEMORY_ASSET_READY_STATUS)) {
+    throw new HttpError(
+      400,
+      "Some glossaries are not ready yet (status must be SUCCESS)",
+      "GLOSSARY_NOT_READY",
+    );
+  }
+
+  return {
+    validTmIds: tmRows.map((row) => row.id),
+    validGlossaryIds: glossaryRows.map((row) => row.id),
+  };
 }
 
 export async function listProfilesService(query, actorUser) {
