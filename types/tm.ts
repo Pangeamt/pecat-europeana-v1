@@ -6,10 +6,21 @@ export type TmContext = {
   target: string;
 };
 
+// DAAIT build status (see modules/memory/status.js).
+export type MemoryAssetStatus =
+  | "NOT_STARTED"
+  | "SCHEDULED"
+  | "IN_PROGRESS"
+  | "REBUILDING"
+  | "SUCCESS"
+  | "FAILED";
+
 export type TranslationMemory = {
   id: string;
   name: string;
   context: TmContext;
+  status?: MemoryAssetStatus | null;
+  total_entries?: number | null;
 };
 
 export type TranslationUnitContext = {
@@ -59,6 +70,7 @@ export type ListTmQuery = {
   source?: string | null;
   target?: string | null;
   workspaceId?: string | null;
+  status?: MemoryAssetStatus | null;
   size?: number | string | null;
 };
 

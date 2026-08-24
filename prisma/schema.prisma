@@ -211,6 +211,10 @@ model Tm {
   domain          String?
   sourceLanguage  String
   targetLanguage  String
+  /// DAAIT build status, polled by the memory-status worker until it reaches
+  /// SUCCESS/FAILED. Plain string on purpose (like Document.status); the
+  /// source of truth is modules/memory/status.js.
+  status          String       @default("IN_PROGRESS")
   createdByUserId String
   workspaceId     String
   createdAt       DateTime     @default(now())
@@ -233,6 +237,10 @@ model Glossary {
   domain             String?
   sourceLanguage     String
   targetLanguage     String
+  /// DAAIT build status, polled by the memory-status worker until it reaches
+  /// SUCCESS/FAILED. Plain string on purpose (like Document.status); the
+  /// source of truth is modules/memory/status.js.
+  status             String             @default("IN_PROGRESS")
   createdByUserId    String
   workspaceId        String
   createdAt          DateTime           @default(now())

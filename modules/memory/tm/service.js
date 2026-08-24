@@ -40,7 +40,9 @@ function toTmDoc(record, daaitMemory = null) {
     workspace: record.workspace,
     owner: daaitMemory?.owner ?? record.workspaceId,
     total_entries: daaitMemory?.total_entries ?? null,
-    status: daaitMemory?.status ?? null,
+    // Live DAAIT status wins; the local column (refreshed every 15s by the
+    // status worker) covers the case where DAAIT is unreachable.
+    status: daaitMemory?.status ?? record.status ?? null,
     // Backward-compatible shape expected by the UI.
     context: {
       user: record.createdBy?.email ?? null,
@@ -111,6 +113,12 @@ export async function createTranslationMemoryService(payload, actorUser) {
         },
       ],
     });
+    // The record starts as IN_PROGRESS (schema default); persist the status
+    // DAAIT reported so the status worker starts from the real state.
+    if (daaitMemory?.status && daaitMemory.status !== record.status) {
+      await updateTmRecord(record.id, { status: daaitMemory.status });
+      record.status = daaitMemory.status;
+    }
     return toTmDoc(record, daaitMemory);
   } catch (error) {
     await hardDeleteTmRecord(record.id).catch(() => {});
@@ -131,10 +139,11 @@ export async function listTranslationMemoriesService(queryParams, actorUser) {
     target,
     size = 100,
     workspaceId,
+    status,
     user: ownerEmail,
   } = queryParams ?? {};
 
-  const filters = { name, domain, source, target, size };
+  const filters = { name, domain, source, target, size, status };
 
   if (actorUser.role === "SUPER") {
     if (workspaceId) filters.workspaceId = workspaceId;

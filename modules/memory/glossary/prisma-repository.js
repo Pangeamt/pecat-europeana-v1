@@ -1,4 +1,5 @@
 import prisma from "../../../lib/prisma";
+import { MEMORY_ASSET_FINAL_STATUSES } from "../status";
 
 const activeFilter = { deletedAt: null };
 
@@ -29,6 +30,7 @@ export async function listGlossaryRecords({
   source,
   target,
   createdByUserId,
+  status,
   size = 100,
 }) {
   const where = { ...activeFilter };
@@ -38,6 +40,7 @@ export async function listGlossaryRecords({
   if (domain) where.domain = { contains: domain };
   if (source) where.sourceLanguage = source;
   if (target) where.targetLanguage = target;
+  if (status) where.status = status;
 
   const parsedSize = Number.parseInt(size, 10) || 100;
 
@@ -70,4 +73,18 @@ export async function softDeleteGlossaryRecord(id) {
 
 export async function hardDeleteGlossaryRecord(id) {
   return prisma.glossary.delete({ where: { id } });
+}
+
+export async function updateGlossaryStatusRecord(id, status) {
+  return prisma.glossary.update({ where: { id }, data: { status } });
+}
+
+// Glossaries the status worker still has to poll in DAAIT (not SUCCESS/FAILED yet).
+export async function listPendingStatusGlossaryRecords(limit = 50) {
+  return prisma.glossary.findMany({
+    where: { ...activeFilter, status: { notIn: MEMORY_ASSET_FINAL_STATUSES } },
+    select: { id: true, status: true },
+    orderBy: { updatedAt: "asc" },
+    take: limit,
+  });
 }

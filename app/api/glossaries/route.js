@@ -20,6 +20,7 @@ export const GET = async (req) => {
       source: searchParams.get("source"),
       target: searchParams.get("target"),
       workspaceId: searchParams.get("workspaceId"),
+      status: searchParams.get("status"),
       size: searchParams.get("size"),
     });
 

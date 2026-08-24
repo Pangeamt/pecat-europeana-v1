@@ -6,10 +6,20 @@ export type GlossaryContext = {
   target: string;
 };
 
+// DAAIT build status (see modules/memory/status.js).
+export type MemoryAssetStatus =
+  | "NOT_STARTED"
+  | "SCHEDULED"
+  | "IN_PROGRESS"
+  | "REBUILDING"
+  | "SUCCESS"
+  | "FAILED";
+
 export type Glossary = {
   id: string;
   name: string;
   context: GlossaryContext;
+  status?: MemoryAssetStatus | null;
   total_entries?: number | null;
 };
 
@@ -47,6 +57,7 @@ export type ListGlossaryQuery = {
   source?: string | null;
   target?: string | null;
   workspaceId?: string | null;
+  status?: MemoryAssetStatus | null;
   size?: number | string | null;
 };
 

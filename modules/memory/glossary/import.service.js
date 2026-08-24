@@ -1,7 +1,11 @@
 import { HttpError } from "@/modules/shared/http-error";
+import { MEMORY_ASSET_STATUS } from "../status";
 import { deleteGlossaryDaait, importGlossaryDaait } from "./repository";
 import { resolveGlossaryForImportService } from "./service";
-import { hardDeleteGlossaryRecord } from "./prisma-repository";
+import {
+  hardDeleteGlossaryRecord,
+  updateGlossaryStatusRecord,
+} from "./prisma-repository";
 
 const ALLOWED_IMPORT_EXTENSIONS = ["tmx", "csv", "tsv"];
 
@@ -37,6 +41,13 @@ export async function importGlossaryFromFilesService({
         source_language: record.sourceLanguage,
         target_language: record.targetLanguage,
       });
+
+      // Re-importing rebuilds the glossary in DAAIT: leave the local status
+      // non-final so the status worker polls it until SUCCESS/FAILED.
+      await updateGlossaryStatusRecord(
+        record.id,
+        result?.status ?? MEMORY_ASSET_STATUS.IN_PROGRESS,
+      );
 
       return {
         message: "Glossary import scheduled successfully",

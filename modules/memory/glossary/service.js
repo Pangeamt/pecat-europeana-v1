@@ -41,7 +41,9 @@ function toGlossaryDoc(record, daaitGlossary = null) {
     workspace: record.workspace,
     owner: daaitGlossary?.owner ?? record.workspaceId,
     total_entries: daaitGlossary?.total_entries ?? null,
-    status: daaitGlossary?.status ?? null,
+    // Live DAAIT status wins; the local column (refreshed every 15s by the
+    // status worker) covers the case where DAAIT is unreachable.
+    status: daaitGlossary?.status ?? record.status ?? null,
     context: {
       user: record.createdBy?.email ?? null,
       project: null,
@@ -122,6 +124,12 @@ export async function createGlossaryService(payload, actorUser) {
       target_language: record.targetLanguage,
       entries: [{ source: "string", target: "string" }],
     });
+    // The record starts as IN_PROGRESS (schema default); persist the status
+    // DAAIT reported so the status worker starts from the real state.
+    if (daaitGlossary?.status && daaitGlossary.status !== record.status) {
+      await updateGlossaryRecord(record.id, { status: daaitGlossary.status });
+      record.status = daaitGlossary.status;
+    }
     return toGlossaryDoc(record, daaitGlossary);
   } catch (error) {
     await hardDeleteGlossaryRecord(record.id).catch(() => {});
@@ -142,10 +150,11 @@ export async function listGlossariesService(queryParams, actorUser) {
     target,
     size = 100,
     workspaceId,
+    status,
     user: ownerEmail,
   } = queryParams ?? {};
 
-  const filters = { name, domain, source, target, size };
+  const filters = { name, domain, source, target, size, status };
 
   if (actorUser.role === "SUPER") {
     if (workspaceId) filters.workspaceId = workspaceId;

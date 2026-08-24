@@ -1,4 +1,5 @@
 import prisma from "../../../lib/prisma";
+import { MEMORY_ASSET_FINAL_STATUSES } from "../status";
 
 const activeFilter = { deletedAt: null };
 
@@ -29,6 +30,7 @@ export async function listTmRecords({
   source,
   target,
   createdByUserId,
+  status,
   size = 100,
 }) {
   const where = { ...activeFilter };
@@ -38,6 +40,7 @@ export async function listTmRecords({
   if (domain) where.domain = { contains: domain };
   if (source) where.sourceLanguage = source;
   if (target) where.targetLanguage = target;
+  if (status) where.status = status;
 
   const parsedSize = Number.parseInt(size, 10) || 100;
 
@@ -72,4 +75,18 @@ export async function softDeleteTmRecord(id) {
 // regular delete flows should go through softDeleteTmRecord.
 export async function hardDeleteTmRecord(id) {
   return prisma.tm.delete({ where: { id } });
+}
+
+export async function updateTmStatusRecord(id, status) {
+  return prisma.tm.update({ where: { id }, data: { status } });
+}
+
+// TMs the status worker still has to poll in DAAIT (not SUCCESS/FAILED yet).
+export async function listPendingStatusTmRecords(limit = 50) {
+  return prisma.tm.findMany({
+    where: { ...activeFilter, status: { notIn: MEMORY_ASSET_FINAL_STATUSES } },
+    select: { id: true, status: true },
+    orderBy: { updatedAt: "asc" },
+    take: limit,
+  });
 }

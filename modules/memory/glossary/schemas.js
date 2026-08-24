@@ -1,4 +1,5 @@
 import Joi from "joi";
+import { MEMORY_ASSET_STATUSES } from "../status";
 
 export const createGlossarySchema = Joi.object({
   name: Joi.string().required(),
@@ -18,6 +19,10 @@ export const listGlossaryQuerySchema = Joi.object({
   source: Joi.string().optional().allow("", null),
   target: Joi.string().optional().allow("", null),
   workspaceId: Joi.string().optional().allow("", null),
+  status: Joi.string()
+    .valid(...MEMORY_ASSET_STATUSES)
+    .optional()
+    .allow("", null),
   size: Joi.alternatives()
     .try(Joi.number(), Joi.string(), Joi.valid(null))
     .optional(),
