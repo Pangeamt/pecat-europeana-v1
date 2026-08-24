@@ -1,5 +1,7 @@
 import { HttpError } from "../shared/http-error";
 import { DOCUMENT_STATUS } from "../../lib/document-status";
+import { postMTQE } from "../../lib/utils";
+import { SUGGESTION_STATUS } from "../documents/pipeline-constants";
 import {
   findDocumentByTusShareToken,
   findDocumentForTus,
@@ -73,8 +75,54 @@ export async function listTusByShareTokenService(token) {
   return buildTusListResult(document.id);
 }
 
+// Best-effort MTQE re-score of the reviewed pair: the current score follows
+// each edit while mtqeOriginal keeps the pipeline's first score (the UI shows
+// a "recalculated" badge when they differ). Never blocks the save.
+const RESCORE_TIMEOUT_MS = 8_000;
+
+async function rescoreReviewedPair(tu, target) {
+  const text = typeof target === "string" ? target.trim() : "";
+  if (!text || !tu.sourceLanguage || !tu.targetLanguage) return null;
+
+  const timeout = new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), RESCORE_TIMEOUT_MS);
+    timer.unref?.();
+  });
+
+  try {
+    const response = await Promise.race([
+      postMTQE({
+        pairs: [{ source: tu.srcLiteral, target }],
+        sourceLanguage: tu.sourceLanguage,
+        targetLanguage: tu.targetLanguage,
+      }),
+      timeout,
+    ]);
+    const items = Array.isArray(response) ? response : (response?.pairs ?? []);
+    const score = items[0]?.mtqe_score ?? items[0]?.score;
+    return typeof score === "number" ? score : null;
+  } catch {
+    return null;
+  }
+}
+
 async function applyTuStatusUpdate(tu, payload) {
   const { reviewLiteral, action, levenshteinDistance = null, block } = payload;
+
+  // Suggestion lifecycle actions touch only this TU (sibling segments may
+  // carry a different suggestion) and never change the review status.
+  if (action === "apply_suggestion" || action === "discard_suggestion") {
+    if (!tu.suggestionLiteral) {
+      throw new HttpError(409, "This segment has no suggestion");
+    }
+    const tuUpdated = await updateTuById(tu.id, {
+      suggestionStatus:
+        action === "apply_suggestion"
+          ? SUGGESTION_STATUS.APPLIED
+          : SUGGESTION_STATUS.DISCARDED,
+    });
+    return { tu: tuUpdated, alsoUpdated: [] };
+  }
 
   const tusWithSameSrcLiteral = await findTusWithSameSource(
     tu.documentId,
@@ -90,6 +138,14 @@ async function applyTuStatusUpdate(tu, payload) {
       translatedClear === reviewClear || !reviewClear ? "ACCEPTED" : "EDITED";
 
     data.reviewLiteral = reviewLiteral;
+
+    const rescored = await rescoreReviewedPair(
+      tu,
+      reviewLiteral || tu.translatedLiteral,
+    );
+    if (rescored !== null) {
+      data.translationScorePercent = rescored;
+    }
   } else if (action === "reject") {
     data.Status = "REJECTED";
   }

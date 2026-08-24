@@ -37,6 +37,7 @@ import XMLViewer from "react-xml-viewer";
 
 import GlossaryTool from "@/components/Tus/glossaryTool";
 import StatsTus from "@/components/Tus/statsTus";
+import SuggestionTool from "@/components/Tus/suggestionTool";
 import TmTool from "@/components/Tus/tmTool";
 import {
   getDocument as getProject,
@@ -96,6 +97,9 @@ const TusList = ({ shareToken } = {}) => {
   const [showUnderThreshold, setShowUnderThreshold] = useState(false);
 
   const [selectedRow, setSelectedRow] = useState(null);
+  // Bumped when an LLM suggestion is applied so the target editor remounts
+  // with the new reviewLiteral (Quill/TagEditor only read the initial value).
+  const [editorRefreshKey, setEditorRefreshKey] = useState(0);
 
   const [open, setOpen] = useState(false);
   const userSt = userStore();
@@ -433,7 +437,7 @@ const TusList = ({ shareToken } = {}) => {
               : CustomTextArea;
           return (
             <Editor
-              key={record.id}
+              key={`${record.id}-${editorRefreshKey}`}
               dir={targetDir}
               value={initialValue}
               setValue={
@@ -484,9 +488,19 @@ const TusList = ({ shareToken } = {}) => {
       dataIndex: "block",
       key: "block",
       sorter: (a, b) => Number(Boolean(a.block)) - Number(Boolean(b.block)),
-      render: (value) => {
+      render: (value, record) => {
         if (value) {
-          return <LockIcon size={16} className="text-gray-800" />;
+          const reason = {
+            TM_MATCH: "TM exact match",
+            LLM_JUDGE: "Approved by LLM judge",
+            INTERNAL: "Locked in the source file",
+            MANUAL: "Locked manually",
+          }[record.blockReason];
+          return (
+            <Tooltip title={reason}>
+              <LockIcon size={16} className="text-gray-800" />
+            </Tooltip>
+          );
         } else {
           return <UnlockIcon size={16} className="text-gray-400" />;
         }
@@ -517,11 +531,40 @@ const TusList = ({ shareToken } = {}) => {
       dataIndex: "translationScorePercent",
       key: "translationScorePercent",
       sorter: (a, b) => a.translationScorePercent - b.translationScorePercent,
-      render: (text) => (
-        <Tag bordered={false} color="geekblue">
-          {text ? parseFloat(text).toFixed(2) : ""}
-        </Tag>
-      ),
+      // MTQE bands (modules/documents/pipeline-constants.js): >=0.85 reliable,
+      // >=0.65 doubtful, below priority. "↻" = re-scored after an edit.
+      render: (text, record) => {
+        const score =
+          text !== null && text !== undefined && text !== ""
+            ? Number.parseFloat(text)
+            : null;
+        const color =
+          score === null
+            ? "default"
+            : score >= 0.85
+              ? "green"
+              : score >= 0.65
+                ? "gold"
+                : "red";
+        const recalculated =
+          score !== null &&
+          record.mtqeOriginal != null &&
+          Math.abs(score - record.mtqeOriginal) > 1e-6;
+        return (
+          <Tooltip
+            title={
+              recalculated
+                ? `Re-scored (initial: ${Number(record.mtqeOriginal).toFixed(2)})`
+                : undefined
+            }
+          >
+            <Tag bordered={false} color={color}>
+              {score !== null ? score.toFixed(2) : "—"}
+              {recalculated ? " ↻" : ""}
+            </Tag>
+          </Tooltip>
+        );
+      },
     },
     {
       title: "Status",
@@ -649,6 +692,33 @@ const TusList = ({ shareToken } = {}) => {
         ? { ...prev, ...updatedById.get(prev.id) }
         : prev,
     );
+  };
+
+  // LLM suggestion lifecycle: applying copies the suggestion into the target
+  // editor (the reviewer still confirms), discarding hides it; both persist
+  // suggestionStatus so acceptance can be measured.
+  const applySuggestion = async () => {
+    if (!selectedRow?.suggestionLiteral) return;
+    const text = selectedRow.suggestionLiteral;
+    try {
+      await confirm({ tuId: selectedRow.id, action: "apply_suggestion" });
+      setSelectedRow((prev) => (prev ? { ...prev, reviewLiteral: text } : prev));
+      setEditorRefreshKey((prev) => prev + 1);
+      messageApi.success("Suggestion applied — review it and confirm");
+    } catch (error) {
+      console.error(error);
+      messageApi.error("Could not apply the suggestion");
+    }
+  };
+
+  const discardSuggestion = async () => {
+    if (!selectedRow?.suggestionLiteral) return;
+    try {
+      await confirm({ tuId: selectedRow.id, action: "discard_suggestion" });
+    } catch (error) {
+      console.error(error);
+      messageApi.error("Could not discard the suggestion");
+    }
   };
 
   const goToRowIndex = (index) => {
@@ -894,6 +964,30 @@ const TusList = ({ shareToken } = {}) => {
                 </>
               ),
               children: <GlossaryTool glossaryInfo={glossaryInfo} />,
+            },
+            {
+              key: "3",
+              label: (
+                <>
+                  <span>Suggestion</span>{" "}
+                  <Badge
+                    count={
+                      selectedRow?.suggestionStatus === "PENDING" &&
+                      selectedRow?.suggestionLiteral
+                        ? 1
+                        : 0
+                    }
+                  />
+                </>
+              ),
+              children: (
+                <SuggestionTool
+                  segment={selectedRow}
+                  disabled={isSegmentBlocked(selectedRow)}
+                  onApply={applySuggestion}
+                  onDiscard={discardSuggestion}
+                />
+              ),
             },
           ]}
         />
