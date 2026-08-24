@@ -1,13 +1,7 @@
 import xml2js from 'xml2js';
-import axios from 'axios';
 import { HttpError } from '../shared/http-error';
-import { postMTQE } from '../../lib/utils';
-
-const NEXRELAY_API_HOST = process.env.NEXRELAY_API_HOST || 'http://prod.pangeamt.com:8080';
-const NEXRELAY_API_KEY = process.env.NEXRELAY_API_KEY || 'pcat-7d9a3f8e2b4c1d6f-default';
-// Translating a whole document (many segments + TM/glossary lookups) can take a
-// while; 30s was too short. Configurable via NEXRELAY_TIMEOUT (ms).
-const NEXRELAY_TIMEOUT = Number(process.env.NEXRELAY_TIMEOUT) || 120000;
+import { pecatTranslate } from '../../lib/daait';
+import { BLOCK_REASON } from './pipeline-constants';
 
 // Parser used ONLY to read text in document order. xml2js' default config merges
 // all character data of a node into `_` and exposes children separately, which
@@ -273,12 +267,12 @@ export async function parseSdlxliffFile(filePath) {
   };
 }
 
-// Enrich parsed SDLXLIFF segments in place with two independent branches that
-// run in PARALLEL (locked segments are never touched):
-//  - no target  -> machine-translate with NexRelay (step 2)
-//  - has target -> score the existing translation with MTQE (step 3)
-// A NexRelay failure aborts the import (the project would miss translations);
-// an MTQE failure is non-fatal: targets are kept, just without score.
+// Machine-translate parsed segments in place through DAAIT /content/pecat
+// (the NexRelay replacement); locked segments are never touched. A translation
+// failure aborts the import (the document would miss targets). MTQE scoring is
+// no longer inline — /content/pecat returns no score, so the score-mtqe
+// pipeline job (pipeline-service.js) scores every segment once the TUs are
+// persisted, including SDLXLIFF segments that already carried a target.
 export async function enrichSdlxliffSegments(segments, {
   sourceLanguage,
   targetLanguage,
@@ -286,31 +280,37 @@ export async function enrichSdlxliffSegments(segments, {
   tmThreshold = 0.75,
   tmIds = [],
   glossaryIds = [],
+  profileId = null,
+  workspaceId = null,
 } = {}) {
   // Hidden segments (visibility rules, e.g. URL-only footnotes) are never
-  // machine-translated nor scored: their target stays empty and the export
-  // fills them back from the source.
+  // machine-translated: their target stays empty and the export fills them
+  // back from the source.
   const toTranslate = segments.filter(
     (seg) => !seg.locked && !seg.hiddenBy && !seg.target,
-  );
-  const toScore = segments.filter(
-    (seg) => !seg.locked && !seg.hiddenBy && seg.target,
   );
 
   async function translateMissingTargets() {
     if (toTranslate.length === 0) return;
 
-    const results = await translateWithNexRelay({
+    const response = await pecatTranslate({
+      profile_id: profileId,
+      source_language: sourceLanguage,
+      target_language: targetLanguage,
       texts: toTranslate.map((seg) => seg.source),
-      sourceLanguage,
-      targetLanguage,
-      tmMode,
-      tmThreshold,
-      tmIds,
-      glossaryIds,
+      tm_mode: tmMode,
+      tm_threshold: tmThreshold,
+      tm_ids: tmIds,
+      glossary_ids: glossaryIds,
+      workspace: workspaceId,
     });
 
-    // NexRelay returns one entry per input text, in the same order.
+    const results = response?.segments;
+    if (!Array.isArray(results)) {
+      throw new HttpError(502, 'Invalid response format from DAAIT /content/pecat');
+    }
+
+    // DAAIT returns one entry per input text, in the same order.
     toTranslate.forEach((seg, index) => {
       const result = results[index];
       if (!result) return;
@@ -321,7 +321,6 @@ export async function enrichSdlxliffSegments(segments, {
       );
 
       seg.target = result.target ?? null;
-      seg.mtqeScore = result.mtqe_score ?? null;
       seg.tmInfo = result.tm_info ?? null;
       seg.glossaryInfo = result.glossary_info ?? null;
       seg.machineTranslated = true;
@@ -330,64 +329,24 @@ export async function enrichSdlxliffSegments(segments, {
     });
   }
 
-  async function scoreExistingTargets() {
-    if (toScore.length === 0) return;
+  await translateMissingTargets();
 
-    // MTQE scores every { source, target } pair in one batch. The response
-    // returns the pairs in the same order adding the score; results are
-    // matched back by the echoed pair when available, by index otherwise.
-    const pairs = toScore.map((seg) => ({
-      source: seg.source,
-      target: seg.target,
-    }));
-
-    let response = null;
-    try {
-      response = await postMTQE({ pairs, sourceLanguage, targetLanguage });
-    } catch (error) {
-      console.error(
-        '[SDLXLIFF] MTQE scoring failed; keeping targets without score:',
-        error.message,
-      );
-      return;
-    }
-
-    const items = Array.isArray(response)
-      ? response
-      : response?.pairs ?? response?.segments ?? response?.scores ?? [];
-    const scoreOf = (item) => item?.mtqe_score ?? item?.score ?? null;
-
-    const scoreByPair = new Map();
-    for (const item of items) {
-      if (typeof item?.source === 'string' && typeof item?.target === 'string') {
-        scoreByPair.set(`${item.source}\u0000${item.target}`, scoreOf(item));
-      }
-    }
-
-    toScore.forEach((seg, index) => {
-      const echoed = scoreByPair.get(`${seg.source}\u0000${seg.target}`);
-      seg.mtqeScore = echoed ?? scoreOf(items[index]);
-    });
-  }
-
-  await Promise.all([translateMissingTargets(), scoreExistingTargets()]);
-
-  return { translated: toTranslate.length, scored: toScore.length };
+  return { translated: toTranslate.length };
 }
 
 // Build Prisma `Tu` rows straight from the parsed (and optionally enriched)
 // SDLXLIFF segments. externalId keeps the identity needed for a lossless
 // export: "<trans-unit id>::<mrk mid>" (or just the trans-unit id when
 // unsegmented). Locked segments (<sdl:seg locked="true">) are blocked from
-// editing, and so are NexRelay exact TM matches (tm_score === 1).
+// editing, and so are exact TM matches (tm_score === 1).
 export function buildTusDataFromSdlxliffSegments(segments, documentId, sourceLanguage, targetLanguage) {
   return segments.map((seg, index) => ({
     externalId: seg.mid != null ? `${seg.transUnitId}::${seg.mid}` : seg.transUnitId,
     count: index,
     srcLiteral: seg.source,
     translatedLiteral: seg.target ?? null,
-    // Scores are stored in the 0..1 scale the UI buckets expect. MTQE/NexRelay
-    // already return 0..1; the sdl:seg `percent` attribute is 0..100.
+    // Scores are stored in the 0..1 scale the UI buckets expect. MTQE returns
+    // 0..1; the sdl:seg `percent` attribute is 0..100.
     translationScorePercent:
       seg.mtqeScore ?? (seg.percent != null ? seg.percent / 100 : null),
     tmInfo: seg.tmInfo ?? null,
@@ -396,6 +355,11 @@ export function buildTusDataFromSdlxliffSegments(segments, documentId, sourceLan
     visible: !seg.hiddenBy,
     hiddenBy: seg.hiddenBy ?? null,
     block: seg.locked || seg.tmExactMatch === true,
+    blockReason: seg.locked
+      ? BLOCK_REASON.INTERNAL
+      : seg.tmExactMatch === true
+        ? BLOCK_REASON.TM_MATCH
+        : null,
     sourceLanguage: sourceLanguage || '',
     targetLanguage: targetLanguage || '',
     Status: seg.locked || seg.tmExactMatch === true
@@ -405,85 +369,6 @@ export function buildTusDataFromSdlxliffSegments(segments, documentId, sourceLan
         : 'NOT_REVIEWED',
     documentId,
   }));
-}
-
-export async function translateWithNexRelay({
-  texts,
-  sourceLanguage,
-  targetLanguage,
-  tmMode = 'standard',
-  tmThreshold = 0.75,
-  tmIds = [],
-  glossaryIds = [],
-}) {
-  if (!texts || texts.length === 0) {
-    throw new HttpError(400, 'No texts provided for translation');
-  }
-
-  const payload = {
-    source_language: sourceLanguage,
-    target_language: targetLanguage,
-    texts,
-    tm_mode: tmMode,
-    tm_threshold: tmThreshold,
-    tm_ids: tmIds,
-    glossary_ids: glossaryIds,
-  };
-
-  try {
-    const response = await axios.post(
-      `${NEXRELAY_API_HOST}/NexRelay/v1/translate-pecat-e`,
-      payload,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: NEXRELAY_API_KEY,
-        },
-        timeout: NEXRELAY_TIMEOUT,
-      }
-    );
-
-    if (!response.data || !response.data.segments) {
-      throw new Error('Invalid response format from NexRelay API');
-    }
-
-    return response.data.segments;
-  } catch (error) {
-    console.error('NexRelay translation error:', error.message);
-    if (error.response?.status === 401) {
-      throw new HttpError(401, 'Invalid API key for translation service');
-    }
-    if (error.response?.status === 400) {
-      throw new HttpError(400, `Translation service error: ${error.response.data?.message || 'Invalid request'}`);
-    }
-    throw new HttpError(
-      500,
-      `Translation service unavailable: ${error.message}`
-    );
-  }
-}
-
-export function normalizeNexRelaySegmentsToTusData(segments, documentId, sourceLanguage, targetLanguage) {
-  return segments.map((segment, index) => {
-    const tmInfoArray = Array.isArray(segment.tm_info) ? segment.tm_info : [];
-    const bestTm = tmInfoArray.find((tm) => tm.tm_match === true && tm.tm_score === 1);
-
-    return {
-      externalId: null,
-      count: index,
-      srcLiteral: segment.source || '',
-      translatedLiteral: segment.target || null,
-      translationScorePercent: segment.mtqe_score ?? null,
-      tmInfo: segment.tm_info ?? null,
-      glossaryInfo: segment.glossary_info ?? null,
-      block: bestTm ? true : false,
-      sourceLanguage: sourceLanguage || '',
-      targetLanguage: targetLanguage || '',
-      Status: bestTm ? 'ACCEPTED' : 'NOT_REVIEWED',
-      levenshteinDistance: bestTm ? bestTm.tm_score : null,
-      documentId,
-    };
-  });
 }
 
 export async function generateSdlxliffWithTranslations(originalFilePath, tus) {
@@ -506,7 +391,7 @@ export async function generateSdlxliffWithTranslations(originalFilePath, tus) {
   }
 
   // Map translations by trimmed source text. The keys match the source text we
-  // sent to NexRelay (and stored as srcLiteral), since both are produced by the
+  // sent to translation (and stored as srcLiteral), since both are produced by the
   // same order-preserving extraction.
   const tusMap = new Map();
   tus.forEach((tu) => {

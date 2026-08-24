@@ -138,6 +138,10 @@ model Document {
   /// Lifecycle state as plain string so adding states needs no migration;
   /// the source of truth is lib/document-status.js.
   status                   String             @default("UPLOADED")
+  /// Post-translation pipeline telemetry and per-stage errors:
+  /// { stage, mtqeError, llmError, translateSecs, mtqeSecs, llmSecs,
+  ///   tokensIn, tokensOut, judged, suggested }.
+  pipelineStats            Json?
   /// Parent project; nullable only for legacy rows until the deploy backfill.
   projectId                String?            @map("clientProjectId")
   /// true = TMs/glossaries were materialized from the project profile at
@@ -193,6 +197,25 @@ model Tu {
   documentId              String?   @map("projectId")
   levenshteinDistance     Float?
   block                   Boolean   @default(false)
+  /// Why the segment is locked (TM_MATCH, LLM_JUDGE, INTERNAL, MANUAL);
+  /// source of truth modules/documents/pipeline-constants.js.
+  blockReason             String?
+  /// First MTQE score from the pipeline; translationScorePercent holds the
+  /// current one (re-scored on each edit). Differ => "recalculated" badge.
+  mtqeOriginal            Float?
+  /// LLM review outcome: OK (auto-approved) or REVIEW (needs a human).
+  llmVerdict              String?
+  llmComment              String?   @db.VarChar(400)
+  /// Applicable post-edit suggestion from DAAIT /content/post_edit, with
+  /// inline placeholders validated against the source before storing.
+  suggestionLiteral       String?   @db.Text
+  /// PENDING | APPLIED | DISCARDED
+  suggestionStatus        String?
+  /// { llm_used, fallback_llm, d_score, final_status, missed_terms,
+  ///   detected_terms, tokens } from the post-edit response.
+  suggestionMeta          Json?
+  /// Raw DAAITResultStatus for the segment (debugging / retry decisions).
+  daaitStatus             String?
   belongTo                String?
   /// false = hidden from the review UI and excluded from stats/MT, but kept
   /// so the document export still reconstructs every segment.
@@ -293,6 +316,14 @@ model Profile {
   formality         Formality         @default(FORMAL)
   instructions      String?           @db.Text
   domain            String?
+  /// Language pair of the DAAIT mirror (target is required by DAAIT).
+  sourceLanguage    String?
+  targetLanguage    String?
+  /// DAAIT pipeline depth: BASIC | MEDIUM | ADVANCED.
+  taskLevel         String            @default("MEDIUM")
+  /// Optional LLM role overrides for the DAAIT mirror
+  /// ({ post_editor, reviewer, conciliator, translate_basic, ... }).
+  llmModels         Json?
   createdByUserId   String
   workspaceId       String
   createdAt         DateTime          @default(now())

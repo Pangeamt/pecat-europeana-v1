@@ -27,6 +27,8 @@ import {
   enrichSdlxliffSegments,
   buildTusDataFromSdlxliffSegments,
 } from "./sdlxliff-service";
+import { PIPELINE_SCORE_JOB } from "./pipeline-service";
+import { BLOCK_REASON } from "./pipeline-constants";
 import { resolveHiddenBy } from "./visibility-rules";
 
 const pump = promisify(pipeline);
@@ -132,7 +134,7 @@ async function linkDocumentGlossaries(documentId, glossaryIds) {
 // Document (non-SDLXLIFF) import: Okapi Tikal extracts the file to XLIFF
 // with Okapi and returns the segments (sources with inline-code placeholders
 // like <g1>…</g1>/<b1/> that must survive translation for the final merge).
-// Enrichment (NexRelay MT with TM/glossary + MTQE score) runs here, with the
+// Enrichment (DAAIT /content/pecat MT with TM/glossary) runs here, with the
 // same helper the SDLXLIFF pipeline uses. The storage/{documentId}/ working
 // folder stays alive for the whole document lifetime: the export rebuilds the
 // translated file from its XLIFF.
@@ -147,6 +149,8 @@ async function processDocumentFile({
   tmThreshold,
   tmIds,
   glossaryIds,
+  profileId,
+  workspaceId,
 }) {
   // A retried job re-extracts from scratch; drop the working folder the
   // previous attempt created so storage/ does not accumulate orphans.
@@ -184,7 +188,7 @@ async function processDocumentFile({
   await linkProjectDocumentService(documentId, storageId);
 
   // hiddenBy is resolved BEFORE enrichment so hidden segments are never sent
-  // to NexRelay/MTQE (enrichSdlxliffSegments skips them).
+  // to DAAIT/MTQE (enrichSdlxliffSegments skips them).
   const working = segments.map((segment) => ({
     externalId: segment.id,
     source: segment.source,
@@ -201,6 +205,8 @@ async function processDocumentFile({
       tmThreshold,
       tmIds,
       glossaryIds,
+      profileId,
+      workspaceId,
     });
   }
 
@@ -215,6 +221,11 @@ async function processDocumentFile({
     visible: !segment.hiddenBy,
     hiddenBy: segment.hiddenBy ?? null,
     block: segment.locked || segment.tmExactMatch === true,
+    blockReason: segment.locked
+      ? BLOCK_REASON.INTERNAL
+      : segment.tmExactMatch === true
+        ? BLOCK_REASON.TM_MATCH
+        : null,
     sourceLanguage: src ?? "",
     targetLanguage: tgt ?? "",
     Status:
@@ -248,6 +259,7 @@ function toTusData(result, documentId) {
       levenshteinDistance: item.levenshteinDistance ?? null,
       visible: item.visible !== false,
       hiddenBy: item.hiddenBy ?? null,
+      blockReason: item.blockReason ?? null,
       block:
         typeof item.block === "boolean"
           ? item.block
@@ -293,7 +305,7 @@ async function resetDocumentTus(documentId) {
 //  1. Read source + target per segment from the file itself; keep the
 //     trans-unit/mrk ids in `externalId` (needed for a lossless export) and
 //     block the segments marked as locked in <sdl:seg-defs>.
-//  2/3. In parallel: machine-translate with NexRelay the unlocked segments
+//  2. Machine-translate with DAAIT /content/pecat the unlocked segments
 //     without target, and score with MTQE the unlocked ones that already have
 //     a target (see enrichSdlxliffSegments).
 export async function handleSdlxliffImportJob({
@@ -305,6 +317,8 @@ export async function handleSdlxliffImportJob({
   tmThreshold,
   tmIds,
   glossaryIds,
+  profileId,
+  workspaceId,
 }) {
   await resetDocumentTus(documentId);
   await setDocumentStatus(documentId, DOCUMENT_STATUS.PROCESSING);
@@ -324,7 +338,7 @@ export async function handleSdlxliffImportJob({
     );
   }
 
-  // Resolved BEFORE enrichment so hidden segments skip NexRelay/MTQE.
+  // Resolved BEFORE enrichment so hidden segments skip DAAIT/MTQE.
   for (const segment of segments) {
     segment.hiddenBy = resolveHiddenBy(segment.source);
   }
@@ -338,19 +352,20 @@ export async function handleSdlxliffImportJob({
     hidden: segments.filter((s) => s.hiddenBy).length,
   });
 
-  const { translated, scored } = await enrichSdlxliffSegments(segments, {
+  const { translated } = await enrichSdlxliffSegments(segments, {
     sourceLanguage: normalizedSrc,
     targetLanguage: normalizedTgt,
     tmMode,
     tmThreshold,
     tmIds,
     glossaryIds,
+    profileId,
+    workspaceId,
   });
 
   console.log("[SDLXLIFF] enriched", {
     documentId,
-    translatedWithNexRelay: translated,
-    scoredWithMtqe: scored,
+    translatedWithDaait: translated,
   });
 
   const tusData = buildTusDataFromSdlxliffSegments(
@@ -364,7 +379,7 @@ export async function handleSdlxliffImportJob({
     data: tusData,
   });
 
-  await setDocumentStatus(documentId, DOCUMENT_STATUS.READY);
+  await chainScoreStage(documentId);
 }
 
 export async function handleUploadImportJob({
@@ -378,6 +393,8 @@ export async function handleUploadImportJob({
   tmThreshold,
   tmIds,
   glossaryIds,
+  profileId,
+  workspaceId,
 }) {
   await resetDocumentTus(documentId);
   await setDocumentStatus(documentId, DOCUMENT_STATUS.FILE_PROCESSING);
@@ -392,12 +409,28 @@ export async function handleUploadImportJob({
     tmThreshold,
     tmIds,
     glossaryIds,
+    profileId,
+    workspaceId,
   });
 
   await prisma.tu.createMany({
     data: toTusData(result, documentId),
   });
-  await setDocumentStatus(documentId, DOCUMENT_STATUS.READY);
+  await chainScoreStage(documentId);
+}
+
+// The document turns READY inside the score stage; if the stage cannot even
+// be enqueued, release the document directly rather than leaving it stuck.
+async function chainScoreStage(documentId) {
+  try {
+    await enqueueProjectImport(PIPELINE_SCORE_JOB, { projectId: documentId });
+  } catch (error) {
+    console.error(
+      `[import] could not enqueue MTQE scoring for ${documentId}, releasing as READY:`,
+      error.message,
+    );
+    await setDocumentStatus(documentId, DOCUMENT_STATUS.READY);
+  }
 }
 
 // If Redis is down the job cannot be scheduled: mark the document as failed
@@ -537,6 +570,8 @@ export async function importDocumentsService({
         tmThreshold: assets.tmThreshold,
         tmIds: assets.tmIds,
         glossaryIds: assets.glossaryIds,
+        profileId: project.profileId ?? null,
+        workspaceId: project.workspaceId,
       });
     } else {
       await enqueueImportJobOrFail("import-upload", {
@@ -550,6 +585,8 @@ export async function importDocumentsService({
         tmThreshold: assets.tmThreshold,
         tmIds: assets.tmIds,
         glossaryIds: assets.glossaryIds,
+        profileId: project.profileId ?? null,
+        workspaceId: project.workspaceId,
       });
     }
   }

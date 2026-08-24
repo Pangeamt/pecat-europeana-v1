@@ -1,7 +1,7 @@
 // Import-time visibility rules: decide which segments are not worth a
 // reviewer's attention. A hidden segment (visible=false) is still stored in
 // MySQL — the export reads ALL segments so the document reconstructs complete —
-// but it is skipped by NexRelay/MTQE enrichment, by the editor listing and by
+// but it is skipped by DAAIT/MTQE enrichment, by the editor listing and by
 // the project statistics.
 //
 // Each rule is { id, test(text) }; `text` is the segment source with the
