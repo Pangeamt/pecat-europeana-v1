@@ -1,5 +1,5 @@
 # ---- Build stage -----------------------------------------------------------
-FROM node:22-slim AS build
+FROM node:22-bookworm-slim AS build
 WORKDIR /app
 
 RUN corepack enable
@@ -24,7 +24,7 @@ RUN pnpm exec prisma generate --schema=./prisma/schema.prisma \
     && pnpm prune --prod
 
 # ---- Runtime: Node + Java (Okapi Tikal) + LibreOffice (PDF -> docx) --------
-FROM node:22-slim
+FROM node:22-bookworm-slim
 ARG OKAPI_VERSION=1.47.0
 
 # libreoffice-writer + -draw: PDF -> docx conversion (draw provides PDF import)

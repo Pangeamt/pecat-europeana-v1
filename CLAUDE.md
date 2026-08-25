@@ -32,7 +32,7 @@ This project is managed with **pnpm** (version pinned to `10.20.0` in `packageMa
 
 Deploy with `./devops.sh`, which: requires `.env`, runs `git pull --ff-only` (fast-forward only — no merge commits), `pnpm install`, `prisma generate` + `prisma migrate deploy`, ensures `public/files` (755), `pnpm build`, then `pm2 startOrRestart ecosystem.config.cjs --update-env`. The PM2 app is named `pecat-e` (fork mode, port 3000). The PM2 host additionally needs **Redis** (BullMQ queue), **Java + Okapi Tikal** (`TIKAL_BIN`) and **LibreOffice** (`SOFFICE_BIN`, PDF conversion).
 
-Alternatively, **Docker**: the `Dockerfile` bundles Node, Java, Okapi 1.47 and LibreOffice, applies migrations on start and serves on 3000; `docker-compose.yml` adds Redis and persistent volumes for `storage/` and `public/files` (`docker compose up -d --build`; MySQL stays external via `DATABASE_URL`).
+Alternatively, **Docker**: deploy with `./devops-docker.sh` (requires `.env`; runs `git pull --ff-only`, `docker compose build` + `up -d`, waits for :3000 and prunes dangling images). The `Dockerfile` bundles Node, Java, Okapi 1.47 and LibreOffice, applies migrations on start and serves on 3000; `docker-compose.yml` adds Redis and persistent volumes for `storage/` and `public/files` (MySQL stays external via `DATABASE_URL`).
 
 ## High-level architecture
 
