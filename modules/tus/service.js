@@ -4,6 +4,7 @@ import { postMTQE } from "../../lib/utils";
 import {
   BLOCK_REASON,
   SUGGESTION_STATUS,
+  profileMatchesLanguagePair,
   resolvePipelineSettings,
 } from "../documents/pipeline-constants";
 import { reviewDraftSegment } from "../documents/pipeline-service";
@@ -202,11 +203,20 @@ async function evaluateTuDraft(tu, documentId, target) {
   const context = await findDocumentPipelineContext(documentId);
   const settings = resolvePipelineSettings(context?.project?.settings);
   const profileId = context?.project?.profileId;
+  // A wrong-direction profile makes DAAIT echo the source back — skip the
+  // LLM part entirely (MTQE still runs).
+  const profilePairOk =
+    profileId &&
+    profileMatchesLanguagePair(
+      context?.project?.profile,
+      context?.sourceLanguage,
+      context?.targetLanguage,
+    );
 
   const [score, review] = await Promise.all([
     rescoreReviewedPair(tu, target),
     (async () => {
-      if (!profileId || !settings.llmJudge) return null;
+      if (!profileId || !settings.llmJudge || !profilePairOk) return null;
       try {
         return await reviewDraftSegment({
           source: tu.srcLiteral,

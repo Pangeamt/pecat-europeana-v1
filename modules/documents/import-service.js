@@ -29,7 +29,7 @@ import {
   buildTusDataFromSdlxliffSegments,
 } from "./sdlxliff-service";
 import { PIPELINE_SCORE_JOB } from "./pipeline-service";
-import { BLOCK_REASON } from "./pipeline-constants";
+import { BLOCK_REASON, profileMatchesLanguagePair } from "./pipeline-constants";
 import { resolveHiddenBy } from "./visibility-rules";
 
 const pump = promisify(pipeline);
@@ -524,6 +524,21 @@ export async function importDocumentsService({
   const tgt = formData.get("tgt");
   const assets = await resolveDocumentAssets({ formData, project });
 
+  // The profile only travels to DAAIT when (a) the document inherits it (a
+  // hand-picked selection outside the profile would be silently ignored) and
+  // (b) its language pair matches the upload's — a wrong-direction profile
+  // makes DAAIT return the source untranslated.
+  const profileUsable =
+    assets.inheritProfile &&
+    project.profile &&
+    profileMatchesLanguagePair(project.profile, src, tgt);
+  const effectiveProfileId = profileUsable ? (project.profileId ?? null) : null;
+  if (assets.inheritProfile && project.profile && !profileUsable) {
+    console.warn(
+      `[import] profile ${project.profileId} pair (${project.profile.sourceLanguage ?? "?"}->${project.profile.targetLanguage ?? "?"}) does not match upload ${src}->${tgt}; translating without profile`,
+    );
+  }
+
   if (files.length === 0) {
     throw new HttpError(400, "No file uploaded");
   }
@@ -575,10 +590,7 @@ export async function importDocumentsService({
         tmThreshold: assets.tmThreshold,
         tmIds: assets.tmIds,
         glossaryIds: assets.glossaryIds,
-        // Hand-picked assets translate WITHOUT the profile: with a profile_id
-        // DAAIT restricts matching to the profile's attached resources, which
-        // would silently ignore any manually selected TM outside the profile.
-        profileId: assets.inheritProfile ? (project.profileId ?? null) : null,
+        profileId: effectiveProfileId,
         workspaceId: project.workspaceId,
       });
     } else {
@@ -593,7 +605,7 @@ export async function importDocumentsService({
         tmThreshold: assets.tmThreshold,
         tmIds: assets.tmIds,
         glossaryIds: assets.glossaryIds,
-        profileId: assets.inheritProfile ? (project.profileId ?? null) : null,
+        profileId: effectiveProfileId,
         workspaceId: project.workspaceId,
       });
     }

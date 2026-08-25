@@ -8,6 +8,7 @@ import {
   LLM_VERDICT,
   SUGGESTION_STATUS,
   inlineTagsMatch,
+  profileMatchesLanguagePair,
   resolvePipelineSettings,
 } from "./pipeline-constants";
 
@@ -324,7 +325,15 @@ export async function handleLlmReviewJob({ projectId: documentId }) {
     select: {
       id: true,
       workspaceId: true,
-      project: { select: { profileId: true, settings: true } },
+      sourceLanguage: true,
+      targetLanguage: true,
+      project: {
+        select: {
+          profileId: true,
+          settings: true,
+          profile: { select: { sourceLanguage: true, targetLanguage: true } },
+        },
+      },
       documentTms: { select: { tmId: true } },
       documentGlossaries: { select: { glossaryId: true } },
     },
@@ -333,10 +342,21 @@ export async function handleLlmReviewJob({ projectId: documentId }) {
 
   const settings = resolvePipelineSettings(document.project?.settings);
   const profileId = document.project?.profileId;
-  if (!profileId || !settings.llmJudge) {
+  const profilePairOk =
+    profileId &&
+    profileMatchesLanguagePair(
+      document.project?.profile,
+      document.sourceLanguage,
+      document.targetLanguage,
+    );
+  if (!profileId || !settings.llmJudge || !profilePairOk) {
     await mergePipelineStats(documentId, {
       stage: "DONE",
-      llmSkipped: !profileId ? "no profile" : "llmJudge disabled",
+      llmSkipped: !profileId
+        ? "no profile"
+        : !settings.llmJudge
+          ? "llmJudge disabled"
+          : "profile language pair mismatch",
     });
     return;
   }

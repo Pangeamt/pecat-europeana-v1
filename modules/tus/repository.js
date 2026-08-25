@@ -37,7 +37,15 @@ export async function findDocumentPipelineContext(documentId) {
     where: { id: documentId },
     select: {
       workspaceId: true,
-      project: { select: { profileId: true, settings: true } },
+      sourceLanguage: true,
+      targetLanguage: true,
+      project: {
+        select: {
+          profileId: true,
+          settings: true,
+          profile: { select: { sourceLanguage: true, targetLanguage: true } },
+        },
+      },
       documentTms: { select: { tmId: true } },
       documentGlossaries: { select: { glossaryId: true } },
     },

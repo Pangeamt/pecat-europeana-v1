@@ -50,6 +50,33 @@ export function resolvePipelineSettings(projectSettings = {}) {
   };
 }
 
+// DAAIT profiles are bound to a language pair (target is required by the
+// mirror): sending a profile_id against the opposite direction makes DAAIT
+// return the source untranslated. A profile without a stored pair (legacy)
+// is assumed usable. Comparison is on the primary subtag (en-US == en).
+const primaryLanguageTag = (code) =>
+  String(code ?? "")
+    .trim()
+    .toLowerCase()
+    .split(/[-_]/)[0];
+
+export function profileMatchesLanguagePair(
+  profile,
+  sourceLanguage,
+  targetLanguage,
+) {
+  if (!profile) return false;
+  if (!profile.targetLanguage) return true;
+  const targetOk =
+    primaryLanguageTag(profile.targetLanguage) ===
+    primaryLanguageTag(targetLanguage);
+  const sourceOk =
+    !profile.sourceLanguage ||
+    primaryLanguageTag(profile.sourceLanguage) ===
+      primaryLanguageTag(sourceLanguage);
+  return targetOk && sourceOk;
+}
+
 // Okapi/SDLXLIFF inline placeholders (<g1>…</g1>, <x2/>, <b1/>, <e1/>) must
 // survive any machine rewrite. A suggestion that loses or invents tags is
 // unusable — validate before storing it.
