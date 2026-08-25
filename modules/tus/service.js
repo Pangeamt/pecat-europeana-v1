@@ -2,6 +2,7 @@ import { HttpError } from "../shared/http-error";
 import { DOCUMENT_STATUS } from "../../lib/document-status";
 import { postMTQE } from "../../lib/utils";
 import {
+  BLOCK_REASON,
   SUGGESTION_STATUS,
   resolvePipelineSettings,
 } from "../documents/pipeline-constants";
@@ -113,6 +114,19 @@ async function rescoreReviewedPair(tu, target) {
 
 async function applyTuStatusUpdate(tu, payload) {
   const { reviewLiteral, action, levenshteinDistance = null, block } = payload;
+
+  // Manual lock/unlock (ADMIN/SUPER only, enforced by the callers): touches
+  // only this TU and never propagates. Unlock overrides any lock origin
+  // (TM match, LLM judge, file-internal); the review status is untouched.
+  if (action === "lock" || action === "unlock") {
+    const tuUpdated = await updateTuById(
+      tu.id,
+      action === "lock"
+        ? { block: true, blockReason: BLOCK_REASON.MANUAL }
+        : { block: false, blockReason: null },
+    );
+    return { tu: tuUpdated, alsoUpdated: [] };
+  }
 
   // Suggestion lifecycle actions touch only this TU (sibling segments may
   // carry a different suggestion) and never change the review status.
@@ -251,8 +265,17 @@ export async function evaluateTuDraftByShareTokenService(token, payload) {
   return evaluateTuDraft(tu, document.id, target);
 }
 
+const LOCK_ACTIONS = ["lock", "unlock"];
+
 export async function updateTuStatusService(payload, actorUser) {
   const { tuId } = payload;
+
+  if (
+    LOCK_ACTIONS.includes(payload.action) &&
+    !["ADMIN", "SUPER"].includes(actorUser?.role)
+  ) {
+    throw new HttpError(403, "Only admins can lock or unlock segments");
+  }
 
   const tu = await findTuById(tuId);
   if (!tu) {
@@ -269,6 +292,11 @@ export async function updateTuStatusService(payload, actorUser) {
 // (otherwise a valid token for document A could edit a tuId from document B).
 export async function updateTuStatusByShareTokenService(token, payload) {
   const { tuId } = payload;
+
+  // The anonymous share link is a translator role: never lock/unlock.
+  if (LOCK_ACTIONS.includes(payload.action)) {
+    throw new HttpError(403, "Only admins can lock or unlock segments");
+  }
 
   const document = await findDocumentByTusShareToken(token);
   if (!document) {

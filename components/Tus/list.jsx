@@ -130,6 +130,11 @@ const TusList = ({ shareToken } = {}) => {
 
   const isSegmentBlocked = (doc) => Boolean(doc?.block);
 
+  // Manual segment lock/unlock is a management action: session ADMIN/SUPER
+  // only, never the anonymous share-link translator (also enforced server-side).
+  const canToggleLock =
+    !shareToken && ["ADMIN", "SUPER"].includes(user?.role);
+
   useEffect(() => {
     if (pendingScrollIndexRef.current == null) return;
 
@@ -497,21 +502,41 @@ const TusList = ({ shareToken } = {}) => {
       key: "block",
       sorter: (a, b) => Number(Boolean(a.block)) - Number(Boolean(b.block)),
       render: (value, record) => {
-        if (value) {
-          const reason = {
-            TM_MATCH: "TM exact match",
-            LLM_JUDGE: "Approved by LLM judge",
-            INTERNAL: "Locked in the source file",
-            MANUAL: "Locked manually",
-          }[record.blockReason];
-          return (
-            <Tooltip title={reason}>
-              <LockIcon size={16} className="text-gray-800" />
-            </Tooltip>
-          );
-        } else {
-          return <UnlockIcon size={16} className="text-gray-400" />;
+        const reason = value
+          ? {
+              TM_MATCH: "TM exact match",
+              LLM_JUDGE: "Approved by LLM judge",
+              INTERNAL: "Locked in the source file",
+              MANUAL: "Locked manually",
+            }[record.blockReason]
+          : null;
+        const icon = value ? (
+          <LockIcon size={16} className="text-gray-800" />
+        ) : (
+          <UnlockIcon size={16} className="text-gray-400" />
+        );
+
+        // ADMIN/SUPER toggle the lock in place; everyone else just sees it.
+        if (!canToggleLock) {
+          return reason ? <Tooltip title={reason}>{icon}</Tooltip> : icon;
         }
+        return (
+          <Tooltip
+            title={`${reason ? `${reason} — ` : ""}${
+              value ? "Click to unlock" : "Click to lock"
+            }`}
+          >
+            <Button
+              type="text"
+              size="small"
+              icon={icon}
+              onClick={(event) => {
+                event.stopPropagation();
+                toggleLock(record);
+              }}
+            />
+          </Tooltip>
+        );
       },
     },
     {
@@ -729,6 +754,18 @@ const TusList = ({ shareToken } = {}) => {
     }
   };
 
+  const toggleLock = async (record) => {
+    try {
+      await confirm({
+        tuId: record.id,
+        action: record.block ? "unlock" : "lock",
+      });
+    } catch (error) {
+      console.error(error);
+      messageApi.error("Could not update the segment lock");
+    }
+  };
+
   const goToRowIndex = (index) => {
     if (index < 0 || index >= data.length) return;
 
@@ -851,13 +888,34 @@ const TusList = ({ shareToken } = {}) => {
     });
   };
 
+  // Whitespace/entity-insensitive comparison: Quill and TagEditor normalize
+  // the content they are given, so their first onChange after selecting a row
+  // can differ cosmetically from the stored literal without any real edit.
+  const normalizeDraft = (text) =>
+    (text ?? "")
+      .normalize("NFKC")
+      .replace(/\u00a0/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
   // Debounced live evaluation of the draft: fires ~1.2s after the reviewer
-  // stops typing. The sequence ref discards responses that arrive after a
-  // newer request or after the selection moved to another row.
+  // stops typing, and ONLY when the draft actually differs from the persisted
+  // target (reviewLiteral, falling back to the MT). Selecting a row emits the
+  // editor's initial content — that must never trigger an MTQE/LLM round-trip.
   const scheduleLiveEvaluation = (tuId, text) => {
     if (liveEvalTimerRef.current) clearTimeout(liveEvalTimerRef.current);
-    const draft = (text ?? "").trim();
+    const draft = normalizeDraft(text);
     if (!draft) return;
+
+    const baselineRow = data.find((doc) => doc.id === tuId);
+    const baseline = normalizeDraft(
+      baselineRow?.reviewLiteral || baselineRow?.translatedLiteral || "",
+    );
+    if (draft === baseline) {
+      // Unchanged (or reverted) draft: drop any stale live result too.
+      setLiveEval((prev) => (prev?.tuId === tuId ? null : prev));
+      return;
+    }
 
     liveEvalTimerRef.current = setTimeout(async () => {
       const seq = ++liveEvalSeqRef.current;
@@ -976,13 +1034,6 @@ const TusList = ({ shareToken } = {}) => {
           totalSegments={data.length}
           mode={projectConfig?.tmMode}
           tmThreshold={projectConfig?.tmThreshold}
-          tms={projectConfig?.tmNames?.length ?? projectConfig?.tmIds?.length}
-          tmNames={projectConfig?.tmNames}
-          glossaries={
-            projectConfig?.glossaryNames?.length ??
-            projectConfig?.glossaryIds?.length
-          }
-          glossaryNames={projectConfig?.glossaryNames}
           projectId={shareToken ? undefined : projectId}
           parentProjectId={shareToken ? undefined : projectConfig?.projectId}
           projectTms={projectConfig?.tms}
