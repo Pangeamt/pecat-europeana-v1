@@ -13,7 +13,6 @@ import Link from "next/link";
 import PropTypes from "prop-types";
 import { useEffect, useMemo, useState } from "react";
 import {
-  Badge,
   Button,
   Empty,
   Modal,
@@ -419,10 +418,6 @@ const StatsTus = ({
   requesting,
   mode = "",
   tmThreshold = 0,
-  tms = 0,
-  tmNames = [],
-  glossaries = 0,
-  glossaryNames = [],
   totalSegments = 0,
   projectId,
   parentProjectId,
@@ -531,44 +526,6 @@ const StatsTus = ({
             <Tag color="blue">{tmThreshold ? `${tmThreshold}` : "—"}</Tag>
           </span>
 
-          <span
-            className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-700"
-            aria-label={`TMS ${tms}`}
-            title={
-              Array.isArray(tmNames) && tmNames.length ? tmNames.join(", ") : ""
-            }
-          >
-            <span>TMs: </span>
-            <Badge count={tms} size="small" className="text-sm" color="blue" />
-            {Array.isArray(tmNames) && tmNames.length > 0 ? (
-              <span className="max-w-60 truncate text-[11px] text-gray-500">
-                {tmNames.join(", ")}
-              </span>
-            ) : null}
-          </span>
-
-          <span
-            className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-700"
-            aria-label={`Glossaries ${glossaries}`}
-            title={
-              Array.isArray(glossaryNames) && glossaryNames.length
-                ? glossaryNames.join(", ")
-                : ""
-            }
-          >
-            <span>Glossaries: </span>
-            <Badge
-              count={glossaries}
-              size="small"
-              className="text-sm"
-              color="green"
-            />
-            {Array.isArray(glossaryNames) && glossaryNames.length > 0 ? (
-              <span className="max-w-60 truncate text-[11px] text-gray-500">
-                {glossaryNames.join(", ")}
-              </span>
-            ) : null}
-          </span>
         </div>
       </div>
 
@@ -610,10 +567,6 @@ StatsTus.propTypes = {
   requesting: PropTypes.bool.isRequired,
   mode: PropTypes.string,
   tmThreshold: PropTypes.number,
-  tms: PropTypes.number,
-  tmNames: PropTypes.arrayOf(PropTypes.string),
-  glossaries: PropTypes.number,
-  glossaryNames: PropTypes.arrayOf(PropTypes.string),
   totalSegments: PropTypes.number,
   projectId: PropTypes.string,
   parentProjectId: PropTypes.string,
