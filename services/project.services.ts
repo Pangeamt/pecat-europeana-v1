@@ -1,5 +1,11 @@
 import { httpClient } from "./http-client";
 
+export interface ProjectPipelineSettings {
+  mtqeThreshold: number;
+  llmJudge: boolean;
+  llmSuggest: boolean;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -7,6 +13,7 @@ export interface Project {
   profileId?: string | null;
   profileName?: string | null;
   tmThreshold: number;
+  pipeline?: ProjectPipelineSettings;
   createdAt: string;
   updatedAt: string;
   docsCount: number;
@@ -25,6 +32,10 @@ export interface CreateProjectPayload {
   description?: string;
   profileId: string;
   threshold?: number;
+  /** Post-translation pipeline settings (stored in Project.settings). */
+  mtqeThreshold?: number;
+  llmJudge?: boolean;
+  llmSuggest?: boolean;
 }
 
 export type UpdateProjectPayload = Partial<CreateProjectPayload>;

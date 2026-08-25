@@ -116,6 +116,7 @@ export async function getProjectsWithStats(actorUser) {
            cp.description,
            cp.profileId,
            cp.tmThreshold,
+           cp.settings,
            cp.createdAt,
            cp.updatedAt,
            pr.name AS profileName,
@@ -129,13 +130,18 @@ export async function getProjectsWithStats(actorUser) {
     LEFT JOIN tus t ON t.projectId = d.id AND t.visible = 1
     WHERE cp.deletedAt IS NULL ${workspaceFilter} ${assignmentExistsFilter}
     GROUP BY cp.id, cp.name, cp.description, cp.profileId, cp.tmThreshold,
-             cp.createdAt, cp.updatedAt, pr.name
+             cp.settings, cp.createdAt, cp.updatedAt, pr.name
     ORDER BY cp.createdAt DESC
   `;
 
   // COUNT() comes back as BigInt and SUM() as Decimal — normalize to numbers.
+  // The raw driver returns the JSON settings column as a string.
   return rows.map((row) => ({
     ...row,
+    settings:
+      typeof row.settings === "string"
+        ? JSON.parse(row.settings)
+        : (row.settings ?? null),
     docsCount: Number(row.docsCount),
     segmentsCount: Number(row.segmentsCount),
     finishedCount: Number(row.finishedCount),

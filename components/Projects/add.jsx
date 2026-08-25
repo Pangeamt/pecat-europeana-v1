@@ -1,6 +1,16 @@
 "use client";
-import { FileTextOutlined, SlidersOutlined } from "@ant-design/icons";
-import { Button, Form, Input, InputNumber, Select, Slider, message } from "antd";
+import { ArrowLeftOutlined, ArrowRightOutlined } from "@ant-design/icons";
+import {
+  Button,
+  Form,
+  Input,
+  InputNumber,
+  Select,
+  Slider,
+  Steps,
+  Switch,
+  message,
+} from "antd";
 import { useCallback, useEffect, useState } from "react";
 
 import { useTranslation } from "@/components/i18n/LanguageProvider";
@@ -13,6 +23,7 @@ export default function CreateProjectForm({ user, onBack, onCreated }) {
   const [messageApi, contextHolder] = message.useMessage();
   const [profiles, setProfiles] = useState([]);
   const [loadingProfiles, setLoadingProfiles] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
 
   const fetchProfiles = useCallback(async () => {
     if (!user?.workspaceId) return;
@@ -45,9 +56,13 @@ export default function CreateProjectForm({ user, onBack, onCreated }) {
         description: values.description,
         profileId: values.profileId,
         threshold: values.threshold,
+        mtqeThreshold: values.mtqeThreshold,
+        llmJudge: values.llmJudge,
+        llmSuggest: values.llmSuggest,
       });
       await onCreated?.();
       form.resetFields();
+      setCurrentStep(0);
       messageApi.success({
         content: t("projects.create.created"),
         key: "add-project",
@@ -62,6 +77,16 @@ export default function CreateProjectForm({ user, onBack, onCreated }) {
     }
   };
 
+  // Step 0 gathers the project details; step 1 the translation settings.
+  const goNext = async () => {
+    try {
+      await form.validateFields(["name"]);
+      setCurrentStep(1);
+    } catch {
+      // validation message already shown on the field
+    }
+  };
+
   return (
     <>
       {contextHolder}
@@ -69,23 +94,37 @@ export default function CreateProjectForm({ user, onBack, onCreated }) {
         form={form}
         layout="vertical"
         onFinish={onFinish}
-        initialValues={{ threshold: 0.75 }}
+        onFinishFailed={({ errorFields }) => {
+          // Both steps stay mounted, so a submit can fail on a hidden field:
+          // jump back to the step that owns the first invalid one.
+          const firstField = errorFields?.[0]?.name?.[0];
+          if (firstField === "name" || firstField === "description") {
+            setCurrentStep(0);
+          }
+        }}
+        initialValues={{
+          threshold: 0.75,
+          mtqeThreshold: 0.85,
+          llmJudge: true,
+          llmSuggest: true,
+        }}
       >
         <div className="space-y-3">
-          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-center gap-3">
-              <div className="flex size-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                <FileTextOutlined />
-              </div>
-              <div>
-                <div className="font-semibold text-slate-900">
-                  {t("projects.create.detailsTitle")}
-                </div>
-                <div className="text-xs text-slate-500">
-                  {t("projects.create.detailsSubtitle")}
-                </div>
-              </div>
-            </div>
+          <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+            <Steps
+              current={currentStep}
+              responsive
+              items={[
+                { title: t("projects.create.detailsTitle") },
+                { title: t("projects.create.settingsTitle") },
+              ]}
+            />
+          </div>
+          <section
+            className={`rounded-xl border border-slate-200 bg-white p-4 shadow-sm ${
+              currentStep === 0 ? "" : "hidden"
+            }`}
+          >
             <Form.Item
               label={t("projects.create.nameLabel")}
               name="name"
@@ -106,20 +145,11 @@ export default function CreateProjectForm({ user, onBack, onCreated }) {
             </Form.Item>
           </section>
 
-          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-center gap-3">
-              <div className="flex size-8 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
-                <SlidersOutlined />
-              </div>
-              <div>
-                <div className="font-semibold text-slate-900">
-                  {t("projects.create.settingsTitle")}
-                </div>
-                <div className="text-xs text-slate-500">
-                  {t("projects.create.settingsSubtitle")}
-                </div>
-              </div>
-            </div>
+          <section
+            className={`rounded-xl border border-slate-200 bg-white p-4 shadow-sm ${
+              currentStep === 1 ? "" : "hidden"
+            }`}
+          >
             <Form.Item
               label={t("projects.create.profileLabel")}
               name="profileId"
@@ -168,20 +198,86 @@ export default function CreateProjectForm({ user, onBack, onCreated }) {
                 />
               </div>
             </Form.Item>
+            <Form.Item
+              label={t("projects.create.mtqeThresholdLabel")}
+              name="mtqeThreshold"
+              tooltip={t("projects.create.mtqeThresholdHint")}
+            >
+              <div className="flex items-center gap-3">
+                <Slider
+                  className="flex-1"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={Form.useWatch("mtqeThreshold", form)}
+                  onChange={(value) =>
+                    form.setFieldsValue({ mtqeThreshold: value })
+                  }
+                />
+                <InputNumber
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={Form.useWatch("mtqeThreshold", form)}
+                  onChange={(value) =>
+                    form.setFieldsValue({ mtqeThreshold: value })
+                  }
+                />
+              </div>
+            </Form.Item>
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+              <Form.Item
+                label={t("projects.create.llmJudgeLabel")}
+                name="llmJudge"
+                valuePropName="checked"
+                tooltip={t("projects.create.llmJudgeHint")}
+              >
+                <Switch />
+              </Form.Item>
+              <Form.Item
+                label={t("projects.create.llmSuggestLabel")}
+                name="llmSuggest"
+                valuePropName="checked"
+                tooltip={t("projects.create.llmSuggestHint")}
+              >
+                <Switch disabled={Form.useWatch("llmJudge", form) === false} />
+              </Form.Item>
+            </div>
           </section>
 
           <div className="flex justify-end gap-2">
-            <Button onClick={onBack}>{t("common.cancel")}</Button>
-            <Button
-              type="primary"
-              htmlType="submit"
-              style={{
-                background: "linear-gradient(135deg, #111827 0%, #2563eb 100%)",
-                border: 0,
-              }}
-            >
-              {t("projects.create.submit")}
-            </Button>
+            {currentStep === 0 ? (
+              <>
+                <Button onClick={onBack}>{t("common.cancel")}</Button>
+                <Button
+                  type="primary"
+                  icon={<ArrowRightOutlined />}
+                  onClick={goNext}
+                >
+                  {t("common.next")}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  icon={<ArrowLeftOutlined />}
+                  onClick={() => setCurrentStep(0)}
+                >
+                  {t("common.back")}
+                </Button>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, #111827 0%, #2563eb 100%)",
+                    border: 0,
+                  }}
+                >
+                  {t("projects.create.submit")}
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </Form>

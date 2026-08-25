@@ -3,6 +3,7 @@ import { assertWorkspaceAssetAccess } from "../shared/roles";
 // Direct file import (not the modules/documents barrel) to avoid closing the
 // import cycle documents/import-service -> projects/repository.
 import { listDocumentsByProjectService } from "../documents/service";
+import { resolvePipelineSettings } from "../documents/pipeline-constants";
 import { findProfileByIdBasic } from "../profiles/repository";
 import {
   countDocumentsInProject,
@@ -28,11 +29,27 @@ function toProjectDoc(record) {
     profileId: record.profileId,
     profileName: record.profile?.name ?? record.profileName ?? null,
     tmThreshold: record.tmThreshold,
+    // Post-translation pipeline settings with defaults applied.
+    pipeline: resolvePipelineSettings(record.settings),
     workspaceId: record.workspaceId,
     createdByUserId: record.createdByUserId,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   };
+}
+
+// Only the keys the user actually sent: stored raw in Project.settings so
+// unset options keep following the app defaults.
+function pipelineSettingsPatch(payload) {
+  const patch = {};
+  if (payload.mtqeThreshold !== undefined && payload.mtqeThreshold !== null) {
+    patch.mtqeThreshold = payload.mtqeThreshold;
+  }
+  if (typeof payload.llmJudge === "boolean") patch.llmJudge = payload.llmJudge;
+  if (typeof payload.llmSuggest === "boolean") {
+    patch.llmSuggest = payload.llmSuggest;
+  }
+  return patch;
 }
 
 async function assertProfileUsableInWorkspace(profileId, workspaceId) {
@@ -58,6 +75,7 @@ export async function listProjectsService(actorUser) {
       profileId: row.profileId,
       profileName: row.profileName,
       tmThreshold: row.tmThreshold,
+      pipeline: resolvePipelineSettings(row.settings),
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       docsCount: row.docsCount,
@@ -85,11 +103,13 @@ export async function createProjectService(payload, actorUser) {
 
   await assertProfileUsableInWorkspace(payload.profileId, workspaceId);
 
+  const pipelinePatch = pipelineSettingsPatch(payload);
   const record = await createProject({
     name: payload.name,
     description: optionalText(payload.description),
     profileId: payload.profileId,
     tmThreshold: payload.threshold ?? 0.75,
+    settings: Object.keys(pipelinePatch).length > 0 ? pipelinePatch : undefined,
     createdByUserId: actorUser.id,
     workspaceId,
   });
@@ -125,12 +145,25 @@ export async function updateProjectService(projectId, payload, actorUser) {
   if (payload.description !== undefined) {
     data.description = optionalText(payload.description);
   }
-  if (payload.profileId !== undefined && payload.profileId !== null) {
-    await assertProfileUsableInWorkspace(payload.profileId, existing.workspaceId);
-    data.profileId = payload.profileId;
+  if (payload.profileId !== undefined) {
+    if (payload.profileId === null) {
+      // Explicit detach: allowed (documents fall back to manual TM/glossary
+      // selection and the LLM review stage skips itself without a profile).
+      data.profileId = null;
+    } else {
+      await assertProfileUsableInWorkspace(
+        payload.profileId,
+        existing.workspaceId,
+      );
+      data.profileId = payload.profileId;
+    }
   }
   if (payload.threshold !== undefined && payload.threshold !== null) {
     data.tmThreshold = payload.threshold;
+  }
+  const pipelinePatch = pipelineSettingsPatch(payload);
+  if (Object.keys(pipelinePatch).length > 0) {
+    data.settings = { ...(existing.settings ?? {}), ...pipelinePatch };
   }
 
   if (Object.keys(data).length === 0) {

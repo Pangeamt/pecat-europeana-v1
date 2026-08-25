@@ -1,5 +1,14 @@
 "use client";
-import { Form, Input, InputNumber, Modal, Select, Slider, message } from "antd";
+import {
+  Form,
+  Input,
+  InputNumber,
+  Modal,
+  Select,
+  Slider,
+  Switch,
+  message,
+} from "antd";
 import { useEffect, useState } from "react";
 
 import { useTranslation } from "@/components/i18n/LanguageProvider";
@@ -15,6 +24,8 @@ export default function EditProjectModal({ open, project, onClose, onSaved }) {
   const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [saving, setSaving] = useState(false);
   const thresholdValue = Form.useWatch("threshold", form);
+  const mtqeThresholdValue = Form.useWatch("mtqeThreshold", form);
+  const llmJudgeValue = Form.useWatch("llmJudge", form);
 
   useEffect(() => {
     if (!open || !user?.workspaceId) return;
@@ -32,6 +43,9 @@ export default function EditProjectModal({ open, project, onClose, onSaved }) {
       description: project.description ?? "",
       profileId: project.profileId ?? undefined,
       threshold: project.tmThreshold ?? 0.75,
+      mtqeThreshold: project.pipeline?.mtqeThreshold ?? 0.85,
+      llmJudge: project.pipeline?.llmJudge ?? true,
+      llmSuggest: project.pipeline?.llmSuggest ?? true,
     });
   }, [open, project, form]);
 
@@ -39,7 +53,12 @@ export default function EditProjectModal({ open, project, onClose, onSaved }) {
     try {
       const values = await form.validateFields();
       setSaving(true);
-      await updateProjectRequest(project.id, values);
+      // Clearing the Select leaves undefined; the API wants an explicit null
+      // to detach the profile (undefined = "leave as is").
+      await updateProjectRequest(project.id, {
+        ...values,
+        profileId: values.profileId ?? null,
+      });
       message.success(t("projects.messages.updated"));
       onSaved?.();
     } catch (error) {
@@ -72,17 +91,13 @@ export default function EditProjectModal({ open, project, onClose, onSaved }) {
         >
           <Input />
         </Form.Item>
-        <Form.Item
-          label={t("projects.create.profileLabel")}
-          name="profileId"
-          rules={[
-            { required: true, message: t("projects.create.profileRequired") },
-          ]}
-        >
+        <Form.Item label={t("projects.create.profileLabel")} name="profileId">
           <Select
             showSearch
+            allowClear
             loading={loadingProfiles}
             optionFilterProp="label"
+            placeholder={t("projects.create.profilePlaceholder")}
             options={profiles.map((profile) => ({
               value: profile.id,
               label: profile.name,
@@ -114,6 +129,49 @@ export default function EditProjectModal({ open, project, onClose, onSaved }) {
             />
           </div>
         </Form.Item>
+        <Form.Item
+          label={t("projects.create.mtqeThresholdLabel")}
+          name="mtqeThreshold"
+          tooltip={t("projects.create.mtqeThresholdHint")}
+        >
+          <div className="flex items-center gap-3">
+            <Slider
+              className="flex-1"
+              min={0}
+              max={1}
+              step={0.01}
+              value={mtqeThresholdValue}
+              onChange={(value) => form.setFieldsValue({ mtqeThreshold: value })}
+            />
+            <InputNumber
+              min={0}
+              max={1}
+              step={0.01}
+              value={mtqeThresholdValue}
+              onChange={(value) =>
+                form.setFieldsValue({ mtqeThreshold: value ?? 0 })
+              }
+            />
+          </div>
+        </Form.Item>
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+          <Form.Item
+            label={t("projects.create.llmJudgeLabel")}
+            name="llmJudge"
+            valuePropName="checked"
+            tooltip={t("projects.create.llmJudgeHint")}
+          >
+            <Switch />
+          </Form.Item>
+          <Form.Item
+            label={t("projects.create.llmSuggestLabel")}
+            name="llmSuggest"
+            valuePropName="checked"
+            tooltip={t("projects.create.llmSuggestHint")}
+          >
+            <Switch disabled={llmJudgeValue === false} />
+          </Form.Item>
+        </div>
       </Form>
     </Modal>
   );
