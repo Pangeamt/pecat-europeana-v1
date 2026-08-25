@@ -8,6 +8,7 @@ export async function findDocuments(where) {
       id: true,
       filename: true,
       status: true,
+      pipelineStats: true,
       mt: true,
       extension: true,
       createdAt: true,

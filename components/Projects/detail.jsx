@@ -66,8 +66,15 @@ const ProjectDetail = ({ projectId }) => {
   }, [fetchProject]);
 
   useEffect(() => {
-    const hasPending = (project?.documents ?? []).some((doc) =>
-      DOCUMENT_PENDING_STATUSES.includes(doc.status),
+    // Keep polling while an import is pending OR while the post-READY
+    // pipeline stages (MTQE scoring / LLM review) are still running, so the
+    // Pipeline column updates without a manual refresh.
+    const hasPending = (project?.documents ?? []).some(
+      (doc) =>
+        DOCUMENT_PENDING_STATUSES.includes(doc.status) ||
+        ["SCORING", "SCORED", "REVIEWING"].includes(
+          doc.pipelineStats?.stage,
+        ),
     );
     if (!hasPending) return;
 

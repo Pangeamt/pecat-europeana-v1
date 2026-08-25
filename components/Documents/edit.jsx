@@ -1,24 +1,22 @@
 import React, { useState } from "react";
 
-import { Modal, Button, Form, Input, Tooltip, message } from "antd";
-import { EditOutlined } from "@ant-design/icons";
+import { Modal, Form, Input, message } from "antd";
 
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 
-const DocumentEdit = ({ document, save }) => {
+// Controlled label-edit modal: the row's actions dropdown opens it by setting
+// the target document; there is no inline trigger button anymore.
+const DocumentEdit = ({ document, save, open, onClose }) => {
   const { t } = useTranslation();
   const [form] = Form.useForm();
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [sending, setSending] = useState(false);
-
-  const showModal = () => setIsModalOpen(true);
 
   const handleOk = async () => {
     try {
       setSending(true);
       const values = await form.validateFields();
       await save({ documentId: document.id, ...values });
-      setIsModalOpen(false);
+      onClose?.();
     } catch (errorInfo) {
       if (!errorInfo?.errorFields) {
         message.error(t("documents.editError"));
@@ -28,37 +26,25 @@ const DocumentEdit = ({ document, save }) => {
     }
   };
 
-  const handleCancel = () => setIsModalOpen(false);
-
   return (
-    <>
-      <Tooltip title={t("documents.editTooltip")}>
-        <Button
-          onClick={showModal}
-          size="small"
-          type="text"
-          icon={<EditOutlined />}
-        />
-      </Tooltip>
-      <Modal
-        title={t("documents.editModalTitle")}
-        open={isModalOpen}
-        onOk={handleOk}
-        onCancel={handleCancel}
-        confirmLoading={sending}
-        destroyOnHidden
-      >
-        <Form form={form} layout="vertical">
-          <Form.Item
-            label={t("table.label")}
-            name="label"
-            initialValue={document.label}
-          >
-            <Input type="text" />
-          </Form.Item>
-        </Form>
-      </Modal>
-    </>
+    <Modal
+      title={t("documents.editModalTitle")}
+      open={open}
+      onOk={handleOk}
+      onCancel={onClose}
+      confirmLoading={sending}
+      destroyOnHidden
+    >
+      <Form form={form} layout="vertical">
+        <Form.Item
+          label={t("table.label")}
+          name="label"
+          initialValue={document?.label}
+        >
+          <Input type="text" />
+        </Form.Item>
+      </Form>
+    </Modal>
   );
 };
 

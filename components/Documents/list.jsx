@@ -3,10 +3,23 @@ import {
   ArrowRightOutlined,
   DeleteOutlined,
   DownloadOutlined,
+  EditOutlined,
   LinkOutlined,
+  MoreOutlined,
   PlusOutlined,
 } from "@ant-design/icons";
-import { Button, Empty, message, Popconfirm, Progress, Space, Table, Tag, Tooltip } from "antd";
+import {
+  Button,
+  Dropdown,
+  Empty,
+  message,
+  Modal,
+  Progress,
+  Space,
+  Table,
+  Tag,
+  Tooltip,
+} from "antd";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -23,6 +36,7 @@ import {
 } from "@/services/document.services";
 import UserAvatar from "@/components/shared/UserAvatar";
 import AssignUserModal from "./AssignUserModal";
+import PipelineStageCell from "./PipelineStages";
 import DocumentEdit from "./edit";
 import TranslatorShareModal from "./TranslatorShareModal";
 
@@ -40,6 +54,7 @@ const DocumentList = ({
   const [requesting, setRequesting] = useState("");
   const [assignTarget, setAssignTarget] = useState(null);
   const [shareTarget, setShareTarget] = useState(null);
+  const [editTarget, setEditTarget] = useState(null);
 
   const getDocumentStatusTag = (status) => {
     const color = DOCUMENT_STATUS_COLORS[status] ?? "default";
@@ -201,6 +216,36 @@ const DocumentList = ({
         ),
     },
     {
+      title: "MT",
+      key: "pipeline-mt",
+      width: 48,
+      align: "center",
+      render: (record) =>
+        record.deletedAt ? null : (
+          <PipelineStageCell document={record} stage="mt" />
+        ),
+    },
+    {
+      title: "MTQE",
+      key: "pipeline-mtqe",
+      width: 60,
+      align: "center",
+      render: (record) =>
+        record.deletedAt ? null : (
+          <PipelineStageCell document={record} stage="mtqe" />
+        ),
+    },
+    {
+      title: "LLM",
+      key: "pipeline-llm",
+      width: 52,
+      align: "center",
+      render: (record) =>
+        record.deletedAt ? null : (
+          <PipelineStageCell document={record} stage="llm" />
+        ),
+    },
+    {
       title: t("documents.assign.translator"),
       key: "translator",
       width: 70,
@@ -228,12 +273,19 @@ const DocumentList = ({
       defaultSortOrder: "descend",
       sorter: (a, b) =>
         new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-      render: (text) => (
-        <span className="text-xs text-slate-600">
-          {new Date(text).toLocaleString()}
-        </span>
-      ),
-      width: 180,
+      // Compact yyyy/mm/dd; the full date and time live in the tooltip.
+      render: (text) => {
+        const date = new Date(text);
+        const short = `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}`;
+        return (
+          <Tooltip title={date.toLocaleString()}>
+            <span className="cursor-default text-xs text-slate-600">
+              {short}
+            </span>
+          </Tooltip>
+        );
+      },
+      width: 110,
     },
     {
       title: t("table.progress"),
@@ -261,41 +313,64 @@ const DocumentList = ({
     {
       title: "",
       key: "action",
-      width: 120,
+      width: 48,
+      align: "center",
       render: (record) => (
-        <Space size={6}>
-          <Tooltip title={t("documents.downloadTooltip")}>
-            <Button
-              size="small"
-              type="text"
-              icon={<DownloadOutlined />}
-              onClick={() => getDownloadLink(record.id)}
-              loading={requesting === record.id}
-            />
-          </Tooltip>
-          <DocumentEdit document={record} save={onSave} />
-          {canAssign ? (
-            <Tooltip title={t("documents.share.tooltip")}>
-              <Button
-                size="small"
-                type="text"
-                icon={<LinkOutlined />}
-                onClick={() => setShareTarget(record.id)}
-              />
-            </Tooltip>
-          ) : null}
-          <Popconfirm
-            title={t("documents.deleteTitle")}
-            description={t("documents.deleteDescription")}
-            onConfirm={() => handleRemove(record.id)}
-            okText={t("actions.yes")}
-            cancelText={t("actions.no")}
-          >
-            <Tooltip title={t("documents.removeTooltip")}>
-              <Button size="small" type="text" danger icon={<DeleteOutlined />} />
-            </Tooltip>
-          </Popconfirm>
-        </Space>
+        <Dropdown
+          trigger={["click"]}
+          menu={{
+            items: [
+              {
+                key: "download",
+                icon: <DownloadOutlined />,
+                label: t("documents.downloadTooltip"),
+              },
+              {
+                key: "edit",
+                icon: <EditOutlined />,
+                label: t("documents.editTooltip"),
+              },
+              ...(canAssign
+                ? [
+                    {
+                      key: "share",
+                      icon: <LinkOutlined />,
+                      label: t("documents.share.tooltip"),
+                    },
+                  ]
+                : []),
+              { type: "divider" },
+              {
+                key: "delete",
+                icon: <DeleteOutlined />,
+                label: t("documents.removeTooltip"),
+                danger: true,
+              },
+            ],
+            onClick: ({ key }) => {
+              if (key === "download") getDownloadLink(record.id);
+              else if (key === "edit") setEditTarget(record);
+              else if (key === "share") setShareTarget(record.id);
+              else if (key === "delete") {
+                Modal.confirm({
+                  title: t("documents.deleteTitle"),
+                  content: t("documents.deleteDescription"),
+                  okText: t("actions.yes"),
+                  cancelText: t("actions.no"),
+                  okButtonProps: { danger: true },
+                  onOk: () => handleRemove(record.id),
+                });
+              }
+            },
+          }}
+        >
+          <Button
+            size="small"
+            type="text"
+            icon={<MoreOutlined />}
+            loading={requesting === record.id}
+          />
+        </Dropdown>
       ),
     },
   ];
@@ -339,6 +414,18 @@ const DocumentList = ({
         documentId={shareTarget}
         onClose={() => setShareTarget(null)}
       />
+
+      {editTarget ? (
+        <DocumentEdit
+          document={editTarget}
+          save={async (payload) => {
+            await onSave?.(payload);
+            setEditTarget(null);
+          }}
+          open
+          onClose={() => setEditTarget(null)}
+        />
+      ) : null}
     </>
   );
 };
