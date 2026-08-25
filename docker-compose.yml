@@ -1,0 +1,37 @@
+services:
+  app:
+    build:
+      context: .
+      args:
+        # NEXT_PUBLIC_* values are inlined into the client bundle at build time.
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:3000}
+        NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+    env_file: .env
+    environment:
+      # Inside the compose network Redis is reachable by service name.
+      REDIS_URL: redis://redis:6379
+      STORAGE_DIR: /app/storage
+    ports:
+      - '3000:3000'
+    volumes:
+      - storage:/app/storage
+      - uploads:/app/public/files
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  storage:
+  uploads:
+  redis-data:

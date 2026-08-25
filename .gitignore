@@ -40,6 +40,9 @@ next-env.d.ts
 
 *.yml
 *.yaml
+# reproducible installs and the documented Docker setup must be tracked
+!pnpm-lock.yaml
+!docker-compose.yml
 .env
 
 
