@@ -16,6 +16,7 @@ import {
   createProfileDaait,
   deleteProfileDaait,
   syncProfileDaait,
+  syncProfileResourcesDaait,
 } from "./daait-repository";
 
 function optionalText(value) {
@@ -181,12 +182,19 @@ export async function createProfileService(payload, actorUser) {
     );
   }
 
-  // Mirror the profile in DAAIT (same id) so translation requests can
-  // reference it; without the mirror the local profile is useless.
+  // Mirror the profile in DAAIT (same id) and attach its TMs/glossaries as
+  // resources — DAAIT only matches memories attached to the profile, so a
+  // mirror without resources translates without TM hits.
   try {
     await createProfileDaait(record);
+    await syncProfileResourcesDaait(
+      record.id,
+      [...validTmIds, ...validGlossaryIds],
+      [],
+    );
   } catch (error) {
     await hardDeleteProfileRecord(record.id).catch(() => {});
+    await deleteProfileDaait(record.id).catch(() => {});
     throw new HttpError(
       error.status || 500,
       `Failed to create profile in Daait: ${error.message}`,
@@ -244,20 +252,45 @@ export async function updateProfileService(id, payload, actorUser) {
     throw new HttpError(400, "No fields to update");
   }
 
+  // Snapshot the current asset links before replacing them, so the mirror's
+  // resource diff (attach/detach) can be computed after the update.
+  let previousAssetIds = null;
+  if (tmIds !== undefined || glossaryIds !== undefined) {
+    const before = await findProfileById(id);
+    previousAssetIds = [
+      ...(before?.profileTms ?? []).map((row) => row.tmId),
+      ...(before?.profileGlossaries ?? []).map((row) => row.glossaryId),
+    ];
+  }
+
   const record = await updateProfile(id, data, tmIds, glossaryIds);
 
-  // Refresh the DAAIT mirror only when profile fields changed; attaching or
-  // detaching TMs/glossaries is local-only and needs no DAAIT round-trip.
-  if (Object.keys(data).length > 0) {
-    try {
+  try {
+    // Field changes PATCH the mirror; asset changes sync its attached
+    // resources — DAAIT only matches memories attached to the profile.
+    if (Object.keys(data).length > 0) {
       await syncProfileDaait(record);
-    } catch (error) {
-      throw new HttpError(
-        error.status || 500,
-        `Failed to update profile in Daait: ${error.message}`,
-        "DAAIT_UPDATE_FAILED",
-      );
     }
+    if (previousAssetIds !== null) {
+      const desiredAssetIds = [
+        ...(record.profileTms ?? []).map((row) => row.tmId),
+        ...(record.profileGlossaries ?? []).map((row) => row.glossaryId),
+      ];
+      try {
+        await syncProfileResourcesDaait(id, desiredAssetIds, previousAssetIds);
+      } catch (error) {
+        if (error?.status !== 404) throw error;
+        // Mirror missing (pre-mirror profile): heal it, then attach all.
+        await syncProfileDaait(record);
+        await syncProfileResourcesDaait(id, desiredAssetIds, []);
+      }
+    }
+  } catch (error) {
+    throw new HttpError(
+      error.status || 500,
+      `Failed to update profile in Daait: ${error.message}`,
+      "DAAIT_UPDATE_FAILED",
+    );
   }
 
   return toProfileDoc(record);

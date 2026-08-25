@@ -1,6 +1,8 @@
 import {
+  attachProfileResources,
   createProfile,
   deleteProfile,
+  detachProfileResources,
   updateProfile as updateProfileDaaitApi,
 } from "@/lib/daait";
 
@@ -30,6 +32,23 @@ export async function createProfileDaait(record) {
 
 export async function deleteProfileDaait(id) {
   return deleteProfile(id);
+}
+
+// Keep the mirror's attached resources equal to the profile's TMs+glossaries.
+// DAAIT resolves translation memories/glossaries through these attachments
+// (tm_ids in /content/pecat only restrict within the attached set), so this
+// sync is what makes profile-based translation actually hit the TMs.
+export async function syncProfileResourcesDaait(
+  profileId,
+  desiredIds,
+  previousIds = [],
+) {
+  const desired = new Set(desiredIds);
+  const previous = new Set(previousIds);
+  const toAttach = desiredIds.filter((id) => !previous.has(id));
+  const toDetach = previousIds.filter((id) => !desired.has(id));
+  await detachProfileResources(profileId, toDetach);
+  await attachProfileResources(profileId, toAttach);
 }
 
 // PATCH /profile updates the mirror in place; a 404 means the profile predates

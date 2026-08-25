@@ -16,6 +16,7 @@ import {
 // modules/documents reference each other, so going through them here would
 // close an import cycle before the bindings are initialized.
 import { findProjectWithProfileForActor } from "../projects/repository";
+import { Prisma } from "@prisma/client";
 import { UnrecoverableError } from "bullmq";
 import {
   deleteProjectDocumentService,
@@ -292,9 +293,13 @@ export function resolveDocumentErrorStatus(error) {
 // Queue handlers throw on failure so BullMQ retries with backoff; the final
 // failure is turned into an error status by the worker (see import-worker.js).
 // A retried job re-runs from scratch, so every handler clears the document TUs
-// first to stay idempotent.
+// first to stay idempotent (and drops the previous run's pipeline telemetry).
 async function resetDocumentTus(documentId) {
   await prisma.tu.deleteMany({ where: { documentId } });
+  await prisma.document.update({
+    where: { id: documentId },
+    data: { pipelineStats: Prisma.DbNull },
+  });
 }
 
 // NOTE: the job payload key is still `projectId` (it carries the document row
@@ -570,7 +575,10 @@ export async function importDocumentsService({
         tmThreshold: assets.tmThreshold,
         tmIds: assets.tmIds,
         glossaryIds: assets.glossaryIds,
-        profileId: project.profileId ?? null,
+        // Hand-picked assets translate WITHOUT the profile: with a profile_id
+        // DAAIT restricts matching to the profile's attached resources, which
+        // would silently ignore any manually selected TM outside the profile.
+        profileId: assets.inheritProfile ? (project.profileId ?? null) : null,
         workspaceId: project.workspaceId,
       });
     } else {
@@ -585,7 +593,7 @@ export async function importDocumentsService({
         tmThreshold: assets.tmThreshold,
         tmIds: assets.tmIds,
         glossaryIds: assets.glossaryIds,
-        profileId: project.profileId ?? null,
+        profileId: assets.inheritProfile ? (project.profileId ?? null) : null,
         workspaceId: project.workspaceId,
       });
     }

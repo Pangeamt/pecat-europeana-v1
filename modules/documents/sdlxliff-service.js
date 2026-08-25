@@ -293,7 +293,7 @@ export async function enrichSdlxliffSegments(segments, {
   async function translateMissingTargets() {
     if (toTranslate.length === 0) return;
 
-    const response = await pecatTranslate({
+    const payload = {
       profile_id: profileId,
       source_language: sourceLanguage,
       target_language: targetLanguage,
@@ -303,7 +303,25 @@ export async function enrichSdlxliffSegments(segments, {
       tm_ids: tmIds,
       glossary_ids: glossaryIds,
       workspace: workspaceId,
-    });
+    };
+
+    let response;
+    try {
+      response = await pecatTranslate(payload);
+    } catch (error) {
+      // A profile without a DAAIT mirror (legacy or deleted upstream) must
+      // not kill the import: retry unprofiled — TMs/glossaries still apply,
+      // only the profile's instructions/formality are lost this run.
+      const missingProfile =
+        profileId &&
+        error?.status === 404 &&
+        /profile/i.test(error?.message ?? '');
+      if (!missingProfile) throw error;
+      console.warn(
+        `[documents] DAAIT has no mirror for profile ${profileId}; translating without profile`,
+      );
+      response = await pecatTranslate({ ...payload, profile_id: null });
+    }
 
     const results = response?.segments;
     if (!Array.isArray(results)) {
