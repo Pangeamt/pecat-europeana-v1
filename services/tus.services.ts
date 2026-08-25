@@ -21,6 +21,36 @@ export const confirmTu = async (
   });
 };
 
+export interface TuDraftEvaluation {
+  score: number | null;
+  verdict: "OK" | "REVIEW" | null;
+  suggestion: string | null;
+  meta: Record<string, unknown> | null;
+  daaitStatus?: string | null;
+}
+
+export const evaluateTu = async (payload: {
+  tuId: string;
+  target: string;
+}): Promise<AxiosResponse<TuDraftEvaluation>> => {
+  return await httpClient({
+    method: "post",
+    url: "/api/tus/evaluate",
+    data: payload,
+  });
+};
+
+export const evaluateTuByShareToken = async (
+  token: string,
+  payload: { tuId: string; target: string },
+): Promise<AxiosResponse<TuDraftEvaluation>> => {
+  return await httpClient({
+    method: "post",
+    url: `/api/share/tu/${token}/tus/evaluate`,
+    data: payload,
+  });
+};
+
 export const appendTu = async (
   payload: tuAppendPayload,
 ): Promise<AxiosResponse<unknown>> => {

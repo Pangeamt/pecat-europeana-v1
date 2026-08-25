@@ -1,5 +1,10 @@
 import Joi from "joi";
 
+export const evaluateTuSchema = Joi.object({
+  tuId: Joi.string().required(),
+  target: Joi.string().allow("", null).required(),
+});
+
 export const updateTuSchema = Joi.object({
   tuId: Joi.string().required(),
   reviewLiteral: Joi.string().allow(null, "").optional(),

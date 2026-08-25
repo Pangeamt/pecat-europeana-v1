@@ -57,6 +57,8 @@ export async function handleScoreMtqeJob({ projectId: documentId }) {
   });
   if (!document) return;
 
+  await mergePipelineStats(documentId, { stage: "SCORING" });
+
   const started = Date.now();
   const tus = await prisma.tu.findMany({
     where: {
@@ -120,6 +122,8 @@ export async function handleScoreMtqeJob({ projectId: documentId }) {
 
   const totalOutage = tus.length > 0 && scored === 0 && failed === tus.length;
   await mergePipelineStats(documentId, {
+    // SCORED = waiting for the LLM review stage to pick the document up.
+    stage: "SCORED",
     mtqeSecs: Math.round((Date.now() - started) / 1000),
     mtqeScored: scored,
     mtqeError: failed > 0 ? `${failed} segments could not be scored` : null,
@@ -149,6 +153,7 @@ export async function handleScoreMtqeJob({ projectId: documentId }) {
 // must still become usable (segments simply stay unscored = low band).
 export async function releaseDocumentAfterScoreFailure(documentId, error) {
   await mergePipelineStats(documentId, {
+    stage: "DONE",
     mtqeError: error?.message ?? "MTQE scoring failed",
   }).catch(() => {});
   await prisma.document
@@ -236,6 +241,74 @@ function buildReviewUpdate(tu, result, settings) {
     llmVerdict: LLM_VERDICT.REVIEW,
     llmComment: comment,
     suggestionMeta: meta,
+  };
+}
+
+/**
+ * One-off LLM review of a single (source, draft target) pair — used by the
+ * live draft evaluation in the TU editor. Same derivation rules as the batch
+ * review stage, but nothing is persisted: the caller shows the outcome.
+ */
+export async function reviewDraftSegment({
+  source,
+  target,
+  profileId,
+  tmIds = [],
+  glossaryIds = [],
+  documentId,
+  workspaceId,
+}) {
+  const response = await postEditContent({
+    profile_id: profileId,
+    alignments: [{ source, target }],
+    memory_ids: tmIds,
+    glossary_ids: glossaryIds,
+    use_term_score: true,
+    document_id: documentId,
+    workspace_id: workspaceId,
+    last_batch: true,
+  });
+
+  const result = response?.alignments?.[0];
+  const finalStatus = result?.final_status ?? null;
+  const suggestion =
+    typeof result?.target === "string" && result.target.trim() !== ""
+      ? result.target
+      : null;
+
+  if (
+    !suggestion ||
+    finalStatus === "FAILED" ||
+    finalStatus === "VALIDATION_FAILED" ||
+    finalStatus === "UNPROCESSED"
+  ) {
+    return { daaitStatus: finalStatus, verdict: null, suggestion: null, meta: null };
+  }
+
+  const meta = {
+    final_status: finalStatus,
+    d_score: result?.d_score ?? null,
+    llm_used: result?.llm_used ?? null,
+    missed_terms: result?.missed_terms ?? [],
+    detected_terms: result?.detected_terms ?? [],
+  };
+
+  if (normalizeForCompare(suggestion) === normalizeForCompare(target)) {
+    return { daaitStatus: finalStatus, verdict: LLM_VERDICT.OK, suggestion: null, meta };
+  }
+  if (!inlineTagsMatch(source, suggestion)) {
+    return {
+      daaitStatus: "VALIDATION_FAILED",
+      verdict: LLM_VERDICT.REVIEW,
+      suggestion: null,
+      meta,
+    };
+  }
+  return {
+    daaitStatus: finalStatus,
+    verdict: LLM_VERDICT.REVIEW,
+    suggestion,
+    meta,
   };
 }
 

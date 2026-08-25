@@ -1,8 +1,10 @@
 export {
+  evaluateTuDraftService,
+  evaluateTuDraftByShareTokenService,
   listTusByDocumentService,
   listTusByShareTokenService,
   updateTuStatusService,
   updateTuStatusByShareTokenService,
 } from "./service";
 
-export { updateTuSchema } from "./schemas";
+export { evaluateTuSchema, updateTuSchema } from "./schemas";

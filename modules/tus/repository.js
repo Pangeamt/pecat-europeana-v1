@@ -30,6 +30,20 @@ export async function findTuById(id) {
   });
 }
 
+// Everything the live draft evaluation needs to call DAAIT for a document:
+// the project profile + pipeline settings and the document's asset links.
+export async function findDocumentPipelineContext(documentId) {
+  return prisma.document.findUnique({
+    where: { id: documentId },
+    select: {
+      workspaceId: true,
+      project: { select: { profileId: true, settings: true } },
+      documentTms: { select: { tmId: true } },
+      documentGlossaries: { select: { glossaryId: true } },
+    },
+  });
+}
+
 // Review decisions propagate to identical sources WITHIN the same document
 // only (never across a project's documents).
 export async function findTusWithSameSource(documentId, srcLiteral, excludedTuId) {

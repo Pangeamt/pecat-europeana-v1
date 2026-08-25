@@ -1,10 +1,15 @@
 import { HttpError } from "../shared/http-error";
 import { DOCUMENT_STATUS } from "../../lib/document-status";
 import { postMTQE } from "../../lib/utils";
-import { SUGGESTION_STATUS } from "../documents/pipeline-constants";
+import {
+  SUGGESTION_STATUS,
+  resolvePipelineSettings,
+} from "../documents/pipeline-constants";
+import { reviewDraftSegment } from "../documents/pipeline-service";
 import {
   findDocumentByTusShareToken,
   findDocumentForTus,
+  findDocumentPipelineContext,
   findTuById,
   findTusByDocumentId,
   findTusWithSameSource,
@@ -168,6 +173,82 @@ async function applyTuStatusUpdate(tu, payload) {
   }
 
   return { tu: tuUpdated, alsoUpdated };
+}
+
+// Live draft evaluation: the editor calls this when the reviewer pauses
+// typing. Returns a fresh MTQE score and — when the project has a profile
+// with the LLM judge enabled — a fresh LLM verdict/suggestion for the draft.
+// NOTHING is persisted: the stored score/suggestion only change on confirm.
+async function evaluateTuDraft(tu, documentId, target) {
+  const text = typeof target === "string" ? target.trim() : "";
+  if (!text) {
+    return { score: null, verdict: null, suggestion: null, meta: null };
+  }
+
+  const context = await findDocumentPipelineContext(documentId);
+  const settings = resolvePipelineSettings(context?.project?.settings);
+  const profileId = context?.project?.profileId;
+
+  const [score, review] = await Promise.all([
+    rescoreReviewedPair(tu, target),
+    (async () => {
+      if (!profileId || !settings.llmJudge) return null;
+      try {
+        return await reviewDraftSegment({
+          source: tu.srcLiteral,
+          target,
+          profileId,
+          tmIds: (context?.documentTms ?? []).map((row) => row.tmId),
+          glossaryIds: (context?.documentGlossaries ?? []).map(
+            (row) => row.glossaryId,
+          ),
+          documentId,
+          workspaceId: context?.workspaceId,
+        });
+      } catch (error) {
+        // Live feedback is best-effort: a DAAIT hiccup must not surface as an
+        // editor error, the reviewer just gets no live verdict this pause.
+        console.warn("[tus] live LLM evaluation failed:", error.message);
+        return null;
+      }
+    })(),
+  ]);
+
+  return {
+    score,
+    verdict: review?.verdict ?? null,
+    suggestion: settings.llmSuggest ? (review?.suggestion ?? null) : null,
+    meta: review?.meta ?? null,
+    daaitStatus: review?.daaitStatus ?? null,
+  };
+}
+
+export async function evaluateTuDraftService(payload, actorUser) {
+  const { tuId, target } = payload;
+
+  const tu = await findTuById(tuId);
+  if (!tu) {
+    throw new HttpError(404, "Tu not found");
+  }
+  await assertTuAccessibleByActor(tu, actorUser);
+
+  return evaluateTuDraft(tu, tu.documentId, target);
+}
+
+export async function evaluateTuDraftByShareTokenService(token, payload) {
+  const { tuId, target } = payload;
+
+  const document = await findDocumentByTusShareToken(token);
+  if (!document) {
+    throw new HttpError(404, "Document not found");
+  }
+
+  const tu = await findTuById(tuId);
+  if (!tu || tu.documentId !== document.id) {
+    throw new HttpError(404, "Tu not found");
+  }
+
+  return evaluateTuDraft(tu, document.id, target);
 }
 
 export async function updateTuStatusService(payload, actorUser) {

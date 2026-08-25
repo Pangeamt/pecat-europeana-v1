@@ -48,6 +48,8 @@ import {
   appendTuByShareToken,
   confirmTu,
   confirmTuByShareToken,
+  evaluateTu,
+  evaluateTuByShareToken,
   getTus,
   getTusByShareToken,
 } from "@/services/tus.services";
@@ -100,6 +102,12 @@ const TusList = ({ shareToken } = {}) => {
   // Bumped when an LLM suggestion is applied so the target editor remounts
   // with the new reviewLiteral (Quill/TagEditor only read the initial value).
   const [editorRefreshKey, setEditorRefreshKey] = useState(0);
+  // Live draft evaluation: when the reviewer pauses typing, the draft is
+  // re-scored (MTQE) and re-reviewed (LLM). Ephemeral — nothing persists
+  // until the segment is confirmed.
+  const [liveEval, setLiveEval] = useState(null);
+  const liveEvalTimerRef = useRef(null);
+  const liveEvalSeqRef = useRef(0);
 
   const [open, setOpen] = useState(false);
   const userSt = userStore();
@@ -843,6 +851,51 @@ const TusList = ({ shareToken } = {}) => {
     });
   };
 
+  // Debounced live evaluation of the draft: fires ~1.2s after the reviewer
+  // stops typing. The sequence ref discards responses that arrive after a
+  // newer request or after the selection moved to another row.
+  const scheduleLiveEvaluation = (tuId, text) => {
+    if (liveEvalTimerRef.current) clearTimeout(liveEvalTimerRef.current);
+    const draft = (text ?? "").trim();
+    if (!draft) return;
+
+    liveEvalTimerRef.current = setTimeout(async () => {
+      const seq = ++liveEvalSeqRef.current;
+      setLiveEval({ tuId, loading: true });
+      try {
+        const response = shareToken
+          ? await evaluateTuByShareToken(shareToken, { tuId, target: text })
+          : await evaluateTu({ tuId, target: text });
+        if (liveEvalSeqRef.current !== seq) return;
+        const { score, verdict, suggestion, meta } = response.data ?? {};
+        setLiveEval({ tuId, loading: false, score, verdict, suggestion, meta });
+        if (typeof score === "number") {
+          setData((prev) =>
+            prev.map((doc) =>
+              doc.id === tuId ? { ...doc, translationScorePercent: score } : doc,
+            ),
+          );
+          setSelectedRow((prev) =>
+            prev?.id === tuId
+              ? { ...prev, translationScorePercent: score }
+              : prev,
+          );
+        }
+      } catch (error) {
+        console.error("Live evaluation failed", error);
+        if (liveEvalSeqRef.current === seq) setLiveEval(null);
+      }
+    }, 1200);
+  };
+
+  // Cancel any pending/in-flight evaluation when the selection moves. No
+  // state reset needed: every consumer of liveEval guards on tuId, so a
+  // stale result for another row is simply never rendered.
+  useEffect(() => {
+    liveEvalSeqRef.current += 1;
+    if (liveEvalTimerRef.current) clearTimeout(liveEvalTimerRef.current);
+  }, [selectedRow?.id]);
+
   const changeTextInTextarea = (text) => {
     const html = stripHTML(text);
     if (selectedRow && selectedRow.reviewLiteral !== html) {
@@ -850,6 +903,9 @@ const TusList = ({ shareToken } = {}) => {
         ...prev,
         reviewLiteral: html,
       }));
+      if (!isSegmentBlocked(selectedRow)) {
+        scheduleLiveEvaluation(selectedRow.id, html);
+      }
     }
   };
 
@@ -861,6 +917,9 @@ const TusList = ({ shareToken } = {}) => {
         ...prev,
         reviewLiteral: text,
       }));
+      if (!isSegmentBlocked(selectedRow)) {
+        scheduleLiveEvaluation(selectedRow.id, text);
+      }
     }
   };
 
@@ -945,35 +1004,13 @@ const TusList = ({ shareToken } = {}) => {
               key: "1",
               label: (
                 <>
-                  <span>TMs</span> <Badge count={filteredTmInfo.length} />
-                </>
-              ),
-              children: (
-                <TmTool
-                  filteredTmInfo={filteredTmInfo}
-                  showUnderThreshold={showUnderThreshold}
-                  onShowUnderThresholdChange={setShowUnderThreshold}
-                />
-              ),
-            },
-            {
-              key: "2",
-              label: (
-                <>
-                  <span>Glossaries</span> <Badge count={glossaryInfo.length} />
-                </>
-              ),
-              children: <GlossaryTool glossaryInfo={glossaryInfo} />,
-            },
-            {
-              key: "3",
-              label: (
-                <>
                   <span>Suggestion</span>{" "}
                   <Badge
                     count={
-                      selectedRow?.suggestionStatus === "PENDING" &&
-                      selectedRow?.suggestionLiteral
+                      (liveEval?.tuId === selectedRow?.id &&
+                        liveEval?.suggestion) ||
+                      (selectedRow?.suggestionStatus === "PENDING" &&
+                        selectedRow?.suggestionLiteral)
                         ? 1
                         : 0
                     }
@@ -986,8 +1023,41 @@ const TusList = ({ shareToken } = {}) => {
                   disabled={isSegmentBlocked(selectedRow)}
                   onApply={applySuggestion}
                   onDiscard={discardSuggestion}
+                  live={liveEval?.tuId === selectedRow?.id ? liveEval : null}
+                  onApplyLive={() => {
+                    if (!liveEval?.suggestion) return;
+                    const text = liveEval.suggestion;
+                    setSelectedRow((prev) =>
+                      prev ? { ...prev, reviewLiteral: text } : prev,
+                    );
+                    setEditorRefreshKey((prev) => prev + 1);
+                  }}
                 />
               ),
+            },
+            {
+              key: "2",
+              label: (
+                <>
+                  <span>TMs</span> <Badge count={filteredTmInfo.length} />
+                </>
+              ),
+              children: (
+                <TmTool
+                  filteredTmInfo={filteredTmInfo}
+                  showUnderThreshold={showUnderThreshold}
+                  onShowUnderThresholdChange={setShowUnderThreshold}
+                />
+              ),
+            },
+            {
+              key: "3",
+              label: (
+                <>
+                  <span>Glossaries</span> <Badge count={glossaryInfo.length} />
+                </>
+              ),
+              children: <GlossaryTool glossaryInfo={glossaryInfo} />,
             },
           ]}
         />
