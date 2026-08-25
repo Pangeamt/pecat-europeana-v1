@@ -164,8 +164,6 @@ export async function createProfileService(payload, actorUser) {
         formality: payload.formality ?? "FORMAL",
         instructions: optionalText(payload.instructions),
         domain: optionalText(payload.domain),
-        sourceLanguage: optionalText(payload.sourceLanguage),
-        targetLanguage: optionalText(payload.targetLanguage),
         taskLevel: payload.taskLevel ?? "MEDIUM",
         llmModels: payload.llmModels ?? null,
         createdByUserId: actorUser.id,

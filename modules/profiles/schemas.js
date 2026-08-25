@@ -12,9 +12,9 @@ export const createProfileSchema = Joi.object({
     .optional(),
   instructions: Joi.string().trim().max(5000).optional().allow("", null),
   domain: Joi.string().trim().max(191).optional().allow("", null),
-  sourceLanguage: Joi.string().trim().max(20).optional().allow("", null),
-  // Required by the DAAIT mirror (BCP 47 tag).
-  targetLanguage: Joi.string().trim().min(2).max(20).required(),
+  // Profiles are language-agnostic: the pair always comes from the document
+  // upload. (Legacy profiles may still carry a stored pair, which the
+  // pipeline uses only as a mismatch guard.)
   taskLevel: Joi.string()
     .valid(...TASK_LEVEL_VALUES)
     .optional(),
