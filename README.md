@@ -52,4 +52,40 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
 
+## Despliegue con Docker y persistencia de datos
+
+El despliegue con Docker se hace con `./devops-docker.sh` (`docker compose build` + `up -d`). **Reconstruir la imagen o recrear el contenedor NO borra los archivos subidos**: `docker-compose.yml` guarda los datos en volúmenes con nombre, que viven fuera del contenedor y se vuelven a montar en cada arranque.
+
+| Volumen | Punto de montaje | Contenido |
+|---|---|---|
+| `storage` | `/app/storage` | Carpetas de trabajo de documentos (original + XLIFF bilingüe, plantilla del export) |
+| `uploads` | `/app/public/files` | Archivos subidos |
+| `redis-data` | `/data` (servicio redis) | Cola BullMQ (AOF activado) |
+
+La base de datos MySQL es **externa** (`DATABASE_URL`) y no forma parte del compose, así que ningún comando de Docker la afecta.
+
+### ⚠️ Comandos que SÍ destruyen datos
+
+Estos comandos eliminan los volúmenes y con ellos todos los documentos y archivos subidos. **No los ejecutes en producción** salvo que sea exactamente lo que quieres:
+
+```bash
+docker compose down -v          # el flag -v borra los volúmenes del proyecto
+docker volume rm <volumen>      # borra un volumen concreto
+docker volume prune             # borra todos los volúmenes no usados por un contenedor
+docker system prune --volumes   # prune global incluyendo volúmenes
+```
+
+Un `docker compose down` **sin** `-v`, un `build`, un `up -d` o el `docker image prune -f` del script de deploy son seguros: solo tocan contenedores e imágenes, nunca los volúmenes.
+
+Ten en cuenta que el contenido de `storage/` y `public/files` está referenciado desde la base de datos (p. ej. `Project.documentId` apunta a `storage/{documentId}/`): si se pierden los volúmenes, los proyectos existentes quedan huérfanos aunque la BD siga intacta — el XLIFF bilingüe es la plantilla estructural del export y no se puede regenerar.
+
+### ⚠️ Base de datos compartida y sin backups
+
+`DATABASE_URL` apunta a un MySQL remoto **compartido y sin backups automáticos**. Precauciones:
+
+- Nunca uses `prisma migrate reset` ni `prisma db push --force-reset` contra esa BD.
+- No configures `shadowDatabaseUrl` apuntando a una BD con datos reales: Prisma la **vacía** al validar migraciones (ya ocurrió una pérdida de datos por esto).
+- Para migrar en producción usa solo `prisma migrate deploy` (es lo que hacen `devops.sh` y la imagen Docker al arrancar).
+- Antes de una migración delicada, haz un dump manual: `mysqldump` de las tablas afectadas.
+
 # pecat-europeana-v1
