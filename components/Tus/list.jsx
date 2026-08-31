@@ -125,10 +125,27 @@ const TusList = ({ shareToken } = {}) => {
 
   const [pageSize, setPageSize] = useState(20);
   const [page, setPage] = useState(1);
+  // Visual order of the table. AntD's Table applies sorting/filtering
+  // internally at render time, so `data` keeps the fetch order — but
+  // previous/next navigation must follow what the reviewer actually sees.
+  // Snapshotted (as ids) from `extra.currentDataSource` on every table
+  // change event and re-mapped against `data`, so row updates via
+  // setData(prev => ...) are never read from a stale copy.
+  const [viewOrderIds, setViewOrderIds] = useState(null);
   const [xmlRequesting, setXmlRequesting] = useState(null);
   const pendingScrollIndexRef = useRef(null);
 
   const isSegmentBlocked = (doc) => Boolean(doc?.block);
+
+  // Rows in the order the table displays them (fetch order until the user
+  // sorts or filters). Ids missing from `data` (e.g. after a refetch) are
+  // dropped; an empty snapshot falls back to the raw list.
+  const orderedData = useMemo(() => {
+    if (!viewOrderIds) return data;
+    const byId = new Map(data.map((doc) => [doc.id, doc]));
+    const ordered = viewOrderIds.map((id) => byId.get(id)).filter(Boolean);
+    return ordered.length ? ordered : data;
+  }, [data, viewOrderIds]);
 
   // Manual segment lock/unlock is a management action: session ADMIN/SUPER
   // only, never the anonymous share-link translator (also enforced server-side).
@@ -152,6 +169,7 @@ const TusList = ({ shareToken } = {}) => {
           : await getTus(projectId);
         const docs = response.data.docs || [];
         setData(docs);
+        setViewOrderIds(null);
         setSelectedRow((prev) => prev || docs[0] || null);
         setRequesting(false);
       } catch (error) {
@@ -160,6 +178,7 @@ const TusList = ({ shareToken } = {}) => {
           error?.response?.data?.error?.message || "Project is not ready yet",
         );
         setData([]);
+        setViewOrderIds(null);
         setSelectedRow(null);
         setRequesting(false);
       }
@@ -767,12 +786,12 @@ const TusList = ({ shareToken } = {}) => {
   };
 
   const goToRowIndex = (index) => {
-    if (index < 0 || index >= data.length) return;
+    if (index < 0 || index >= orderedData.length) return;
 
     const targetPage = Math.floor(index / pageSize) + 1;
     const indexOnPage = index % pageSize;
 
-    setSelectedRow(data[index]);
+    setSelectedRow(orderedData[index]);
 
     if (targetPage === page) {
       tblRef.current?.scrollTo({ index: indexOnPage });
@@ -785,7 +804,9 @@ const TusList = ({ shareToken } = {}) => {
 
   const movePrevious = () => {
     if (!selectedRow) return;
-    const currentIndex = data.findIndex((doc) => doc.id === selectedRow.id);
+    const currentIndex = orderedData.findIndex(
+      (doc) => doc.id === selectedRow.id,
+    );
     if (currentIndex <= 0) return;
 
     goToRowIndex(currentIndex - 1);
@@ -793,18 +814,23 @@ const TusList = ({ shareToken } = {}) => {
 
   const moveNext = ({ skipBlocked = false } = {}) => {
     if (!selectedRow) return;
-    const currentIndex = data.findIndex((doc) => doc.id === selectedRow.id);
-    if (currentIndex < 0 || currentIndex >= data.length - 1) return;
+    const currentIndex = orderedData.findIndex(
+      (doc) => doc.id === selectedRow.id,
+    );
+    if (currentIndex < 0 || currentIndex >= orderedData.length - 1) return;
 
     let nextIndex = currentIndex + 1;
 
     if (skipBlocked && !isSegmentBlocked(selectedRow)) {
-      while (nextIndex < data.length && isSegmentBlocked(data[nextIndex])) {
+      while (
+        nextIndex < orderedData.length &&
+        isSegmentBlocked(orderedData[nextIndex])
+      ) {
         nextIndex += 1;
       }
     }
 
-    if (nextIndex < data.length) {
+    if (nextIndex < orderedData.length) {
       goToRowIndex(nextIndex);
     }
   };
@@ -1142,6 +1168,11 @@ const TusList = ({ shareToken } = {}) => {
           }}
           size="small"
           ref={tblRef}
+          onChange={(_pagination, _filters, _sorter, extra) => {
+            // Fires on every sort/filter/paginate: snapshot the visual order
+            // so previous/next navigation follows the table as displayed.
+            setViewOrderIds(extra.currentDataSource.map((doc) => doc.id));
+          }}
           onRow={(record) => {
             return {
               onClick: () => {
