@@ -228,6 +228,8 @@ async function evaluateTuDraft(tu, documentId, target) {
           ),
           documentId,
           workspaceId: context?.workspaceId,
+          sourceLanguage: context?.sourceLanguage,
+          targetLanguage: context?.targetLanguage,
         });
       } catch (error) {
         // Live feedback is best-effort: a DAAIT hiccup must not surface as an

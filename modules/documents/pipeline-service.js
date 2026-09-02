@@ -258,6 +258,8 @@ export async function reviewDraftSegment({
   glossaryIds = [],
   documentId,
   workspaceId,
+  sourceLanguage,
+  targetLanguage,
 }) {
   const response = await postEditContent({
     profile_id: profileId,
@@ -268,6 +270,8 @@ export async function reviewDraftSegment({
     document_id: documentId,
     workspace_id: workspaceId,
     last_batch: true,
+    source_language: sourceLanguage,
+    target_language: targetLanguage,
   });
 
   const result = response?.alignments?.[0];
@@ -411,6 +415,8 @@ export async function handleLlmReviewJob({ projectId: documentId }) {
         document_id: documentId,
         workspace_id: document.workspaceId,
         last_batch: i + POST_EDIT_BATCH_SIZE >= candidates.length,
+        source_language: document.sourceLanguage,
+        target_language: document.targetLanguage,
       });
     } catch (error) {
       failedSegments += batch.length;
