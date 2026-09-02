@@ -1,11 +1,15 @@
-import { Inter } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import { AntdRegistry } from "@ant-design/nextjs-registry";
 
 import { NextAuthProvider } from "./providers";
 
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-jakarta",
+  display: "swap",
+});
 
 export const metadata = {
   title: "PECAT-E",
@@ -24,7 +28,7 @@ export default function RootLayout({ children }) {
   return (
     <NextAuthProvider>
       <html lang="en">
-        <body className={inter.className}>
+        <body className={`${jakarta.variable} ${jakarta.className}`}>
           <AntdRegistry>{children}</AntdRegistry>
         </body>
       </html>

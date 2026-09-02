@@ -1,6 +1,16 @@
 @config "../tailwind.config.js";
 @import "tailwindcss";
 
+/* Brand design tokens — sync with app/providers.jsx and tailwind.config.js.
+   See design-system/MASTER.md. */
+:root {
+    --color-primary: #5E7D26;
+    --color-primary-bright: #98C441;
+    --color-primary-soft: #EAF3D3;
+    --brand-gradient: linear-gradient(135deg, #384C16 0%, #7FA836 100%);
+}
+
+
 
 .demo-logo-vertical {
     height: 32px;
@@ -79,7 +89,7 @@
     z-index: 0;
     height: 100%;
     width: 100%;
-    background: linear-gradient(#ffffff, #f5f5f5 28%);
+    background: linear-gradient(#ffffff, #F4F7EE 28%);
 }
 
 
@@ -94,17 +104,16 @@
     margin-inline-end: -1px;
 }
 
-.ant-menu-item:not(.ant-menu-item-selected):active,
 .ant-menu-item:not(.ant-menu-item-selected):active {
-    background-color: rgba(0, 0, 0, 0.15);
+    background-color: #D7E8AC;
 }
 
 
 
 .ant-menu-light .ant-menu-item-selected,
 .ant-menu-light>.ant-menu .ant-menu-item-selected {
-    background-color: rgba(0, 0, 0, 0.15) !important;
-    color: black !important;
+    background-color: var(--color-primary-soft) !important;
+    color: #384C16 !important;
 }
 
 .tus-layout {
@@ -279,4 +288,9 @@
 
 .tag-editor .inline-tag {
     font-size: 12px;
+}
+
+/* lucide icons: behave like font icons when used inline with text */
+svg.lucide {
+    vertical-align: -0.125em;
 }
