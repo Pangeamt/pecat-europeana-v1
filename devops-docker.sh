@@ -43,8 +43,11 @@ for i in $(seq 1 60); do
   sleep 2
 done
 
-echo "==> Pruning dangling images from previous builds..."
+echo "==> Pruning dangling images and build cache from previous builds..."
 docker image prune -f >/dev/null
+# Each build leaves ~1-3GB of layer cache behind; on small disks this fills /
+# after a few deploys (ENOSPC). Keep only the cache of the image just built.
+docker builder prune -f --keep-storage 4GB >/dev/null
 
 echo "==> Deployment complete."
 docker compose ps
