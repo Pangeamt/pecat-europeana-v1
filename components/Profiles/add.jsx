@@ -1,10 +1,5 @@
 "use client";
 
-import {
-  ArrowLeftOutlined,
-  ArrowRightOutlined,
-  PlusOutlined,
-} from "@ant-design/icons";
 import { Button, Form, Input, Modal, Select, Steps, Tag, message } from "antd";
 import { useState } from "react";
 
@@ -13,6 +8,7 @@ import { fetchGlossariesRequest } from "@/services/glossary.services";
 import { addProfileRequest } from "@/services/profiles.services";
 import { fetchTMRequest } from "@/services/tm.services";
 import { userStore } from "@/store";
+import { ArrowLeft, ArrowRight, Plus } from "lucide-react";
 
 const TASK_LEVEL_OPTIONS = [
   { value: "BASIC", label: "Basic" },
@@ -174,12 +170,12 @@ const ProfileAdd = ({ refetch }) => {
   return (
     <>
       <Button
-        icon={<PlusOutlined />}
+        icon={<Plus size={15} />}
         type="primary"
         onClick={showModal}
         className="shadow-sm"
         style={{
-          background: "linear-gradient(135deg, #111827 0%, #2563eb 100%)",
+          background: "var(--brand-gradient)",
           border: 0,
         }}
       >
@@ -194,7 +190,7 @@ const ProfileAdd = ({ refetch }) => {
             <Button onClick={handleCancel}>{t("common.cancel")}</Button>
             <div className="flex gap-2">
               {currentStep > 0 ? (
-                <Button icon={<ArrowLeftOutlined />} onClick={goBack}>
+                <Button icon={<ArrowLeft size={15} />} onClick={goBack}>
                   {t("common.back")}
                 </Button>
               ) : null}
@@ -205,7 +201,7 @@ const ProfileAdd = ({ refetch }) => {
                   onClick={handleFinish}
                   style={{
                     background:
-                      "linear-gradient(135deg, #111827 0%, #2563eb 100%)",
+                      "var(--brand-gradient)",
                     border: 0,
                   }}
                 >
@@ -214,11 +210,11 @@ const ProfileAdd = ({ refetch }) => {
               ) : (
                 <Button
                   type="primary"
-                  icon={<ArrowRightOutlined />}
+                  icon={<ArrowRight size={15} />}
                   onClick={goNext}
                   style={{
-                    background: "#98C441",
-                    borderColor: "#98C441",
+                    background: "var(--color-primary)",
+                    borderColor: "var(--color-primary)",
                   }}
                 >
                   {t("common.next")}
@@ -232,8 +228,8 @@ const ProfileAdd = ({ refetch }) => {
         destroyOnHidden
         styles={{ body: { padding: 0, overflow: "hidden" } }}
       >
-        <div className="relative overflow-hidden rounded-lg bg-slate-950 px-5 py-4 pr-12 text-white">
-          <div className="absolute -right-10 -top-10 size-28 rounded-full bg-blue-500/25 blur-3xl" />
+        <div className="relative overflow-hidden rounded-lg bg-gradient-to-br from-primary-900 to-primary-700 px-5 py-4 pr-12 text-white">
+          <div className="absolute -right-10 -top-10 size-28 rounded-full bg-primary/25 blur-3xl" />
           <div className="relative">
             <h2 className="mt-1 text-xl font-semibold">
               {t("profiles.add.heading")}

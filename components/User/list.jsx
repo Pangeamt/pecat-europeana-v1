@@ -21,8 +21,7 @@ import {
 } from "@/services/user.services";
 import { getMembersOfWorkspace } from "@/services/workspace.services";
 import { StatCard, StatCardGrid } from "@/components/shared/StatCard";
-import { DeleteOutlined } from "@ant-design/icons";
-import { ShieldCheck, UserCircle, UserCog, Users } from "lucide-react";
+import { ShieldCheck, Trash2, UserCircle, UserCog, Users } from "lucide-react";
 import { useEffect } from "react";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { userStore } from "@/store";
@@ -188,7 +187,7 @@ const UserList = () => {
                     size="small"
                     type="text"
                     danger
-                    icon={<DeleteOutlined />}
+                    icon={<Trash2 size={15} />}
                   />
                 </Tooltip>
               </Popconfirm>
@@ -201,10 +200,10 @@ const UserList = () => {
 
   return (
     <Card className="project-list-card overflow-hidden" style={{ marginLeft: 20 }}>
-      <div className="mb-5 rounded-2xl bg-slate-950 p-5 text-white">
+      <div className="mb-5 rounded-2xl bg-gradient-to-br from-primary-900 to-primary-700 p-5 text-white">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-200">
+            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-primary-200">
               {t("users.eyebrow")}
             </div>
             <h2 className="mb-1 mt-2 text-2xl font-semibold">

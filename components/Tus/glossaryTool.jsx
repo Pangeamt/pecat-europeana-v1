@@ -1,12 +1,12 @@
 "use client";
 
-import { ColumnHeightOutlined } from "@ant-design/icons";
 import { Button, Table, Tooltip } from "antd";
 import PropTypes from "prop-types";
 import { Resizable } from "re-resizable";
 import { useRef, useState } from "react";
 
 import { useTranslation } from "@/components/i18n/LanguageProvider";
+import { MoveVertical } from "lucide-react";
 
 const style = { padding: "10px 5px" };
 
@@ -59,7 +59,7 @@ const GlossaryTool = ({ glossaryInfo }) => {
             <Button
               type="primary"
               shape="circle"
-              icon={<ColumnHeightOutlined />}
+              icon={<MoveVertical size={15} />}
               size="small"
               className="cursor-row-resize"
               style={{ position: "absolute", bottom: 12, right: 12 }}

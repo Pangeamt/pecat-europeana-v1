@@ -4,22 +4,12 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button, Layout, Menu } from "antd";
-import {
-  ApartmentOutlined,
-  BookOutlined,
-  FolderOutlined,
-  IdcardOutlined,
-  LeftOutlined,
-  RightOutlined,
-  SlidersOutlined,
-  UserOutlined,
-  DatabaseOutlined,
-} from "@ant-design/icons";
 
 import AvatarDropdown from "@/components/AvatarDropdown";
 import Logo from "@/components/Logo";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { userStore } from "@/store";
+import { Book, Building2, ChevronLeft, ChevronRight, Database, Folder, IdCard, SlidersHorizontal, UserRound } from "lucide-react";
 
 const { Header, Sider, Content } = Layout;
 
@@ -70,7 +60,7 @@ const buildMenuItems = (role, t) => {
   const items = [
     {
       key: MENU_KEYS.projects,
-      icon: <FolderOutlined />,
+      icon: <Folder size={15} />,
       label: <Link href="/dashboard">{t("nav.projects")}</Link>,
     },
   ];
@@ -79,22 +69,22 @@ const buildMenuItems = (role, t) => {
     items.push(
       {
         key: MENU_KEYS.profiles,
-        icon: <SlidersOutlined />,
+        icon: <SlidersHorizontal size={15} />,
         label: <Link href="/dashboard/profiles">{t("nav.profiles")}</Link>,
       },
       {
         key: MENU_KEYS.tms,
-        icon: <DatabaseOutlined />,
+        icon: <Database size={15} />,
         label: <Link href="/dashboard/tms">{t("nav.tms")}</Link>,
       },
       {
         key: MENU_KEYS.glossaries,
-        icon: <BookOutlined />,
+        icon: <Book size={15} />,
         label: <Link href="/dashboard/glossaries">{t("nav.glossaries")}</Link>,
       },
       {
         key: MENU_KEYS.users,
-        icon: <UserOutlined />,
+        icon: <UserRound size={15} />,
         label: <Link href="/dashboard/users">{t("nav.users")}</Link>,
       },
     );
@@ -103,7 +93,7 @@ const buildMenuItems = (role, t) => {
   if (role === "SUPER") {
     items.push({
       key: MENU_KEYS.workspaces,
-      icon: <ApartmentOutlined />,
+      icon: <Building2 size={15} />,
       label: <Link href="/dashboard/workspaces">{t("nav.workspaces")}</Link>,
     });
   }
@@ -111,7 +101,7 @@ const buildMenuItems = (role, t) => {
   // Always available, regardless of role.
   items.push({
     key: MENU_KEYS.profile,
-    icon: <IdcardOutlined />,
+    icon: <IdCard size={15} />,
     label: <Link href="/dashboard/profile">{t("account.profile")}</Link>,
   });
 
@@ -206,7 +196,7 @@ const DashboardShell = ({ initialUser, children }) => {
           <Button
             className="sider-collapsed-button"
             shape="circle"
-            icon={collapsed ? <RightOutlined /> : <LeftOutlined />}
+            icon={collapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
             onClick={() => setCollapsed((prev) => !prev)}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           />

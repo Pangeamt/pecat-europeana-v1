@@ -13,16 +13,12 @@ import {
   Typography,
 } from "antd";
 import {
-  ArrowRightOutlined,
-  CloseCircleOutlined,
-  SearchOutlined,
-} from "@ant-design/icons";
-import {
   fetchGlossaryByIdRequest,
   fetchGlossaryEntriesRequest,
 } from "@/services/glossary.services";
 import { useMemoryDetailView } from "@/components/shared/useMemoryDetailView";
 import { getTextDirection } from "@/lib/locale-direction";
+import { ArrowRight, CircleX, Search } from "lucide-react";
 
 const { Text } = Typography;
 
@@ -112,7 +108,7 @@ export default function GlossaryView({ glossaryId }) {
 
   return (
     <Card loading={state.loading && !glossary} className="overflow-hidden">
-      <div className="mb-5 rounded-2xl bg-slate-950 p-5 text-white">
+      <div className="mb-5 rounded-2xl bg-gradient-to-br from-primary-900 to-primary-700 p-5 text-white">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200">
@@ -130,7 +126,7 @@ export default function GlossaryView({ glossaryId }) {
               <Tag color="geekblue" className="rounded-full uppercase">
                 {glossary.context?.source}
               </Tag>
-              <ArrowRightOutlined className="text-slate-400" />
+              <ArrowRight size={15} className="text-slate-400" />
               <Tag color="cyan" className="rounded-full uppercase">
                 {glossary.context?.target}
               </Tag>
@@ -180,13 +176,13 @@ export default function GlossaryView({ glossaryId }) {
 
         <Button
           type="primary"
-          icon={<SearchOutlined />}
+          icon={<Search size={15} />}
           onClick={handleSearch}
           loading={state.tableLoading && isSearchMode}
           disabled={!state.searchInput.trim()}
         />
         <Button
-          icon={<CloseCircleOutlined />}
+          icon={<CircleX size={15} />}
           onClick={handleClearSearch}
           disabled={!state.searchInput && !isSearchMode}
         />

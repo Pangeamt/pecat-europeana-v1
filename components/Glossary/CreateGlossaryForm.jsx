@@ -1,8 +1,8 @@
 "use client";
-import { BookOutlined, GlobalOutlined } from "@ant-design/icons";
 import { Button, Form, Input, Select, message } from "antd";
 import locales from "@/lib/locales.json";
 import { addGlossaryRequest } from "@/services/glossary.services";
+import { Book, Globe } from "lucide-react";
 
 const languages = locales;
 const languageOptions = Object.keys(languages).map((code) => ({
@@ -51,7 +51,7 @@ export default function CreateGlossaryForm({ user, onBack, onCreated }) {
           <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-center gap-3">
               <div className="flex size-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-                <BookOutlined />
+                <Book size={15} />
               </div>
               <div>
                 <div className="font-semibold text-slate-900">Glossary details</div>
@@ -80,7 +80,7 @@ export default function CreateGlossaryForm({ user, onBack, onCreated }) {
           <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-center gap-3">
               <div className="flex size-8 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
-                <GlobalOutlined />
+                <Globe size={15} />
               </div>
               <div>
                 <div className="font-semibold text-slate-900">Languages</div>
@@ -127,7 +127,7 @@ export default function CreateGlossaryForm({ user, onBack, onCreated }) {
               type="primary"
               htmlType="submit"
               style={{
-                background: "linear-gradient(135deg, #111827 0%, #059669 100%)",
+                background: "var(--brand-gradient)",
                 border: 0,
               }}
             >

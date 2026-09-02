@@ -8,12 +8,6 @@ import {
 import { formatDate } from "@/lib/utils";
 import { userStore } from "@/store";
 import {
-  DeleteOutlined,
-  EditOutlined,
-  PlusOutlined,
-  TeamOutlined,
-} from "@ant-design/icons";
-import {
   Button,
   Card,
   Empty,
@@ -29,6 +23,7 @@ import {
 } from "antd";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { Pencil, Plus, Trash2, Users } from "lucide-react";
 
 const WorkspaceList = () => {
   const store = userStore();
@@ -178,14 +173,14 @@ const WorkspaceList = () => {
         <Space>
           <Tooltip title="Members">
             <Link href={`/dashboard/workspaces/${record.id}`}>
-              <Button size="small" type="text" icon={<TeamOutlined />} />
+              <Button size="small" type="text" icon={<Users size={15} />} />
             </Link>
           </Tooltip>
           <Tooltip title="Edit">
             <Button
               size="small"
               type="text"
-              icon={<EditOutlined />}
+              icon={<Pencil size={15} />}
               onClick={() => openEdit(record)}
             />
           </Tooltip>
@@ -202,7 +197,7 @@ const WorkspaceList = () => {
                   size="small"
                   type="text"
                   danger
-                  icon={<DeleteOutlined />}
+                  icon={<Trash2 size={15} />}
                 />
               </Tooltip>
             </Popconfirm>
@@ -214,10 +209,10 @@ const WorkspaceList = () => {
 
   return (
     <Card className="overflow-hidden" style={{ marginLeft: 20 }}>
-      <div className="mb-5 rounded-2xl bg-slate-950 p-5 text-white">
+      <div className="mb-5 rounded-2xl bg-gradient-to-br from-primary-900 to-primary-700 p-5 text-white">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-200">
+            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-primary-200">
               Organization
             </div>
             <h2 className="mb-1 mt-2 text-2xl font-semibold">Workspaces</h2>
@@ -226,7 +221,7 @@ const WorkspaceList = () => {
             </p>
           </div>
           {canCreate && (
-            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+            <Button type="primary" icon={<Plus size={15} />} onClick={openCreate}>
               New workspace
             </Button>
           )}

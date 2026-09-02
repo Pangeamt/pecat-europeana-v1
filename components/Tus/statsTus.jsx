@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  ArrowLeftOutlined,
-  ClockCircleOutlined,
-  CloseCircleOutlined,
-  EditOutlined,
-  LoadingOutlined,
-  PieChartOutlined,
-} from "@ant-design/icons";
-import { CircleCheck, Database, Dumbbell } from "lucide-react";
+import { ArrowLeft, CircleCheck, CircleX, Clock, Database, Dumbbell, LoaderCircle, Pencil, PieChart } from "lucide-react";
 import Link from "next/link";
 import PropTypes from "prop-types";
 import { useEffect, useMemo, useState } from "react";
@@ -35,19 +27,19 @@ const METRICS = [
   {
     key: "edited",
     label: "Edited",
-    icon: EditOutlined,
+    icon: Pencil,
     colorClass: "text-blue-600 bg-blue-50 border-blue-200 blue-50",
   },
   {
     key: "notReviewed",
     label: "Not reviewed",
-    icon: ClockCircleOutlined,
+    icon: Clock,
     colorClass: "text-amber-800 border-amber-600 bg-amber-50",
   },
   {
     key: "rejected",
     label: "Rejected",
-    icon: CloseCircleOutlined,
+    icon: CircleX,
     colorClass: "text-rose-800 border-rose-600 bg-rose-50",
   },
 ];
@@ -164,19 +156,19 @@ const EffortModal = ({ open, onClose, stats, requesting, totalSegments }) => {
         body: { padding: 0 },
       }}
     >
-      <div className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 px-6 pb-5 pt-6 text-white">
+      <div className="relative overflow-hidden bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 px-6 pb-5 pt-6 text-white">
         <div
-          className="pointer-events-none absolute -right-8 -top-8 size-40 rounded-full bg-blue-500/20 blur-3xl"
+          className="pointer-events-none absolute -right-8 -top-8 size-40 rounded-full bg-primary-bright/25 blur-3xl"
           aria-hidden
         />
         <div
-          className="pointer-events-none absolute -bottom-10 left-8 size-32 rounded-full bg-violet-500/15 blur-3xl"
+          className="pointer-events-none absolute -bottom-10 left-8 size-32 rounded-full bg-primary-500/15 blur-3xl"
           aria-hidden
         />
 
         <div className="relative flex items-start justify-between gap-4">
           <div>
-            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-blue-100/90">
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-primary-100/90">
               <Dumbbell size={14} />
               Translation effort
             </div>
@@ -256,7 +248,7 @@ const EffortModal = ({ open, onClose, stats, requesting, totalSegments }) => {
                     </div>
                     <div className="text-xl font-bold tabular-nums leading-none text-slate-900">
                       {requesting ? (
-                        <LoadingOutlined spin className="text-base" />
+                        <LoaderCircle size={15} className="text-base" />
                       ) : (
                         bucket.count
                       )}
@@ -273,7 +265,7 @@ const EffortModal = ({ open, onClose, stats, requesting, totalSegments }) => {
                     </div>
                     <div className="text-xl font-bold tabular-nums leading-none text-slate-700">
                       {requesting ? (
-                        <LoadingOutlined spin className="text-base" />
+                        <LoaderCircle size={15} className="text-base" />
                       ) : (
                         bucket.words.toLocaleString()
                       )}
@@ -434,7 +426,7 @@ const StatsTus = ({
         {parentProjectId ? (
           <Tooltip title="Back to project">
             <Link href={`/dashboard/projects/${parentProjectId}`}>
-              <Button size="small" icon={<ArrowLeftOutlined />} />
+              <Button size="small" icon={<ArrowLeft size={15} />} />
             </Link>
           </Tooltip>
         ) : null}
@@ -448,7 +440,7 @@ const StatsTus = ({
               <span>{label}</span>
               <span className="font-bold tabular-nums">
                 {requesting ? (
-                  <LoadingOutlined spin />
+                  <LoaderCircle size={15} />
                 ) : (
                   Number(stats[key] ?? 0)
                 )}
@@ -463,7 +455,7 @@ const StatsTus = ({
               requesting ? "Loading progress" : `Reviewed ${pct} percent`
             }
           >
-            <PieChartOutlined className="text-sm" />
+            <PieChart size={15} className="text-sm" />
             <span>Reviewed</span>
             <span className="font-bold tabular-nums">
               {requesting ? "—" : `${pct}%`}
@@ -490,7 +482,7 @@ const StatsTus = ({
               aria-label="View translation effort"
               onClick={() => setShowEffortModal(true)}
               style={{
-                background: "linear-gradient(135deg, #111827 0%, #2563eb 100%)",
+                background: "var(--brand-gradient)",
                 border: 0,
               }}
             >

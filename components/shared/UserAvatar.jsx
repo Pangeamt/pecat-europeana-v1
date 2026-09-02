@@ -1,6 +1,6 @@
 "use client";
-import { CloseOutlined } from "@ant-design/icons";
 import { Avatar, Tooltip } from "antd";
+import { X } from "lucide-react";
 
 const COLORS = [
   "#f56a00",
@@ -70,7 +70,7 @@ export default function UserAvatar({
           }}
           className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full border border-white bg-rose-500 text-white shadow-sm transition-colors hover:bg-rose-600"
         >
-          <CloseOutlined style={{ fontSize: 8 }} />
+          <X size={8} />
         </button>
       </Tooltip>
     </span>

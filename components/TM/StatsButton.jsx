@@ -1,8 +1,8 @@
 "use client";
-import { PieChartOutlined } from "@ant-design/icons";
 import { Button, Col, Divider, Modal, Row } from "antd";
 import { useState } from "react";
 import { getLogsRequest } from "@/services/tm.services";
+import { PieChart } from "lucide-react";
 
 const ranges = [
   ["No match", "noMatch"],
@@ -50,7 +50,7 @@ export default function StatsButton({ projectId, tmId }) {
   return (
     <Button
       className="ml-2 mr-2 mt-1"
-      icon={<PieChartOutlined />}
+      icon={<PieChart size={15} />}
       type="primary"
       onClick={handleOpenTmAnalysis}
       loading={loading}

@@ -1,5 +1,4 @@
 "use client";
-import { ArrowLeftOutlined, ArrowRightOutlined } from "@ant-design/icons";
 import {
   Button,
   Form,
@@ -16,6 +15,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { createProjectRequest } from "@/services/project.services";
 import { listProfilesRequest } from "@/services/profiles.services";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 
 export default function CreateProjectForm({ user, onBack, onCreated }) {
   const { t } = useTranslation();
@@ -251,7 +251,7 @@ export default function CreateProjectForm({ user, onBack, onCreated }) {
                 <Button onClick={onBack}>{t("common.cancel")}</Button>
                 <Button
                   type="primary"
-                  icon={<ArrowRightOutlined />}
+                  icon={<ArrowRight size={15} />}
                   onClick={goNext}
                 >
                   {t("common.next")}
@@ -260,7 +260,7 @@ export default function CreateProjectForm({ user, onBack, onCreated }) {
             ) : (
               <>
                 <Button
-                  icon={<ArrowLeftOutlined />}
+                  icon={<ArrowLeft size={15} />}
                   onClick={() => setCurrentStep(0)}
                 >
                   {t("common.back")}
@@ -270,7 +270,7 @@ export default function CreateProjectForm({ user, onBack, onCreated }) {
                   htmlType="submit"
                   style={{
                     background:
-                      "linear-gradient(135deg, #111827 0%, #2563eb 100%)",
+                      "var(--brand-gradient)",
                     border: 0,
                   }}
                 >

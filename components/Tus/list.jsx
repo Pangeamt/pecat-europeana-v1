@@ -1,12 +1,5 @@
 "use client";
 import {
-  CheckCircleTwoTone,
-  EditTwoTone,
-  HourglassTwoTone,
-  SearchOutlined,
-  StopTwoTone,
-} from "@ant-design/icons";
-import {
   Badge,
   Button,
   Card,
@@ -21,7 +14,7 @@ import {
   Tooltip,
 } from "antd";
 import axios from "axios";
-import { CircleCheck, CircleX, LockIcon, UnlockIcon } from "lucide-react";
+import { Ban, CircleCheck, CircleX, Hourglass, LockIcon, Pencil, Search, UnlockIcon } from "lucide-react";
 import { useParams } from "next/navigation";
 
 import React, {
@@ -323,7 +316,7 @@ const TusList = ({ shareToken } = {}) => {
           <Button
             type="primary"
             onClick={() => handleSearch(selectedKeys, confirm, dataIndex)}
-            icon={<SearchOutlined />}
+            icon={<Search size={15} />}
             size="small"
             style={{ width: 90 }}
           >
@@ -340,7 +333,7 @@ const TusList = ({ shareToken } = {}) => {
       </div>
     ),
     filterIcon: (filtered) => (
-      <SearchOutlined style={{ color: filtered ? "#1677ff" : undefined }} />
+      <Search size={15} style={{ color: filtered ? "#1677ff" : undefined }} />
     ),
     onFilter: (value, record) => {
       const fieldValue =
@@ -396,7 +389,7 @@ const TusList = ({ shareToken } = {}) => {
         if (selectedRow && selectedRow.id === __.id) {
           return (
             <div className="absolute top-2 left-2">
-              <Tag color="#faad14">{(page - 1) * pageSize + index + 1}</Tag>
+              <Tag color="#D97706">{(page - 1) * pageSize + index + 1}</Tag>
             </div>
           );
         }
@@ -644,27 +637,25 @@ const TusList = ({ shareToken } = {}) => {
       onFilter: (value, record) => record.Status.indexOf(value) === 0,
       render: (text) => {
         let cpm = (
-          <HourglassTwoTone
-            twoToneColor="#faad14"
-            style={{ fontSize: "18px" }}
+          <Hourglass size={18}
+            color="#D97706"
           />
         );
         if (text === "REJECTED") {
           cpm = (
-            <StopTwoTone style={{ fontSize: "18px" }} twoToneColor="#f5222d" />
+            <Ban size={18} color="#DC2626" />
           );
         }
         if (text === "ACCEPTED") {
           cpm = (
-            <CheckCircleTwoTone
-              twoToneColor="#52c41a"
-              style={{ fontSize: "18px" }}
+            <CircleCheck size={18}
+              color="#4D7C0F"
             />
           );
         }
         if (text === "EDITED") {
           cpm = (
-            <EditTwoTone twoToneColor="#4096ff" style={{ fontSize: "18px" }} />
+            <Pencil size={18} color="#2563EB" />
           );
         }
         return <div className="absolute top-2 left-2">{cpm}</div>;

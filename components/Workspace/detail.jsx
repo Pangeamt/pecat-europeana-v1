@@ -12,11 +12,6 @@ import {
   Tooltip,
   message,
 } from "antd";
-import {
-  ArrowLeftOutlined,
-  DeleteOutlined,
-  UserAddOutlined,
-} from "@ant-design/icons";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -26,6 +21,7 @@ import {
 } from "@/services/workspace.services";
 import { getUsers, saveUser } from "@/services/user.services";
 import { userStore } from "@/store";
+import { ArrowLeft, Trash2, UserPlus } from "lucide-react";
 
 const ROLE_OPTIONS = [
   { label: "SUPER", value: "SUPER" },
@@ -240,7 +236,7 @@ const WorkspaceDetail = ({ workspaceId }) => {
               size="small"
               type="text"
               danger
-              icon={<DeleteOutlined />}
+              icon={<Trash2 size={15} />}
             />
           </Tooltip>
         </Popconfirm>
@@ -250,19 +246,19 @@ const WorkspaceDetail = ({ workspaceId }) => {
 
   return (
     <Card loading={loading} style={{ marginLeft: 20 }} className="overflow-hidden">
-      <div className="mb-5 rounded-2xl bg-slate-950 p-5 text-white">
+      <div className="mb-5 rounded-2xl bg-gradient-to-br from-primary-900 to-primary-700 p-5 text-white">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-start gap-3">
             <Link href="/dashboard/workspaces">
               <Button
                 type="text"
                 shape="circle"
-                icon={<ArrowLeftOutlined />}
+                icon={<ArrowLeft size={15} />}
                 className="mt-1 !text-white hover:!bg-white/10"
               />
             </Link>
             <div>
-              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-200">
+              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-primary-200">
                 Workspace detail
               </div>
               <h2 className="mb-1 mt-2 text-2xl font-semibold">
@@ -323,7 +319,7 @@ const WorkspaceDetail = ({ workspaceId }) => {
           />
           <Button
             type="primary"
-            icon={<UserAddOutlined />}
+            icon={<UserPlus size={15} />}
             disabled={!selectedUserId}
             loading={adding}
             onClick={handleAdd}

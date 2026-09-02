@@ -2,14 +2,10 @@
 
 import { Button, Form, Input, Modal, Upload, message, Select } from "antd";
 import locales from "@/lib/locales.json";
-import {
-  BookOutlined,
-  PlusOutlined,
-  UploadOutlined,
-} from "@ant-design/icons";
 import { useCallback, useState } from "react";
 
 import { useTranslation } from "@/components/i18n/LanguageProvider";
+import { Book, Plus, Upload as UploadIcon } from "lucide-react";
 
 const { Dragger } = Upload;
 
@@ -117,12 +113,12 @@ const ImportGlossaryButton = ({ refetch }) => {
   return (
     <>
       <Button
-        icon={<PlusOutlined />}
+        icon={<Plus size={15} />}
         type="primary"
         onClick={showModal}
         className="shadow-sm"
         style={{
-          background: "linear-gradient(135deg, #111827 0%, #059669 100%)",
+          background: "var(--brand-gradient)",
           border: 0,
         }}
       >
@@ -138,7 +134,7 @@ const ImportGlossaryButton = ({ refetch }) => {
         destroyOnHidden
         styles={{ body: { padding: 0, overflow: "hidden" } }}
       >
-        <div className="relative overflow-hidden rounded-lg bg-slate-950 px-5 py-4 text-white">
+        <div className="relative overflow-hidden rounded-lg bg-gradient-to-br from-primary-900 to-primary-700 px-5 py-4 text-white">
           <div className="absolute -right-10 -top-10 size-28 rounded-full bg-emerald-500/25 blur-3xl" />
           <div className="relative">
             <div className="text-lg font-semibold leading-tight">
@@ -154,7 +150,7 @@ const ImportGlossaryButton = ({ refetch }) => {
             <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="mb-3 flex items-center gap-3">
                 <div className="flex size-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-                  <BookOutlined />
+                  <Book size={15} />
                 </div>
                 <div>
                   <div className="font-semibold text-slate-900">
@@ -276,7 +272,7 @@ const ImportGlossaryButton = ({ refetch }) => {
                     {ready ? (
                       <Dragger key="glossary-upload-enabled" {...uploadProps}>
                         <p className="ant-upload-drag-icon">
-                          <UploadOutlined />
+                          <UploadIcon size={15} />
                         </p>
                         <p className="ant-upload-text">
                           {t("glossaries.import.dropText")}
@@ -288,7 +284,7 @@ const ImportGlossaryButton = ({ refetch }) => {
                     ) : (
                       <div className="py-4 text-center">
                         <p className="ant-upload-drag-icon">
-                          <UploadOutlined />
+                          <UploadIcon size={15} />
                         </p>
                         <p className="ant-upload-text">
                           {t("glossaries.import.completeText")}

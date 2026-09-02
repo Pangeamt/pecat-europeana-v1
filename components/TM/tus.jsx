@@ -2,10 +2,10 @@ import React, { useState } from "react";
 
 import { Row, Tag, Col, Table, Typography, Divider } from "antd";
 
-import { ArrowRightOutlined } from "@ant-design/icons";
 import { diffChars } from "diff";
 import dayjs from "dayjs";
 import Highlighter from "react-highlight-words";
+import { ArrowRight } from "lucide-react";
 const { Text } = Typography;
 
 const getColorBySimilarity = (similarity) => {
@@ -215,7 +215,7 @@ const TusTM = ({
                 </Col>
                 <Col>
                   <Tag color="red">{selectedTmTu.source_language}</Tag>
-                  <ArrowRightOutlined className="mr-2" />
+                  <ArrowRight size={15} className="mr-2" />
                   <Tag color="blue" className="ml-5">
                     {selectedTmTu.target_language}
                   </Tag>

@@ -1,6 +1,5 @@
 "use client";
 import { useState } from "react";
-import { PlusOutlined } from "@ant-design/icons";
 import {
   Button,
   Divider,
@@ -14,6 +13,7 @@ import {
 import ImgCrop from "antd-img-crop";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { userStore } from "@/store";
+import { Plus } from "lucide-react";
 
 const getCompressedDataUrlFromFile = (file) => {
   return new Promise((resolve) => {
@@ -125,7 +125,7 @@ const UserAdd = ({ add }) => {
 
   return (
     <>
-      <Button icon={<PlusOutlined />} type="primary" onClick={showModal}>
+      <Button icon={<Plus size={15} />} type="primary" onClick={showModal}>
         {t("users.add.trigger")}
       </Button>
       <Modal

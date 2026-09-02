@@ -1,5 +1,5 @@
 "use client";
-import { CopyOutlined } from "@ant-design/icons";
+import { Copy } from "lucide-react";
 import { Alert, Button, Input, Modal, Popconfirm, Space, message } from "antd";
 import { useEffect, useState } from "react";
 
@@ -92,7 +92,7 @@ export default function TranslatorShareModal({ open, documentId, onClose }) {
           />
           <Space.Compact className="w-full">
             <Input readOnly value={shareUrl} />
-            <Button icon={<CopyOutlined />} onClick={handleCopy}>
+            <Button icon={<Copy size={15} />} onClick={handleCopy}>
               {t("documents.share.copy")}
             </Button>
           </Space.Compact>

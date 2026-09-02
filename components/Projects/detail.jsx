@@ -1,9 +1,8 @@
 "use client";
-import { ArrowLeftOutlined, EditOutlined } from "@ant-design/icons";
 import { Button, Card, Empty, Space, Spin, message } from "antd";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CircleCheck, Files, Percent, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, CircleCheck, Files, Pencil, Percent, SlidersHorizontal } from "lucide-react";
 
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { StatCard, StatCardGrid } from "@/components/shared/StatCard";
@@ -110,7 +109,7 @@ const ProjectDetail = ({ projectId }) => {
         <Empty description={t("projects.detail.notFound")} />
         <div className="mt-4 flex justify-center">
           <Link href="/dashboard">
-            <Button icon={<ArrowLeftOutlined />}>{t("common.back")}</Button>
+            <Button icon={<ArrowLeft size={15} />}>{t("common.back")}</Button>
           </Link>
         </div>
       </Card>
@@ -124,10 +123,10 @@ const ProjectDetail = ({ projectId }) => {
 
   return (
     <Card style={{ marginLeft: 20 }} className="overflow-hidden">
-      <div className="mb-5 rounded-2xl bg-slate-950 p-5 text-white">
+      <div className="mb-5 rounded-2xl bg-gradient-to-br from-primary-900 to-primary-700 p-5 text-white">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-200">
+            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-primary-200">
               {t("projects.eyebrow")}
             </div>
             <h2 className="mb-1 mt-2 text-2xl font-semibold">{project.name}</h2>
@@ -137,11 +136,11 @@ const ProjectDetail = ({ projectId }) => {
           </div>
           <Space wrap>
             <Link href="/dashboard">
-              <Button icon={<ArrowLeftOutlined />}>{t("common.back")}</Button>
+              <Button icon={<ArrowLeft size={15} />}>{t("common.back")}</Button>
             </Link>
             <Button
               type="primary"
-              icon={<EditOutlined />}
+              icon={<Pencil size={15} />}
               onClick={() => setIsEditOpen(true)}
             >
               {t("actions.edit")}

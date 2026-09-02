@@ -1,9 +1,9 @@
 "use client";
-import { FileTextOutlined, GlobalOutlined } from "@ant-design/icons";
 import { Button, Form, Input, Select, message } from "antd";
 import locales from "@/lib/locales.json";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { addTMRequest } from "@/services/tm.services";
+import { FileText, Globe } from "lucide-react";
 
 const languages = locales;
 const languageOptions = Object.keys(languages).map((code) => ({
@@ -63,7 +63,7 @@ export default function CreateTmForm({ user, onBack, onCreated }) {
           <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-center gap-3">
               <div className="flex size-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                <FileTextOutlined />
+                <FileText size={15} />
               </div>
               <div>
                 <div className="font-semibold text-slate-900">
@@ -91,7 +91,7 @@ export default function CreateTmForm({ user, onBack, onCreated }) {
           <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-center gap-3">
               <div className="flex size-8 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
-                <GlobalOutlined />
+                <Globe size={15} />
               </div>
               <div>
                 <div className="font-semibold text-slate-900">
@@ -140,7 +140,7 @@ export default function CreateTmForm({ user, onBack, onCreated }) {
               type="primary"
               htmlType="submit"
               style={{
-                background: "linear-gradient(135deg, #111827 0%, #2563eb 100%)",
+                background: "var(--brand-gradient)",
                 border: 0,
               }}
             >

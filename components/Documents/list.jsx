@@ -1,14 +1,5 @@
 "use client";
 import {
-  ArrowRightOutlined,
-  DeleteOutlined,
-  DownloadOutlined,
-  EditOutlined,
-  LinkOutlined,
-  MoreOutlined,
-  PlusOutlined,
-} from "@ant-design/icons";
-import {
   Button,
   Dropdown,
   Empty,
@@ -39,6 +30,7 @@ import AssignUserModal from "./AssignUserModal";
 import PipelineStageCell from "./PipelineStages";
 import DocumentEdit from "./edit";
 import TranslatorShareModal from "./TranslatorShareModal";
+import { ArrowRight, Download, EllipsisVertical, Link2, Pencil, Plus, Trash2 } from "lucide-react";
 
 const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -124,7 +116,7 @@ const DocumentList = ({
           shape="circle"
           size="small"
           type="dashed"
-          icon={<PlusOutlined />}
+          icon={<Plus size={15} />}
           onClick={openAssign}
         />
       </Tooltip>
@@ -191,7 +183,7 @@ const DocumentList = ({
                 {sourceLanguage || "?"}
               </Tag>
             </Tooltip>
-            <ArrowRightOutlined className="text-slate-400" />
+            <ArrowRight size={15} className="text-slate-400" />
             <Tooltip title={getLocaleName(targetLanguage)}>
               <Tag color="cyan" className="rounded-full uppercase">
                 {targetLanguage || "?"}
@@ -322,19 +314,19 @@ const DocumentList = ({
             items: [
               {
                 key: "download",
-                icon: <DownloadOutlined />,
+                icon: <Download size={15} />,
                 label: t("documents.downloadTooltip"),
               },
               {
                 key: "edit",
-                icon: <EditOutlined />,
+                icon: <Pencil size={15} />,
                 label: t("documents.editTooltip"),
               },
               ...(canAssign
                 ? [
                     {
                       key: "share",
-                      icon: <LinkOutlined />,
+                      icon: <Link2 size={15} />,
                       label: t("documents.share.tooltip"),
                     },
                   ]
@@ -342,7 +334,7 @@ const DocumentList = ({
               { type: "divider" },
               {
                 key: "delete",
-                icon: <DeleteOutlined />,
+                icon: <Trash2 size={15} />,
                 label: t("documents.removeTooltip"),
                 danger: true,
               },
@@ -367,7 +359,7 @@ const DocumentList = ({
           <Button
             size="small"
             type="text"
-            icon={<MoreOutlined />}
+            icon={<EllipsisVertical size={15} />}
             loading={requesting === record.id}
           />
         </Dropdown>

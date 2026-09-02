@@ -1,12 +1,5 @@
 "use client";
 import {
-  DeleteOutlined,
-  DownloadOutlined,
-  EditOutlined,
-  EyeOutlined,
-  PlusOutlined,
-} from "@ant-design/icons";
-import {
   Button,
   Card,
   Empty,
@@ -30,7 +23,7 @@ import { StatCard, StatCardGrid } from "@/components/shared/StatCard";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { useWorkspaceScopeLabel } from "@/components/shared/useWorkspaceScopeLabel";
 import { tmStore, userStore } from "@/store";
-import { Building2, Database, Languages } from "lucide-react";
+import { Building2, Database, Download, Eye, Languages, Pencil, Plus, Trash2 } from "lucide-react";
 import MemoryStatusTag from "@/components/shared/MemoryStatusTag";
 import CreateTmForm from "./CreateTmForm";
 import EditTmModal from "./EditTmModal";
@@ -209,12 +202,12 @@ const TmList = () => {
         <Space size={6}>
           <Tooltip title={t("tms.viewTooltip")}>
             <Link href={`/dashboard/tms/${record.id}`}>
-              <Button icon={<EyeOutlined />} type="text" size="small" />
+              <Button icon={<Eye size={15} />} type="text" size="small" />
             </Link>
           </Tooltip>
           <Tooltip title={t("tms.editTooltip")}>
             <Button
-              icon={<EditOutlined />}
+              icon={<Pencil size={15} />}
               type="text"
               onClick={() => openEditModal(record)}
               size="small"
@@ -223,7 +216,7 @@ const TmList = () => {
           <Tooltip title={t("tms.exportTooltip")}>
             <Button
               type="text"
-              icon={<DownloadOutlined />}
+              icon={<Download size={15} />}
               onClick={() => handleExport(record.id)}
               size="small"
             />
@@ -239,7 +232,7 @@ const TmList = () => {
               <Button
                 danger
                 type="text"
-                icon={<DeleteOutlined />}
+                icon={<Trash2 size={15} />}
                 size="small"
               />
             </Tooltip>
@@ -252,10 +245,10 @@ const TmList = () => {
   return (
     <>
       <Card style={{ marginLeft: 20 }} className="overflow-hidden">
-        <div className="mb-5 rounded-2xl bg-slate-950 p-5 text-white">
+        <div className="mb-5 rounded-2xl bg-gradient-to-br from-primary-900 to-primary-700 p-5 text-white">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-200">
+              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-primary-200">
                 {t("tms.eyebrow")}
               </div>
               <h2 className="mb-1 mt-2 text-2xl font-semibold">
@@ -265,7 +258,7 @@ const TmList = () => {
             </div>
             <Space wrap>
               <Button
-                icon={<PlusOutlined />}
+                icon={<Plus size={15} />}
                 type="primary"
                 onClick={() => setIsCreateOpen(true)}
               >

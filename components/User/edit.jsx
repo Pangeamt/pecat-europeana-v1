@@ -12,9 +12,9 @@ import {
   Upload,
   message,
 } from "antd";
-import { EditOutlined } from "@ant-design/icons";
 
 import ImgCrop from "antd-img-crop";
+import { Pencil } from "lucide-react";
 
 const getCompressedDataUrlFromFile = (file) => {
   return new Promise((resolve) => {
@@ -218,7 +218,7 @@ const UserEdit = ({ user, save }) => {
           size="small"
           type="primary"
           shape="circle"
-          icon={<EditOutlined />}
+          icon={<Pencil size={15} />}
           className="mr-2"
         />
       </Tooltip>

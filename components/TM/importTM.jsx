@@ -2,14 +2,10 @@
 
 import { Button, Form, Input, Modal, Upload, message, Select } from "antd";
 import locales from "@/lib/locales.json";
-import {
-  FileTextOutlined,
-  PlusOutlined,
-  UploadOutlined,
-} from "@ant-design/icons";
 import { useCallback, useState } from "react";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { tmStore } from "@/store";
+import { FileText, Plus, Upload as UploadIcon } from "lucide-react";
 
 const { Dragger } = Upload;
 
@@ -115,12 +111,12 @@ const ImportTmButton = ({ refetch }) => {
   return (
     <>
       <Button
-        icon={<PlusOutlined />}
+        icon={<Plus size={15} />}
         type="primary"
         onClick={showModal}
         className="shadow-sm"
         style={{
-          background: "linear-gradient(135deg, #111827 0%, #2563eb 100%)",
+          background: "var(--brand-gradient)",
           border: 0,
         }}
       >
@@ -136,8 +132,8 @@ const ImportTmButton = ({ refetch }) => {
         destroyOnHidden
         styles={{ body: { padding: 0, overflow: "hidden" } }}
       >
-        <div className="relative overflow-hidden rounded-lg bg-slate-950 px-5 py-4 text-white">
-          <div className="absolute -right-10 -top-10 size-28 rounded-full bg-blue-500/25 blur-3xl" />
+        <div className="relative overflow-hidden rounded-lg bg-gradient-to-br from-primary-900 to-primary-700 px-5 py-4 text-white">
+          <div className="absolute -right-10 -top-10 size-28 rounded-full bg-primary/25 blur-3xl" />
           <div className="relative">
             <div className="text-lg font-semibold leading-tight">
               {t("tms.import.title")}
@@ -156,7 +152,7 @@ const ImportTmButton = ({ refetch }) => {
             <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="mb-3 flex items-center gap-3">
                 <div className="flex size-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                  <FileTextOutlined />
+                  <FileText size={15} />
                 </div>
                 <div>
                   <div className="font-semibold text-slate-900">
@@ -274,7 +270,7 @@ const ImportTmButton = ({ refetch }) => {
                     {ready ? (
                       <Dragger key="tm-upload-enabled" {...uploadProps}>
                         <p className="ant-upload-drag-icon">
-                          <UploadOutlined />
+                          <UploadIcon size={15} />
                         </p>
                         <p className="ant-upload-text">
                           {t("tms.import.dropText")}
@@ -286,7 +282,7 @@ const ImportTmButton = ({ refetch }) => {
                     ) : (
                       <div className="py-4 text-center">
                         <p className="ant-upload-drag-icon">
-                          <UploadOutlined />
+                          <UploadIcon size={15} />
                         </p>
                         <p className="ant-upload-text">
                           {t("tms.import.completeText")}

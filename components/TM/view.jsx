@@ -13,19 +13,13 @@ import {
   Typography,
 } from "antd";
 import {
-  ArrowRightOutlined,
-  CloseCircleOutlined,
-  DatabaseOutlined,
-  FileTextOutlined,
-  SearchOutlined,
-} from "@ant-design/icons";
-import {
   fetchTMByIdRequest,
   fetchTMTusRequest,
   searchTMTusRequest,
 } from "@/services/tm.services";
 import { useMemoryDetailView } from "@/components/shared/useMemoryDetailView";
 import { getTextDirection } from "@/lib/locale-direction";
+import { ArrowRight, CircleX, Database, FileText, Search } from "lucide-react";
 
 const { Text } = Typography;
 
@@ -118,10 +112,10 @@ export default function TMView({ tmId }) {
 
   return (
     <Card loading={state.loading && !tm} className="overflow-hidden">
-      <div className="mb-5 rounded-2xl bg-slate-950 p-5 text-white">
+      <div className="mb-5 rounded-2xl bg-gradient-to-br from-primary-900 to-primary-700 p-5 text-white">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-200">
+            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-primary-200">
               Translation memory
             </div>
             <h2 className="mb-1 mt-2 text-2xl font-semibold">
@@ -136,7 +130,7 @@ export default function TMView({ tmId }) {
               <Tag color="geekblue" className="rounded-full uppercase">
                 {tm.context?.source}
               </Tag>
-              <ArrowRightOutlined className="text-slate-400" />
+              <ArrowRight size={15} className="text-slate-400" />
               <Tag color="cyan" className="rounded-full uppercase">
                 {tm.context?.target}
               </Tag>
@@ -149,7 +143,7 @@ export default function TMView({ tmId }) {
         <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
           <div className="rounded-xl border border-slate-200 bg-white p-4">
             <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-slate-400">
-              <DatabaseOutlined />
+              <Database size={15} />
               Domain
             </div>
             <div className="truncate font-semibold text-slate-900">
@@ -158,7 +152,7 @@ export default function TMView({ tmId }) {
           </div>
           <div className="rounded-xl border border-slate-200 bg-white p-4">
             <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-slate-400">
-              <FileTextOutlined />
+              <FileText size={15} />
               Project
             </div>
             <div className="truncate font-semibold text-slate-900">
@@ -188,13 +182,13 @@ export default function TMView({ tmId }) {
 
         <Button
           type="primary"
-          icon={<SearchOutlined />}
+          icon={<Search size={15} />}
           onClick={handleSearch}
           loading={state.tableLoading && isSearchMode}
           disabled={!state.searchInput.trim()}
         />
         <Button
-          icon={<CloseCircleOutlined />}
+          icon={<CircleX size={15} />}
           onClick={handleClearSearch}
           disabled={!state.searchInput && !isSearchMode}
         />

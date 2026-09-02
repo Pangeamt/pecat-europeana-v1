@@ -1,5 +1,4 @@
 "use client";
-import { DeleteOutlined, EditOutlined } from "@ant-design/icons";
 import {
   Button,
   Card,
@@ -22,7 +21,7 @@ import {
 } from "@/services/profiles.services";
 import { userStore } from "@/store";
 import Link from "next/link";
-import { Building2, Database, SlidersHorizontal } from "lucide-react";
+import { Building2, Database, Pencil, SlidersHorizontal, Trash2 } from "lucide-react";
 import ProfileAdd from "./add";
 
 const FORMALITY_TAG_COLORS = {
@@ -197,7 +196,7 @@ const ProfileList = () => {
         <Space size={6}>
           <Tooltip title={t("profiles.editTooltip")}>
             <Link href={`/dashboard/profiles/${record.id}`}>
-              <Button icon={<EditOutlined />} type="text" size="small" />
+              <Button icon={<Pencil size={15} />} type="text" size="small" />
             </Link>
           </Tooltip>
           <Popconfirm
@@ -211,7 +210,7 @@ const ProfileList = () => {
               <Button
                 danger
                 type="text"
-                icon={<DeleteOutlined />}
+                icon={<Trash2 size={15} />}
                 size="small"
               />
             </Tooltip>
@@ -224,10 +223,10 @@ const ProfileList = () => {
   return (
     <>
       <Card style={{ marginLeft: 20 }} className="overflow-hidden">
-        <div className="mb-5 rounded-2xl bg-slate-950 p-5 text-white">
+        <div className="mb-5 rounded-2xl bg-gradient-to-br from-primary-900 to-primary-700 p-5 text-white">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-200">
+              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-primary-200">
                 {t("profiles.eyebrow")}
               </div>
               <h2 className="mb-1 mt-2 text-2xl font-semibold">

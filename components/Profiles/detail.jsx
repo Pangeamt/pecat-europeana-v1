@@ -1,12 +1,5 @@
 "use client";
 import {
-  ArrowLeftOutlined,
-  BookOutlined,
-  DatabaseOutlined,
-  DeleteOutlined,
-  PlusOutlined,
-} from "@ant-design/icons";
-import {
   Button,
   Card,
   Empty,
@@ -32,6 +25,7 @@ import {
   updateProfileRequest,
 } from "@/services/profiles.services";
 import { fetchTMRequest } from "@/services/tm.services";
+import { ArrowLeft, Book, Database, Plus, Trash2 } from "lucide-react";
 
 const toAssetOption = (asset) => {
   const source = asset.sourceLanguage ?? asset.context?.source ?? "-";
@@ -263,7 +257,7 @@ const ProfileDetail = ({ profileId }) => {
           cancelText={t("actions.no")}
         >
           <Tooltip title={t("actions.remove")}>
-            <Button danger type="text" icon={<DeleteOutlined />} size="small" />
+            <Button danger type="text" icon={<Trash2 size={15} />} size="small" />
           </Tooltip>
         </Popconfirm>
       ),
@@ -286,7 +280,7 @@ const ProfileDetail = ({ profileId }) => {
         <Empty description={t("profiles.detail.notFound")} />
         <div className="mt-4 flex justify-center">
           <Link href="/dashboard/profiles">
-            <Button icon={<ArrowLeftOutlined />}>{t("common.back")}</Button>
+            <Button icon={<ArrowLeft size={15} />}>{t("common.back")}</Button>
           </Link>
         </div>
       </Card>
@@ -295,10 +289,10 @@ const ProfileDetail = ({ profileId }) => {
 
   return (
     <Card style={{ marginLeft: 20 }} className="overflow-hidden">
-      <div className="mb-5 rounded-2xl bg-slate-950 p-5 text-white">
+      <div className="mb-5 rounded-2xl bg-gradient-to-br from-primary-900 to-primary-700 p-5 text-white">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-200">
+            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-primary-200">
               {t("profiles.eyebrow")}
             </div>
             <h2 className="mb-1 mt-2 text-2xl font-semibold">{profile.name}</h2>
@@ -308,7 +302,7 @@ const ProfileDetail = ({ profileId }) => {
           </div>
           <Space wrap>
             <Link href="/dashboard/profiles">
-              <Button icon={<ArrowLeftOutlined />}>{t("common.back")}</Button>
+              <Button icon={<ArrowLeft size={15} />}>{t("common.back")}</Button>
             </Link>
           </Space>
         </div>
@@ -317,7 +311,7 @@ const ProfileDetail = ({ profileId }) => {
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-center gap-3">
           <div className="flex size-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-            <DatabaseOutlined />
+            <Database size={15} />
           </div>
           <div>
             <div className="font-semibold text-slate-900">
@@ -391,7 +385,7 @@ const ProfileDetail = ({ profileId }) => {
               htmlType="submit"
               loading={saving}
               style={{
-                background: "linear-gradient(135deg, #111827 0%, #2563eb 100%)",
+                background: "var(--brand-gradient)",
                 border: 0,
               }}
             >
@@ -406,7 +400,7 @@ const ProfileDetail = ({ profileId }) => {
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="flex size-8 items-center justify-center rounded-lg bg-sky-50 text-sky-600">
-                <DatabaseOutlined />
+                <Database size={15} />
               </div>
               <div>
                 <div className="font-semibold text-slate-900">
@@ -418,7 +412,7 @@ const ProfileDetail = ({ profileId }) => {
               </div>
             </div>
             <Button
-              icon={<PlusOutlined />}
+              icon={<Plus size={15} />}
               type="primary"
               size="small"
               onClick={() => setIsAddTmOpen(true)}
@@ -451,7 +445,7 @@ const ProfileDetail = ({ profileId }) => {
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="flex size-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-                <BookOutlined />
+                <Book size={15} />
               </div>
               <div>
                 <div className="font-semibold text-slate-900">
@@ -463,7 +457,7 @@ const ProfileDetail = ({ profileId }) => {
               </div>
             </div>
             <Button
-              icon={<PlusOutlined />}
+              icon={<Plus size={15} />}
               type="primary"
               size="small"
               onClick={() => setIsAddGlossaryOpen(true)}

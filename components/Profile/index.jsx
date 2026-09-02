@@ -169,7 +169,7 @@ const Profile = () => {
             type="primary"
             htmlType="submit"
             loading={savingPassword}
-            style={{ background: "#98C441", borderColor: "#98C441" }}
+            style={{ background: "var(--color-primary)", borderColor: "var(--color-primary)" }}
           >
             {t("profile.updatePassword")}
           </Button>

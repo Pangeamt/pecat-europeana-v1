@@ -1,12 +1,5 @@
 "use client";
 import {
-  DeleteOutlined,
-  DownloadOutlined,
-  EditOutlined,
-  EyeOutlined,
-  PlusOutlined,
-} from "@ant-design/icons";
-import {
   Button,
   Card,
   Empty,
@@ -30,7 +23,7 @@ import { StatCard, StatCardGrid } from "@/components/shared/StatCard";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { useWorkspaceScopeLabel } from "@/components/shared/useWorkspaceScopeLabel";
 import { userStore } from "@/store";
-import { BookMarked, Building2, Languages } from "lucide-react";
+import { BookMarked, Building2, Download, Eye, Languages, Pencil, Plus, Trash2 } from "lucide-react";
 import MemoryStatusTag from "@/components/shared/MemoryStatusTag";
 import CreateGlossaryForm from "./CreateGlossaryForm";
 import EditGlossaryModal from "./EditGlossaryModal";
@@ -230,12 +223,12 @@ const GlossaryList = () => {
         <Space size={6}>
           <Tooltip title={t("glossaries.viewTooltip")}>
             <Link href={`/dashboard/glossaries/${record.id}`}>
-              <Button icon={<EyeOutlined />} type="text" size="small" />
+              <Button icon={<Eye size={15} />} type="text" size="small" />
             </Link>
           </Tooltip>
           <Tooltip title={t("glossaries.editTooltip")}>
             <Button
-              icon={<EditOutlined />}
+              icon={<Pencil size={15} />}
               type="text"
               onClick={() => openEditModal(record)}
               size="small"
@@ -244,7 +237,7 @@ const GlossaryList = () => {
           <Tooltip title={t("glossaries.exportTooltip")}>
             <Button
               type="text"
-              icon={<DownloadOutlined />}
+              icon={<Download size={15} />}
               onClick={() => handleExport(record.id)}
               size="small"
             />
@@ -260,7 +253,7 @@ const GlossaryList = () => {
               <Button
                 danger
                 type="text"
-                icon={<DeleteOutlined />}
+                icon={<Trash2 size={15} />}
                 size="small"
               />
             </Tooltip>
@@ -273,7 +266,7 @@ const GlossaryList = () => {
   return (
     <>
       <Card style={{ marginLeft: 20 }} className="overflow-hidden">
-        <div className="mb-5 rounded-2xl bg-slate-950 p-5 text-white">
+        <div className="mb-5 rounded-2xl bg-gradient-to-br from-primary-900 to-primary-700 p-5 text-white">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200">

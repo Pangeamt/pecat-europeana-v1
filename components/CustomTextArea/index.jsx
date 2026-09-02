@@ -3,8 +3,8 @@
 import React, { useRef, useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import "react-quill-new/dist/quill.snow.css";
-import { TranslationOutlined } from "@ant-design/icons";
 import { Button } from "antd";
+import { Languages } from "lucide-react";
 
 const ReactQuill = dynamic(() => import("react-quill-new"), { ssr: false });
 
@@ -90,7 +90,7 @@ const CustomTextArea = ({ value, setValue, onKeyDown, dir = "ltr" }) => {
         size="small"
         type="primary"
         onClick={forceSpellCheck}
-        icon={<TranslationOutlined />}
+        icon={<Languages size={15} />}
       >
         Spelling checker
       </Button>

@@ -13,12 +13,12 @@ import {
 } from "antd";
 import { useParams } from "next/navigation";
 import PropTypes from "prop-types";
-import { InfoCircleOutlined, LoadingOutlined } from "@ant-design/icons";
 
 import TM from "../../components/TM";
 import TusTm from "../../components/TM/tus";
 import { tmStore, userStore } from "@/store";
 import { getTmTus } from "@/services/tus.services";
+import { Info, LoaderCircle } from "lucide-react";
 
 const { Text } = Typography;
 
@@ -41,11 +41,11 @@ const HeaderTus = ({
   const loadingRow = useMemo(
     () => ({
       key: "1",
-      edited: <LoadingOutlined />,
-      originalAccepted: <LoadingOutlined />,
-      translated_mt: <LoadingOutlined />,
-      notReviewed: <LoadingOutlined />,
-      rejected: <LoadingOutlined />,
+      edited: <LoaderCircle size={15} className="animate-spin" />,
+      originalAccepted: <LoaderCircle size={15} className="animate-spin" />,
+      translated_mt: <LoaderCircle size={15} className="animate-spin" />,
+      notReviewed: <LoaderCircle size={15} className="animate-spin" />,
+      rejected: <LoaderCircle size={15} className="animate-spin" />,
       progress: (
         <Progress className="px-4" percent={0} size="small" status="active" />
       ),
@@ -244,7 +244,7 @@ const HeaderTus = ({
         <Button
           className="ml-4"
           type="default"
-          icon={<InfoCircleOutlined />}
+          icon={<Info size={15} />}
           onClick={() => infoModal()}
         >
           Info

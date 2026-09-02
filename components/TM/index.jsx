@@ -1,5 +1,4 @@
 "use client";
-import { AuditOutlined, CloseCircleTwoTone } from "@ant-design/icons";
 import { Button, message } from "antd";
 import { useState } from "react";
 import { tmStore, userStore } from "@/store";
@@ -8,6 +7,7 @@ import { useTmList } from "./hooks/use-tm-list";
 import TmListModal from "./TmListModal";
 import EditTmModal from "./EditTmModal";
 import StatsButton from "./StatsButton";
+import { CircleX, ClipboardCheck } from "lucide-react";
 
 const TM = ({ project, tmRequesting }) => {
   const userSt = userStore();
@@ -71,7 +71,7 @@ const TM = ({ project, tmRequesting }) => {
       <div className="mb-2">
         <Button
           className="ml-2"
-          icon={<AuditOutlined />}
+          icon={<ClipboardCheck size={15} />}
           type="primary"
           onClick={showModal}
         >
@@ -85,10 +85,10 @@ const TM = ({ project, tmRequesting }) => {
               <code className="text-blue-500 underline underline-offset-1">
                 {tm.name} - {tm.context.source} - {tm.context.target}
               </code>
-              <CloseCircleTwoTone
+              <CircleX size={15}
                 onClick={() => clear()}
                 className="ml-2 mb-1"
-                twoToneColor="#f5222d"
+                color="#DC2626"
               />
             </div>
           </div>

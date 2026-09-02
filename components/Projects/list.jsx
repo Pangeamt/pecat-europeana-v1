@@ -1,5 +1,4 @@
 "use client";
-import { DeleteOutlined, EditOutlined, PlusOutlined } from "@ant-design/icons";
 import {
   Button,
   Card,
@@ -24,7 +23,7 @@ import {
   listProjectsRequest,
 } from "@/services/project.services";
 import { userStore } from "@/store";
-import { Building2, Database, FolderKanban } from "lucide-react";
+import { Building2, Database, FolderKanban, Pencil, Plus, Trash2 } from "lucide-react";
 import ProjectAdd from "./add";
 import EditProjectModal from "./EditProjectModal";
 
@@ -154,7 +153,7 @@ const ProjectList = () => {
         <Space size={6}>
           <Tooltip title={t("projects.editTooltip")}>
             <Button
-              icon={<EditOutlined />}
+              icon={<Pencil size={15} />}
               type="text"
               size="small"
               onClick={() => setProjectEdit(record)}
@@ -183,7 +182,7 @@ const ProjectList = () => {
                 danger
                 type="text"
                 size="small"
-                icon={<DeleteOutlined />}
+                icon={<Trash2 size={15} />}
                 disabled={record.docsCount > 0}
               />
             </Tooltip>
@@ -196,10 +195,10 @@ const ProjectList = () => {
   return (
     <>
       <Card style={{ marginLeft: 20 }} className="overflow-hidden">
-        <div className="mb-5 rounded-2xl bg-slate-950 p-5 text-white">
+        <div className="mb-5 rounded-2xl bg-gradient-to-br from-primary-900 to-primary-700 p-5 text-white">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-200">
+              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-primary-200">
                 {t("projects.eyebrow")}
               </div>
               <h2 className="mb-1 mt-2 text-2xl font-semibold">
@@ -212,7 +211,7 @@ const ProjectList = () => {
             {user?.role !== "USER" ? (
               <Space wrap>
                 <Button
-                  icon={<PlusOutlined />}
+                  icon={<Plus size={15} />}
                   type="primary"
                   onClick={() => setIsCreateOpen(true)}
                 >

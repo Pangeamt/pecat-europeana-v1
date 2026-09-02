@@ -1,10 +1,6 @@
 "use client";
-import {
-  DeleteOutlined,
-  DownloadOutlined,
-  EditOutlined,
-} from "@ant-design/icons";
 import { Button, Table } from "antd";
+import { Download, Pencil, Trash2 } from "lucide-react";
 
 const buildColumns = ({
   selectedTmId,
@@ -61,7 +57,7 @@ const buildColumns = ({
 
         <Button
           className="ml-2"
-          icon={<EditOutlined />}
+          icon={<Pencil size={15} />}
           type="default"
           onClick={() => onEdit(record)}
           size="small"
@@ -70,14 +66,14 @@ const buildColumns = ({
         <Button
           className="ml-2"
           type="default"
-          icon={<DownloadOutlined />}
+          icon={<Download size={15} />}
           onClick={() => onExport(record.id)}
           size="small"
         />
 
         <Button
           className="ml-2 text-red-500 ant-btn-dangerous"
-          icon={<DeleteOutlined />}
+          icon={<Trash2 size={15} />}
           onClick={() => onDelete(record.id)}
           size="small"
         />

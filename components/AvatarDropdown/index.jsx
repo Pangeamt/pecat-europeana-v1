@@ -2,10 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { LoadingOutlined } from "@ant-design/icons";
 import { Avatar, Dropdown } from "antd";
 import axios from "axios";
-import { Building2, ChevronDown, LogOut, UserRound } from "lucide-react";
+import { Building2, ChevronDown, LoaderCircle, LogOut, UserRound } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
 
 import { useTranslation } from "@/components/i18n/LanguageProvider";
@@ -160,13 +159,13 @@ const AvatarDropdown = () => {
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label={t("account.openMenu", { name: user.name })}
-        className={`group flex cursor-pointer items-center gap-2.5 rounded-full bg-transparent px-2 py-1.5 pl-1.5 transition-colors duration-200 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#98C441]/40 ${
+        className={`group flex cursor-pointer items-center gap-2.5 rounded-full bg-transparent px-2 py-1.5 pl-1.5 transition-colors duration-200 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
           open ? "bg-slate-50" : "hover:bg-slate-50"
         }`}
       >
         <Avatar
           src={avatarSrc}
-          icon={requesting ? <LoadingOutlined /> : undefined}
+          icon={requesting ? <LoaderCircle size={15} className="animate-spin" /> : undefined}
           size={36}
           className="ring-2 ring-white"
         />

@@ -1,7 +1,7 @@
 "use client";
 import { Alert, Button, Empty, Space, Spin, Tag } from "antd";
-import { CheckOutlined, CloseOutlined } from "@ant-design/icons";
 import { TagText } from "@/components/shared/inline-tags";
+import { Check, X } from "lucide-react";
 
 // LLM post-edit suggestion panel for the selected segment. The suggestion is
 // applicable: "Apply" copies it into the target editor (the reviewer still
@@ -60,7 +60,7 @@ const SuggestionTool = ({
               <Button
                 type="primary"
                 size="small"
-                icon={<CheckOutlined />}
+                icon={<Check size={15} />}
                 disabled={disabled}
                 onClick={onApplyLive}
               >
@@ -124,7 +124,7 @@ const SuggestionTool = ({
             <Button
               type="primary"
               size="small"
-              icon={<CheckOutlined />}
+              icon={<Check size={15} />}
               disabled={disabled || !pending}
               onClick={onApply}
             >
@@ -132,7 +132,7 @@ const SuggestionTool = ({
             </Button>
             <Button
               size="small"
-              icon={<CloseOutlined />}
+              icon={<X size={15} />}
               disabled={disabled || !pending}
               onClick={onDiscard}
             >
