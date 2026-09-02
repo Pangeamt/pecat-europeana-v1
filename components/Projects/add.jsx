@@ -153,15 +153,10 @@ export default function CreateProjectForm({ user, onBack, onCreated }) {
             <Form.Item
               label={t("projects.create.profileLabel")}
               name="profileId"
-              rules={[
-                {
-                  required: true,
-                  message: t("projects.create.profileRequired"),
-                },
-              ]}
             >
               <Select
                 showSearch
+                allowClear
                 loading={loadingProfiles}
                 placeholder={t("projects.create.profilePlaceholder")}
                 optionFilterProp="label"

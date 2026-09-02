@@ -101,13 +101,15 @@ export async function createProjectService(payload, actorUser) {
     throw new HttpError(400, "A workspace is required to create a project");
   }
 
-  await assertProfileUsableInWorkspace(payload.profileId, workspaceId);
+  if (payload.profileId) {
+    await assertProfileUsableInWorkspace(payload.profileId, workspaceId);
+  }
 
   const pipelinePatch = pipelineSettingsPatch(payload);
   const record = await createProject({
     name: payload.name,
     description: optionalText(payload.description),
-    profileId: payload.profileId,
+    profileId: payload.profileId ?? null,
     tmThreshold: payload.threshold ?? 0.75,
     settings: Object.keys(pipelinePatch).length > 0 ? pipelinePatch : undefined,
     createdByUserId: actorUser.id,
