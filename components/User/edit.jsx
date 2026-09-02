@@ -228,7 +228,7 @@ const UserEdit = ({ user, save }) => {
         onOk={handleOk}
         onCancel={handleCancel}
         confirmLoading={sending}
-        destroyOnClose
+        destroyOnHidden
       >
         <Divider />
         <Tabs activeKey={activeTab} items={items} onChange={setActiveTab} />

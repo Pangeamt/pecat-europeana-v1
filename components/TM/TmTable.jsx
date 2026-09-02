@@ -107,6 +107,7 @@ export default function TmTable({
     <Table
       loading={fetching}
       dataSource={tms}
+      rowKey="id"
       columns={columns}
       size="small"
     />

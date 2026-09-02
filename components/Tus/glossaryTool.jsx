@@ -72,7 +72,7 @@ const GlossaryTool = ({ glossaryInfo }) => {
         <Table
           dataSource={glossaryInfo}
           columns={columns}
-          rowKey={(_, index) => index}
+          rowKey={(record) => `${record.source}::${record.target}`}
           size="small"
           pagination={false}
           scroll={{ y: tableScrollY }}

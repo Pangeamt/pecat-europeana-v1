@@ -153,7 +153,7 @@ const EffortModal = ({ open, onClose, stats, requesting, totalSegments }) => {
       footer={null}
       width={520}
       centered
-      destroyOnClose
+      destroyOnHidden
       className="effort-modal"
       styles={{
         content: {

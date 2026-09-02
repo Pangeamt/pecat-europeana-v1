@@ -126,6 +126,9 @@ const TmTool = ({
         <Table
           dataSource={filteredTmInfo}
           columns={columns}
+          rowKey={(record) =>
+            `${record.source}::${record.target ?? ""}::${record.tm_score ?? ""}`
+          }
           size="small"
           pagination={false}
           scroll={{ y: tableScrollY }}
