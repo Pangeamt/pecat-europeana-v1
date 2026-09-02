@@ -1,8 +1,9 @@
 generator client {
   provider = "prisma-client-js"
-  // "native" covers local dev (macOS); the debian target matches the Docker
-  // runtime (node:22-bookworm-slim, OpenSSL 3) so the engine always ships.
-  binaryTargets = ["native", "debian-openssl-3.0.x"]
+  // "native" covers local dev (macOS); the debian/linux-arm64 targets match
+  // the Docker runtime (node:22-bookworm-slim, OpenSSL 3) on x86_64 servers
+  // and arm64 machines (Apple Silicon builds) so the engine always ships.
+  binaryTargets = ["native", "debian-openssl-3.0.x", "linux-arm64-openssl-3.0.x"]
 }
 
 datasource db {
