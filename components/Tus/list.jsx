@@ -634,7 +634,13 @@ const TusList = ({ shareToken } = {}) => {
           value: "NOT_REVIEWED",
         },
       ],
-      onFilter: (value, record) => record.Status.indexOf(value) === 0,
+      // NOT_REVIEWED and TRANSLATED_MT both render as "not reviewed"
+      // (hourglass), so the filter must match either.
+      onFilter: (value, record) =>
+        value === "NOT_REVIEWED"
+          ? record.Status === "NOT_REVIEWED" ||
+            record.Status === "TRANSLATED_MT"
+          : record.Status === value,
       render: (text) => {
         let cpm = (
           <Hourglass size={18}
