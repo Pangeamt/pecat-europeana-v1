@@ -46,6 +46,12 @@ export default function CreateProjectForm({ user, onBack, onCreated }) {
   }, [fetchProfiles]);
 
   const onFinish = async (values) => {
+    // Both steps live in one <Form>, so pressing Enter on the details step
+    // submits it; advance to the settings step instead of creating early.
+    if (currentStep === 0) {
+      void goNext();
+      return;
+    }
     try {
       messageApi.loading({
         content: t("projects.create.creating"),
