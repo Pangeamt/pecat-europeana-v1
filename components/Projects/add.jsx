@@ -45,11 +45,19 @@ export default function CreateProjectForm({ user, onBack, onCreated }) {
     void fetchProfiles();
   }, [fetchProfiles]);
 
-  const onFinish = async (values) => {
-    // Both steps live in one <Form>, so pressing Enter on the details step
-    // submits it; advance to the settings step instead of creating early.
-    if (currentStep === 0) {
-      void goNext();
+  // Called ONLY from the explicit create button: the <Form> has no onFinish,
+  // so an implicit Enter submit on any field can never create the project.
+  const handleCreate = async () => {
+    let values;
+    try {
+      values = await form.validateFields();
+    } catch (errorInfo) {
+      // Both steps stay mounted, so validation can fail on a hidden field:
+      // jump back to the step that owns the first invalid one.
+      const firstField = errorInfo?.errorFields?.[0]?.name?.[0];
+      if (firstField === "name" || firstField === "description") {
+        setCurrentStep(0);
+      }
       return;
     }
     try {
@@ -99,15 +107,6 @@ export default function CreateProjectForm({ user, onBack, onCreated }) {
       <Form
         form={form}
         layout="vertical"
-        onFinish={onFinish}
-        onFinishFailed={({ errorFields }) => {
-          // Both steps stay mounted, so a submit can fail on a hidden field:
-          // jump back to the step that owns the first invalid one.
-          const firstField = errorFields?.[0]?.name?.[0];
-          if (firstField === "name" || firstField === "description") {
-            setCurrentStep(0);
-          }
-        }}
         initialValues={{
           threshold: 0.75,
           mtqeThreshold: 0.85,
@@ -268,7 +267,7 @@ export default function CreateProjectForm({ user, onBack, onCreated }) {
                 </Button>
                 <Button
                   type="primary"
-                  htmlType="submit"
+                  onClick={handleCreate}
                   style={{
                     background:
                       "var(--brand-gradient)",
