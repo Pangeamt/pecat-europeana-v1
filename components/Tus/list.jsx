@@ -109,11 +109,13 @@ const TusList = ({ shareToken } = {}) => {
   const [projectConfig, setProjectConfig] = useState(null);
   const [showUnderThreshold, setShowUnderThreshold] = useState(false);
 
-  // QE score filter (client-side, over the loaded segments): a range slider
-  // plus operator conditions (=, >=, <=, <, >) combined with AND/OR, applied
-  // to the chosen score (QE v1 = translationScorePercent, QE v2 = mtqeV2Score).
-  const [scoreSource, setScoreSource] = useState("v1");
-  const [scoreRange, setScoreRange] = useState([0, 1]);
+  // QE score filter (client-side, over the loaded segments). Each metric has
+  // its own independent rule set: a range slider per metric (v1 and v2), and
+  // operator conditions (=, >=, <=, <, >) that each target one metric,
+  // combined with AND/OR. The filtered list is the working list — confirm
+  // advances to the next row within it.
+  const [v1Range, setV1Range] = useState([0, 1]);
+  const [v2Range, setV2Range] = useState([0, 1]);
   const [scoreConditions, setScoreConditions] = useState([]);
   const [scoreLogic, setScoreLogic] = useState("AND");
   const [submitting, setSubmitting] = useState(false);
@@ -321,24 +323,22 @@ const TusList = ({ shareToken } = {}) => {
   };
 
   // ----- QE score filter --------------------------------------------------
-  const scoreOfRecord = useCallback(
-    (record) =>
-      scoreSource === "v2"
-        ? record?.mtqeV2Score
-        : record?.translationScorePercent,
-    [scoreSource],
-  );
-
   const activeScoreConditions = useMemo(
     () => scoreConditions.filter((cond) => typeof cond.value === "number"),
     [scoreConditions],
   );
+  const v1RangeActive = v1Range[0] > 0 || v1Range[1] < 1;
+  const v2RangeActive = v2Range[0] > 0 || v2Range[1] < 1;
   const scoreFilterActive =
-    scoreRange[0] > 0 || scoreRange[1] < 1 || activeScoreConditions.length > 0;
+    v1RangeActive || v2RangeActive || activeScoreConditions.length > 0;
 
   const tableData = useMemo(() => {
     if (!scoreFilterActive) return data;
-    const evalCondition = (score, { op, value }) => {
+    const scoreOf = (record, source) =>
+      source === "v2" ? record?.mtqeV2Score : record?.translationScorePercent;
+    const evalCondition = (record, { source, op, value }) => {
+      const score = scoreOf(record, source);
+      if (typeof score !== "number") return false;
       switch (op) {
         case "=":
           // "equal" at display precision (scores render with 2 decimals)
@@ -355,23 +355,41 @@ const TusList = ({ shareToken } = {}) => {
           return true;
       }
     };
+    const inRange = (record, source, range) => {
+      const score = scoreOf(record, source);
+      return (
+        typeof score === "number" && score >= range[0] && score <= range[1]
+      );
+    };
     return data.filter((record) => {
-      const score = scoreOfRecord(record);
-      if (typeof score !== "number") return false;
-      if (score < scoreRange[0] || score > scoreRange[1]) return false;
+      // Each narrowed slider is a hard constraint on its own metric.
+      if (v1RangeActive && !inRange(record, "v1", v1Range)) return false;
+      if (v2RangeActive && !inRange(record, "v2", v2Range)) return false;
       if (activeScoreConditions.length === 0) return true;
       return scoreLogic === "AND"
-        ? activeScoreConditions.every((cond) => evalCondition(score, cond))
-        : activeScoreConditions.some((cond) => evalCondition(score, cond));
+        ? activeScoreConditions.every((cond) => evalCondition(record, cond))
+        : activeScoreConditions.some((cond) => evalCondition(record, cond));
     });
   }, [
     data,
     scoreFilterActive,
     activeScoreConditions,
     scoreLogic,
-    scoreRange,
-    scoreOfRecord,
+    v1Range,
+    v2Range,
+    v1RangeActive,
+    v2RangeActive,
   ]);
+
+  // The filtered list is the working list: if the current selection falls
+  // out of it (filter changed, or the confirmed segment no longer matches),
+  // jump to the first visible row so confirm/next keeps flowing.
+  useEffect(() => {
+    if (!scoreFilterActive || tableData.length === 0) return;
+    if (selectedRow && !tableData.some((row) => row.id === selectedRow.id)) {
+      setSelectedRow(tableData[0]);
+    }
+  }, [tableData, scoreFilterActive, selectedRow]);
 
   // Rows in the order the table displays them (fetch order until the user
   // sorts or filters; the QE score filter applies first). Ids missing from
@@ -1417,39 +1435,51 @@ const TusList = ({ shareToken } = {}) => {
             collapsible
           />
         </Modal>
-        <div className="mb-3 flex flex-wrap items-center gap-2">
+        <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
           <span className="flex items-center gap-1 text-xs font-medium text-slate-500">
             <Filter size={14} /> QE filter
           </span>
-          <Select
-            size="small"
-            value={scoreSource}
-            onChange={setScoreSource}
-            options={[
-              { value: "v1", label: "QE v1" },
-              { value: "v2", label: "QE v2" },
-            ]}
-            style={{ width: 90 }}
-          />
-          <div className="flex items-center gap-1">
-            <span className="text-xs tabular-nums text-slate-500">
-              {scoreRange[0].toFixed(2)}
-            </span>
-            <Slider
-              range
-              min={0}
-              max={1}
-              step={0.01}
-              value={scoreRange}
-              onChange={setScoreRange}
-              style={{ width: 150, margin: "0 6px" }}
-            />
-            <span className="text-xs tabular-nums text-slate-500">
-              {scoreRange[1].toFixed(2)}
-            </span>
-          </div>
+          {[
+            { label: "v1", range: v1Range, setRange: setV1Range },
+            { label: "v2", range: v2Range, setRange: setV2Range },
+          ].map(({ label, range, setRange }) => (
+            <div key={label} className="flex items-center gap-1">
+              <Tag bordered={false} className="m-0">
+                QE {label}
+              </Tag>
+              <span className="text-xs tabular-nums text-slate-500">
+                {range[0].toFixed(2)}
+              </span>
+              <Slider
+                range
+                min={0}
+                max={1}
+                step={0.01}
+                value={range}
+                onChange={setRange}
+                style={{ width: 130, margin: "0 6px" }}
+              />
+              <span className="text-xs tabular-nums text-slate-500">
+                {range[1].toFixed(2)}
+              </span>
+            </div>
+          ))}
           {scoreConditions.map((cond, idx) => (
             <Space.Compact key={idx} size="small">
+              <Select
+                size="small"
+                value={cond.source}
+                style={{ width: 78 }}
+                options={[
+                  { value: "v1", label: "QE v1" },
+                  { value: "v2", label: "QE v2" },
+                ]}
+                onChange={(source) =>
+                  setScoreConditions((prev) =>
+                    prev.map((c, i) => (i === idx ? { ...c, source } : c)),
+                  )
+                }
+              />
               <Select
                 size="small"
                 value={cond.op}
@@ -1493,7 +1523,10 @@ const TusList = ({ shareToken } = {}) => {
             size="small"
             icon={<Plus size={13} />}
             onClick={() =>
-              setScoreConditions((prev) => [...prev, { op: ">=", value: null }])
+              setScoreConditions((prev) => [
+                ...prev,
+                { source: "v1", op: ">=", value: null },
+              ])
             }
           >
             Condition
@@ -1520,7 +1553,8 @@ const TusList = ({ shareToken } = {}) => {
                 size="small"
                 type="text"
                 onClick={() => {
-                  setScoreRange([0, 1]);
+                  setV1Range([0, 1]);
+                  setV2Range([0, 1]);
                   setScoreConditions([]);
                 }}
               >
