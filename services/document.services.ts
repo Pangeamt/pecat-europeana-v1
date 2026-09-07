@@ -101,3 +101,23 @@ export const revokeTranslatorShareLink = async (documentId: string) => {
   );
   return response.data;
 };
+
+// Submission locks: submit closes editing for a role, reopen (PM only)
+// lifts it. The share variant closes the translator side with the token as
+// the only authorization.
+export const updateDocumentSubmission = async (
+  documentId: string,
+  role: "translator" | "reviewer",
+  action: "submit" | "reopen",
+) => {
+  const response = await httpClient.post(
+    `/api/documents/${documentId}/submission`,
+    { role, action },
+  );
+  return response.data;
+};
+
+export const submitDocumentByShareToken = async (token: string) => {
+  const response = await httpClient.post(`/api/share/tu/${token}/submit`);
+  return response.data;
+};

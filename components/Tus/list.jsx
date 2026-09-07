@@ -1,12 +1,18 @@
 "use client";
 import {
+  Alert,
   Badge,
   Button,
   Card,
   Divider,
   Input,
+  InputNumber,
   message,
   Modal,
+  Popconfirm,
+  Radio,
+  Select,
+  Slider,
   Space,
   Table,
   Tabs,
@@ -14,7 +20,7 @@ import {
   Tooltip,
 } from "antd";
 import axios from "axios";
-import { Ban, CircleCheck, CircleX, Hourglass, LockIcon, Pencil, Search, UnlockIcon } from "lucide-react";
+import { Ban, CircleCheck, CircleX, Filter, Hourglass, LockIcon, Pencil, Plus, Search, SendHorizontal, UnlockIcon, X } from "lucide-react";
 import { useParams } from "next/navigation";
 
 import React, {
@@ -35,6 +41,8 @@ import TmTool from "@/components/Tus/tmTool";
 import {
   getDocument as getProject,
   getDocumentConfigByShareToken,
+  submitDocumentByShareToken,
+  updateDocumentSubmission,
 } from "@/services/document.services";
 import {
   appendTu,
@@ -91,6 +99,15 @@ const TusList = ({ shareToken } = {}) => {
   const [projectConfig, setProjectConfig] = useState(null);
   const [showUnderThreshold, setShowUnderThreshold] = useState(false);
 
+  // QE score filter (client-side, over the loaded segments): a range slider
+  // plus operator conditions (=, >=, <=, <, >) combined with AND/OR, applied
+  // to the chosen score (QE v1 = translationScorePercent, QE v2 = mtqeV2Score).
+  const [scoreSource, setScoreSource] = useState("v1");
+  const [scoreRange, setScoreRange] = useState([0, 1]);
+  const [scoreConditions, setScoreConditions] = useState([]);
+  const [scoreLogic, setScoreLogic] = useState("AND");
+  const [submitting, setSubmitting] = useState(false);
+
   const [selectedRow, setSelectedRow] = useState(null);
   // Bumped when an LLM suggestion is applied so the target editor remounts
   // with the new reviewLiteral (Quill/TagEditor only read the initial value).
@@ -129,16 +146,6 @@ const TusList = ({ shareToken } = {}) => {
   const pendingScrollIndexRef = useRef(null);
 
   const isSegmentBlocked = (doc) => Boolean(doc?.block);
-
-  // Rows in the order the table displays them (fetch order until the user
-  // sorts or filters). Ids missing from `data` (e.g. after a refetch) are
-  // dropped; an empty snapshot falls back to the raw list.
-  const orderedData = useMemo(() => {
-    if (!viewOrderIds) return data;
-    const byId = new Map(data.map((doc) => [doc.id, doc]));
-    const ordered = viewOrderIds.map((id) => byId.get(id)).filter(Boolean);
-    return ordered.length ? ordered : data;
-  }, [data, viewOrderIds]);
 
   // Manual segment lock/unlock is a management action: session ADMIN/SUPER
   // only, never the anonymous share-link translator (also enforced server-side).
@@ -253,6 +260,118 @@ const TusList = ({ shareToken } = {}) => {
   })();
 
   const tmThreshold = projectConfig?.tmThreshold ?? 0;
+
+  // ----- Submission locks -------------------------------------------------
+  // The share link IS the translator; in session mode roles come from the
+  // document's assignments. PM = ADMIN/SUPER, never locked out.
+  const translatorSubmitted = Boolean(projectConfig?.translatorSubmittedAt);
+  const reviewerSubmitted = Boolean(projectConfig?.reviewerSubmittedAt);
+  const isPm = !shareToken && ["ADMIN", "SUPER"].includes(user?.role);
+  const isTranslator = shareToken
+    ? true
+    : Boolean(
+        projectConfig?.translatorId && projectConfig.translatorId === user?.id,
+      );
+  const isReviewer =
+    !shareToken &&
+    Boolean(projectConfig?.reviewerId && projectConfig.reviewerId === user?.id);
+  // Locked when every role the viewer holds was submitted (mirrors the
+  // backend rule in modules/tus/service.js — the server enforces it anyway).
+  const editingLocked = shareToken
+    ? translatorSubmitted
+    : !isPm &&
+      (isTranslator || isReviewer) &&
+      !(
+        (isTranslator && !translatorSubmitted) ||
+        (isReviewer && !reviewerSubmitted)
+      );
+
+  const handleSubmission = async (role, action) => {
+    setSubmitting(true);
+    try {
+      if (shareToken) {
+        await submitDocumentByShareToken(shareToken);
+      } else {
+        await updateDocumentSubmission(projectId, role, action);
+      }
+      await getProjectConfig();
+      messageApi.success(
+        action === "submit"
+          ? "Work submitted — editing is now closed"
+          : `Editing reopened for the ${role}`,
+      );
+    } catch (error) {
+      console.error(error);
+      messageApi.error(
+        error?.response?.data?.message || "Could not update the submission",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ----- QE score filter --------------------------------------------------
+  const scoreOfRecord = useCallback(
+    (record) =>
+      scoreSource === "v2"
+        ? record?.mtqeV2Score
+        : record?.translationScorePercent,
+    [scoreSource],
+  );
+
+  const activeScoreConditions = useMemo(
+    () => scoreConditions.filter((cond) => typeof cond.value === "number"),
+    [scoreConditions],
+  );
+  const scoreFilterActive =
+    scoreRange[0] > 0 || scoreRange[1] < 1 || activeScoreConditions.length > 0;
+
+  const tableData = useMemo(() => {
+    if (!scoreFilterActive) return data;
+    const evalCondition = (score, { op, value }) => {
+      switch (op) {
+        case "=":
+          // "equal" at display precision (scores render with 2 decimals)
+          return Math.abs(score - value) < 0.005;
+        case ">=":
+          return score >= value;
+        case "<=":
+          return score <= value;
+        case "<":
+          return score < value;
+        case ">":
+          return score > value;
+        default:
+          return true;
+      }
+    };
+    return data.filter((record) => {
+      const score = scoreOfRecord(record);
+      if (typeof score !== "number") return false;
+      if (score < scoreRange[0] || score > scoreRange[1]) return false;
+      if (activeScoreConditions.length === 0) return true;
+      return scoreLogic === "AND"
+        ? activeScoreConditions.every((cond) => evalCondition(score, cond))
+        : activeScoreConditions.some((cond) => evalCondition(score, cond));
+    });
+  }, [
+    data,
+    scoreFilterActive,
+    activeScoreConditions,
+    scoreLogic,
+    scoreRange,
+    scoreOfRecord,
+  ]);
+
+  // Rows in the order the table displays them (fetch order until the user
+  // sorts or filters; the QE score filter applies first). Ids missing from
+  // the filtered list are dropped; an empty snapshot falls back to it.
+  const orderedData = useMemo(() => {
+    if (!viewOrderIds) return tableData;
+    const byId = new Map(tableData.map((doc) => [doc.id, doc]));
+    const ordered = viewOrderIds.map((id) => byId.get(id)).filter(Boolean);
+    return ordered.length ? ordered : tableData;
+  }, [tableData, viewOrderIds]);
 
   const filteredTmInfo = useMemo(() => {
     const info = selectedRow?.tmInfo ?? [];
@@ -453,6 +572,23 @@ const TusList = ({ shareToken } = {}) => {
         if (selectedRow && record.id === selectedRow.id) {
           const initialValue =
             selectedRow.reviewLiteral || selectedRow.translatedLiteral;
+          // Submitted work renders read-only: the row can be inspected but
+          // the editor never mounts (the backend rejects writes anyway).
+          if (editingLocked) {
+            const aux = initialValue ?? "";
+            return (
+              <div
+                dir={targetDir}
+                style={{
+                  wordWrap: "break-word",
+                  wordBreak: "break-word",
+                  textAlign: targetDir === "rtl" ? "right" : "left",
+                }}
+              >
+                {hasInlineTags(aux) ? <TagText text={aux} /> : stripHTML(aux)}
+              </div>
+            );
+          }
           // Segments with inline-code placeholders use the chip editor: Quill
           // parses the value as HTML and silently destroys the tags. The
           // others keep Quill and its LanguageTool spellchecker.
@@ -572,18 +708,19 @@ const TusList = ({ shareToken } = {}) => {
     },
     {
       title: "QE",
-      width: 100,
+      width: 110,
       dataIndex: "translationScorePercent",
       key: "translationScorePercent",
-      sorter: (a, b) => a.translationScorePercent - b.translationScorePercent,
+      sorter: (a, b) =>
+        (scoreSource === "v2"
+          ? (a.mtqeV2Score ?? -1) - (b.mtqeV2Score ?? -1)
+          : a.translationScorePercent - b.translationScorePercent),
       // MTQE bands (modules/documents/pipeline-constants.js): >=0.85 reliable,
       // >=0.65 doubtful, below priority. "↻" = re-scored after an edit.
+      // v1 and v2 render stacked with the same bands so they compare at a
+      // glance (both stored 0-1; v2 normalized from the service's 0-100).
       render: (text, record) => {
-        const score =
-          text !== null && text !== undefined && text !== ""
-            ? Number.parseFloat(text)
-            : null;
-        const color =
+        const bandColor = (score) =>
           score === null
             ? "default"
             : score >= 0.85
@@ -591,23 +728,40 @@ const TusList = ({ shareToken } = {}) => {
               : score >= 0.65
                 ? "gold"
                 : "red";
+        const score =
+          text !== null && text !== undefined && text !== ""
+            ? Number.parseFloat(text)
+            : null;
+        const v2 =
+          typeof record.mtqeV2Score === "number" ? record.mtqeV2Score : null;
         const recalculated =
           score !== null &&
           record.mtqeOriginal != null &&
           Math.abs(score - record.mtqeOriginal) > 1e-6;
         return (
-          <Tooltip
-            title={
-              recalculated
-                ? `Re-scored (initial: ${Number(record.mtqeOriginal).toFixed(2)})`
-                : undefined
-            }
-          >
-            <Tag bordered={false} color={color}>
-              {score !== null ? score.toFixed(2) : "—"}
-              {recalculated ? " ↻" : ""}
-            </Tag>
-          </Tooltip>
+          <Space direction="vertical" size={2}>
+            <Tooltip
+              title={
+                recalculated
+                  ? `QE v1 — re-scored (initial: ${Number(record.mtqeOriginal).toFixed(2)})`
+                  : "QE v1"
+              }
+            >
+              <Tag bordered={false} color={bandColor(score)}>
+                <span className="text-[10px] opacity-70">v1</span>{" "}
+                {score !== null ? score.toFixed(2) : "—"}
+                {recalculated ? " ↻" : ""}
+              </Tag>
+            </Tooltip>
+            {v2 !== null ? (
+              <Tooltip title="QE v2 (independent second score)">
+                <Tag bordered={false} color={bandColor(v2)}>
+                  <span className="text-[10px] opacity-70">v2</span>{" "}
+                  {v2.toFixed(2)}
+                </Tag>
+              </Tooltip>
+            ) : null}
+          </Space>
         );
       },
     },
@@ -692,30 +846,34 @@ const TusList = ({ shareToken } = {}) => {
               </Button>
             )}
 
-            <Tooltip title="Confirm Tu (ctrl+enter)">
-              <Button
-                className="ml-2"
-                onClick={() => {
-                  save(null);
-                }}
-                variant="text"
-                color="green"
-                icon={<CircleCheck size={24} strokeWidth={2} />}
-                size="small"
-              ></Button>
-            </Tooltip>
+            {!editingLocked && (
+              <>
+                <Tooltip title="Confirm Tu (ctrl+enter)">
+                  <Button
+                    className="ml-2"
+                    onClick={() => {
+                      save(null);
+                    }}
+                    variant="text"
+                    color="green"
+                    icon={<CircleCheck size={24} strokeWidth={2} />}
+                    size="small"
+                  ></Button>
+                </Tooltip>
 
-            <Tooltip title="Reject Tu (ctrl+shift+enter)">
-              <Button
-                className="ml-2"
-                shape="circle"
-                onClick={reject}
-                variant="text"
-                color="red"
-                icon={<CircleX size={24} strokeWidth={2} />}
-                size="small"
-              ></Button>
-            </Tooltip>
+                <Tooltip title="Reject Tu (ctrl+shift+enter)">
+                  <Button
+                    className="ml-2"
+                    shape="circle"
+                    onClick={reject}
+                    variant="text"
+                    color="red"
+                    icon={<CircleX size={24} strokeWidth={2} />}
+                    size="small"
+                  ></Button>
+                </Tooltip>
+              </>
+            )}
           </div>
         );
       },
@@ -723,6 +881,10 @@ const TusList = ({ shareToken } = {}) => {
   ];
 
   const confirm = async ({ tuId, reviewLiteral, action }) => {
+    // Backstop — the backend enforces this too (409 SUBMISSION_LOCKED).
+    if (editingLocked) {
+      throw new Error("submission locked");
+    }
     const response = shareToken
       ? await confirmTuByShareToken(shareToken, { tuId, reviewLiteral, action })
       : await confirmTu({ tuId, reviewLiteral, action });
@@ -834,6 +996,10 @@ const TusList = ({ shareToken } = {}) => {
 
   const save = async (str) => {
     if (!selectedRow) return;
+    if (editingLocked) {
+      messageApi.warning("Editing is closed: this work was submitted.");
+      return;
+    }
 
     const currentRow = selectedRow;
     const reviewLiteral =
@@ -891,6 +1057,10 @@ const TusList = ({ shareToken } = {}) => {
   };
 
   const reject = async () => {
+    if (editingLocked) {
+      messageApi.warning("Editing is closed: this work was submitted.");
+      return;
+    }
     messageApi.open({
       key: "loading",
       type: "loading",
@@ -1064,6 +1234,93 @@ const TusList = ({ shareToken } = {}) => {
         />
       </div>
 
+      {(isTranslator || isReviewer || isPm) && projectConfig ? (
+        <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+          <Tag
+            color={translatorSubmitted ? "green" : "default"}
+            icon={translatorSubmitted ? <LockIcon size={11} /> : undefined}
+            className="flex items-center gap-1"
+          >
+            {translatorSubmitted ? "Translation submitted" : "Translation open"}
+          </Tag>
+          {!shareToken && (
+            <Tag
+              color={reviewerSubmitted ? "green" : "default"}
+              icon={reviewerSubmitted ? <LockIcon size={11} /> : undefined}
+              className="flex items-center gap-1"
+            >
+              {reviewerSubmitted ? "Review submitted" : "Review open"}
+            </Tag>
+          )}
+
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            {isTranslator && !translatorSubmitted ? (
+              <Popconfirm
+                title="Submit the translation?"
+                description="After submitting you will no longer be able to edit."
+                okText="Submit"
+                onConfirm={() => handleSubmission("translator", "submit")}
+              >
+                <Button
+                  type="primary"
+                  size="small"
+                  loading={submitting}
+                  icon={<SendHorizontal size={14} />}
+                >
+                  Submit translation
+                </Button>
+              </Popconfirm>
+            ) : null}
+            {isReviewer && !reviewerSubmitted ? (
+              <Popconfirm
+                title="Submit the review?"
+                description="After submitting you will no longer be able to edit."
+                okText="Submit"
+                onConfirm={() => handleSubmission("reviewer", "submit")}
+              >
+                <Button
+                  type="primary"
+                  size="small"
+                  loading={submitting}
+                  icon={<SendHorizontal size={14} />}
+                >
+                  Submit review
+                </Button>
+              </Popconfirm>
+            ) : null}
+            {isPm && translatorSubmitted ? (
+              <Button
+                size="small"
+                loading={submitting}
+                icon={<UnlockIcon size={14} />}
+                onClick={() => handleSubmission("translator", "reopen")}
+              >
+                Reopen translator
+              </Button>
+            ) : null}
+            {isPm && reviewerSubmitted ? (
+              <Button
+                size="small"
+                loading={submitting}
+                icon={<UnlockIcon size={14} />}
+                onClick={() => handleSubmission("reviewer", "reopen")}
+              >
+                Reopen reviewer
+              </Button>
+            ) : null}
+          </div>
+
+          {editingLocked ? (
+            <Alert
+              className="w-full"
+              type="warning"
+              showIcon
+              message="Editing is closed — this work was submitted. A project manager can reopen it."
+            />
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="mb-2">
         <Tabs
           type="card"
@@ -1094,7 +1351,7 @@ const TusList = ({ shareToken } = {}) => {
               children: (
                 <SuggestionTool
                   segment={selectedRow}
-                  disabled={isSegmentBlocked(selectedRow)}
+                  disabled={isSegmentBlocked(selectedRow) || editingLocked}
                   onApply={applySuggestion}
                   onDiscard={discardSuggestion}
                   live={liveEval?.tuId === selectedRow?.id ? liveEval : null}
@@ -1156,10 +1413,122 @@ const TusList = ({ shareToken } = {}) => {
             collapsible
           />
         </Modal>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="flex items-center gap-1 text-xs font-medium text-slate-500">
+            <Filter size={14} /> QE filter
+          </span>
+          <Select
+            size="small"
+            value={scoreSource}
+            onChange={setScoreSource}
+            options={[
+              { value: "v1", label: "QE v1" },
+              { value: "v2", label: "QE v2" },
+            ]}
+            style={{ width: 90 }}
+          />
+          <div className="flex items-center gap-1">
+            <span className="text-xs tabular-nums text-slate-500">
+              {scoreRange[0].toFixed(2)}
+            </span>
+            <Slider
+              range
+              min={0}
+              max={1}
+              step={0.01}
+              value={scoreRange}
+              onChange={setScoreRange}
+              style={{ width: 150, margin: "0 6px" }}
+            />
+            <span className="text-xs tabular-nums text-slate-500">
+              {scoreRange[1].toFixed(2)}
+            </span>
+          </div>
+          {scoreConditions.map((cond, idx) => (
+            <Space.Compact key={idx} size="small">
+              <Select
+                size="small"
+                value={cond.op}
+                style={{ width: 62 }}
+                options={["=", ">=", "<=", "<", ">"].map((op) => ({
+                  value: op,
+                  label: op,
+                }))}
+                onChange={(op) =>
+                  setScoreConditions((prev) =>
+                    prev.map((c, i) => (i === idx ? { ...c, op } : c)),
+                  )
+                }
+              />
+              <InputNumber
+                size="small"
+                min={0}
+                max={1}
+                step={0.05}
+                placeholder="0.85"
+                value={cond.value}
+                onChange={(value) =>
+                  setScoreConditions((prev) =>
+                    prev.map((c, i) => (i === idx ? { ...c, value } : c)),
+                  )
+                }
+                style={{ width: 78 }}
+              />
+              <Button
+                size="small"
+                icon={<X size={12} />}
+                onClick={() =>
+                  setScoreConditions((prev) =>
+                    prev.filter((_, i) => i !== idx),
+                  )
+                }
+              />
+            </Space.Compact>
+          ))}
+          <Button
+            size="small"
+            icon={<Plus size={13} />}
+            onClick={() =>
+              setScoreConditions((prev) => [...prev, { op: ">=", value: null }])
+            }
+          >
+            Condition
+          </Button>
+          {scoreConditions.length > 1 ? (
+            <Radio.Group
+              size="small"
+              value={scoreLogic}
+              onChange={(event) => setScoreLogic(event.target.value)}
+              optionType="button"
+              buttonStyle="solid"
+              options={[
+                { value: "AND", label: "AND" },
+                { value: "OR", label: "OR" },
+              ]}
+            />
+          ) : null}
+          {scoreFilterActive ? (
+            <>
+              <Tag color="blue">
+                {tableData.length}/{data.length}
+              </Tag>
+              <Button
+                size="small"
+                type="text"
+                onClick={() => {
+                  setScoreRange([0, 1]);
+                  setScoreConditions([]);
+                }}
+              >
+                Clear
+              </Button>
+            </>
+          ) : null}
+        </div>
         <Table
           loading={requesting}
           columns={columns}
-          dataSource={data}
+          dataSource={tableData}
           rowKey={(record) => {
             return record?.id;
           }}
