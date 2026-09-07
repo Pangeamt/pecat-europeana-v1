@@ -164,7 +164,9 @@
       "MTQE_PROCESSING": "MTQE",
       "READY": "Ready",
       "FILE_ERROR": "File Error",
-      "MTQE_ERROR": "MTQE Error"
+      "MTQE_ERROR": "MTQE Error",
+      "TRANSLATED": "Translated",
+      "REVIEWED": "Reviewed"
     },
     "stats": {
       "total": "Total",

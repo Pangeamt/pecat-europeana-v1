@@ -48,11 +48,29 @@ const DocumentList = ({
   const [shareTarget, setShareTarget] = useState(null);
   const [editTarget, setEditTarget] = useState(null);
 
+  // Review-flow states layered on top of READY (derived, not stored in
+  // Document.status): the reviewer's submit outranks the translator's.
+  const REVIEW_STATUS_COLORS = {
+    TRANSLATED: "lime",
+    REVIEWED: "purple",
+  };
+
+  const displayStatusOf = (record) => {
+    if (record.status !== DOCUMENT_STATUS.READY) return record.status;
+    if (record.reviewerSubmittedAt) return "REVIEWED";
+    if (record.translatorSubmittedAt) return "TRANSLATED";
+    return record.status;
+  };
+
   const getDocumentStatusTag = (status) => {
-    const color = DOCUMENT_STATUS_COLORS[status] ?? "default";
-    const label = DOCUMENT_STATUS_COLORS[status]
-      ? t(`documents.status.${status}`)
-      : status || t("documents.unknown");
+    const color =
+      DOCUMENT_STATUS_COLORS[status] ??
+      REVIEW_STATUS_COLORS[status] ??
+      "default";
+    const label =
+      DOCUMENT_STATUS_COLORS[status] || REVIEW_STATUS_COLORS[status]
+        ? t(`documents.status.${status}`)
+        : status || t("documents.unknown");
     return <Tag color={color}>{label}</Tag>;
   };
 
@@ -198,13 +216,33 @@ const DocumentList = ({
       dataIndex: "status",
       key: "status",
       width: 150,
-      render: (status, record) =>
+      // Checkbox filters over the DISPLAY status (pipeline states plus the
+      // derived TRANSLATED/REVIEWED), so e.g. READY + TRANSLATED combine.
+      filters: [
+        ...[
+          "UPLOADED",
+          "PROCESSING",
+          "FILE_PROCESSING",
+          "MTQE_PROCESSING",
+          "READY",
+          "TRANSLATED",
+          "REVIEWED",
+          "FILE_ERROR",
+          "MTQE_ERROR",
+        ].map((value) => ({ value, text: t(`documents.status.${value}`) })),
+        { value: "DELETED", text: t("documents.deleted") },
+      ],
+      onFilter: (value, record) =>
+        value === "DELETED"
+          ? Boolean(record.deletedAt)
+          : !record.deletedAt && displayStatusOf(record) === value,
+      render: (_status, record) =>
         record.deletedAt ? (
           <Tag color="red" className="rounded-full">
             {t("documents.deleted")}
           </Tag>
         ) : (
-          getDocumentStatusTag(status)
+          getDocumentStatusTag(displayStatusOf(record))
         ),
     },
     {

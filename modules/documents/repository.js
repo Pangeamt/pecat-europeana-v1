@@ -20,6 +20,8 @@ export async function findDocuments(where) {
       inheritProfile: true,
       translatorId: true,
       reviewerId: true,
+      translatorSubmittedAt: true,
+      reviewerSubmittedAt: true,
       User: {
         select: {
           name: true,
