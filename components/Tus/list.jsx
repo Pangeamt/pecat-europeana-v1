@@ -1255,20 +1255,20 @@ const TusList = ({ shareToken } = {}) => {
 
       {(isTranslator || isReviewer || isPm) && projectConfig ? (
         <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
-          <Tag
-            color={translatorSubmitted ? "green" : "default"}
-            icon={translatorSubmitted ? <LockIcon size={11} /> : undefined}
-            className="flex items-center gap-1"
-          >
-            {translatorSubmitted ? "Translation submitted" : "Translation open"}
+          <Tag color={translatorSubmitted ? "green" : "default"}>
+            <span className="inline-flex items-center gap-1 align-middle">
+              {translatorSubmitted ? <LockIcon size={11} /> : null}
+              {translatorSubmitted
+                ? "Translation submitted"
+                : "Translation open"}
+            </span>
           </Tag>
           {!shareToken && (
-            <Tag
-              color={reviewerSubmitted ? "green" : "default"}
-              icon={reviewerSubmitted ? <LockIcon size={11} /> : undefined}
-              className="flex items-center gap-1"
-            >
-              {reviewerSubmitted ? "Review submitted" : "Review open"}
+            <Tag color={reviewerSubmitted ? "green" : "default"}>
+              <span className="inline-flex items-center gap-1 align-middle">
+                {reviewerSubmitted ? <LockIcon size={11} /> : null}
+                {reviewerSubmitted ? "Review submitted" : "Review open"}
+              </span>
             </Tag>
           )}
 
