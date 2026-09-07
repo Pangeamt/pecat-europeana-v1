@@ -9,7 +9,7 @@ import AvatarDropdown from "@/components/AvatarDropdown";
 import Logo from "@/components/Logo";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { userStore } from "@/store";
-import { Book, Building2, ChevronLeft, ChevronRight, Database, Folder, IdCard, SlidersHorizontal, UserRound } from "lucide-react";
+import { Book, Building2, ChevronLeft, ChevronRight, Database, Folder, IdCard, ListChecks, SlidersHorizontal, UserRound } from "lucide-react";
 
 const { Header, Sider, Content } = Layout;
 
@@ -20,6 +20,7 @@ const MENU_KEYS = {
   profiles: "profiles",
   users: "users",
   workspaces: "workspaces",
+  queues: "queues",
   profile: "profile",
 };
 
@@ -43,6 +44,7 @@ const getSelectedKey = (pathname) => {
   if (pathname.startsWith("/dashboard/profile")) return MENU_KEYS.profile;
   if (pathname.startsWith("/dashboard/users")) return MENU_KEYS.users;
   if (pathname.startsWith("/dashboard/workspaces")) return MENU_KEYS.workspaces;
+  if (pathname.startsWith("/dashboard/queues")) return MENU_KEYS.queues;
   if (pathname.startsWith("/dashboard/tms")) return MENU_KEYS.tms;
   if (pathname.startsWith("/dashboard/glossaries")) return MENU_KEYS.glossaries;
   return MENU_KEYS.projects;
@@ -91,11 +93,18 @@ const buildMenuItems = (role, t) => {
   }
 
   if (role === "SUPER") {
-    items.push({
-      key: MENU_KEYS.workspaces,
-      icon: <Building2 size={15} />,
-      label: <Link href="/dashboard/workspaces">{t("nav.workspaces")}</Link>,
-    });
+    items.push(
+      {
+        key: MENU_KEYS.workspaces,
+        icon: <Building2 size={15} />,
+        label: <Link href="/dashboard/workspaces">{t("nav.workspaces")}</Link>,
+      },
+      {
+        key: MENU_KEYS.queues,
+        icon: <ListChecks size={15} />,
+        label: <Link href="/dashboard/queues">{t("nav.queues")}</Link>,
+      },
+    );
   }
 
   // Always available, regardless of role.

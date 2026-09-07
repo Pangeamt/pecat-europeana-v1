@@ -56,7 +56,8 @@
     "glossaries": "Glosarios",
     "profiles": "Perfiles",
     "users": "Usuarios",
-    "workspaces": "Espacios de trabajo"
+    "workspaces": "Espacios de trabajo",
+    "queues": "Colas"
   },
   "account": {
     "openMenu": "Abrir menú de cuenta de {name}",
