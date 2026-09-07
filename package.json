@@ -35,6 +35,8 @@
     "zustand": "5.0.11"
   },
   "devDependencies": {
+    "@bull-board/api": "^9.8.0",
+    "@bull-board/express": "^9.8.0",
     "@semantic-release/changelog": "6.0.3",
     "@semantic-release/git": "10.0.1",
     "@tailwindcss/postcss": "^4.2.1",
@@ -44,6 +46,7 @@
     "@typescript-eslint/parser": "8.56.1",
     "eslint": "^9.39.3",
     "eslint-config-next": "16.1.6",
+    "express": "^5.2.1",
     "postcss": "8",
     "react-doctor": "^0.2.11",
     "semantic-release": "25.0.3",
@@ -80,7 +83,8 @@
     "lint": "eslint .",
     "release": "semantic-release",
     "start": "next start",
-    "doctor": "npx react-doctor@latest"
+    "doctor": "npx react-doctor@latest",
+    "queues": "node scripts/bull-board.mjs"
   },
   "version": "1.0.0"
 }
