@@ -4,7 +4,7 @@ import { uid } from "uid";
 import { promisify } from "util";
 import prisma from "../../lib/prisma";
 import { checkFile } from "../../lib/utils";
-import { enqueueProjectImport } from "../../lib/queue";
+import { enqueueMtqeV1, enqueueProjectImport } from "../../lib/queue";
 import { DOCUMENT_STATUS } from "../../lib/document-status";
 import { HttpError } from "../shared/http-error";
 import { assertWorkspaceAssetAccess } from "../shared/roles";
@@ -428,7 +428,7 @@ export async function handleUploadImportJob({
 // be enqueued, release the document directly rather than leaving it stuck.
 async function chainScoreStage(documentId) {
   try {
-    await enqueueProjectImport(PIPELINE_SCORE_JOB, { projectId: documentId });
+    await enqueueMtqeV1(PIPELINE_SCORE_JOB, { projectId: documentId });
   } catch (error) {
     console.error(
       `[import] could not enqueue MTQE scoring for ${documentId}, releasing as READY:`,
