@@ -196,6 +196,11 @@ model Tu {
   srcLiteral              String    @db.Text
   translatedLiteral       String?   @db.Text
   reviewLiteral           String?   @db.Text
+  /// Who last confirmed/edited/rejected the segment (display snapshot; the
+  /// anonymous share-link translator has no user id). Set on every review
+  /// action in modules/tus/service.js.
+  reviewedById            String?
+  reviewedByName          String?
   sourceLanguage          String
   targetLanguage          String
   translationScorePercent Float?

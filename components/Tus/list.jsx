@@ -814,16 +814,20 @@ const TusList = ({ shareToken } = {}) => {
           ? record.Status === "NOT_REVIEWED" ||
             record.Status === "TRANSLATED_MT"
           : record.Status === value,
-      render: (text) => {
+      render: (text, record) => {
         let cpm = (
           <Hourglass size={18}
             color="#D97706"
           />
         );
+        // Who performed the action, when known ("Edited by María").
+        const by = record.reviewedByName;
+        let tooltip = "Not reviewed";
         if (text === "REJECTED") {
           cpm = (
             <Ban size={18} color="#DC2626" />
           );
+          tooltip = by ? `Rejected by ${by}` : "Rejected";
         }
         if (text === "ACCEPTED") {
           cpm = (
@@ -831,13 +835,19 @@ const TusList = ({ shareToken } = {}) => {
               color="#4D7C0F"
             />
           );
+          tooltip = by ? `Confirmed by ${by}` : "Confirmed";
         }
         if (text === "EDITED") {
           cpm = (
             <Pencil size={18} color="#2563EB" />
           );
+          tooltip = by ? `Edited by ${by}` : "Edited";
         }
-        return <div className="absolute top-2 left-2">{cpm}</div>;
+        return (
+          <div className="absolute top-2 left-2">
+            <Tooltip title={tooltip}>{cpm}</Tooltip>
+          </div>
+        );
       },
     },
     {

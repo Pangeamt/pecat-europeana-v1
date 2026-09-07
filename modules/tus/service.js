@@ -143,7 +143,7 @@ async function rescoreReviewedPair(tu, target) {
   }
 }
 
-async function applyTuStatusUpdate(tu, payload) {
+async function applyTuStatusUpdate(tu, payload, reviewer = null) {
   const { reviewLiteral, action, levenshteinDistance = null, block } = payload;
 
   // Manual lock/unlock (ADMIN/SUPER only, enforced by the callers): touches
@@ -198,6 +198,13 @@ async function applyTuStatusUpdate(tu, payload) {
     }
   } else if (action === "reject") {
     data.Status = "REJECTED";
+  }
+
+  // Trace who performed the review action ("Edited by María" tooltips).
+  // Sibling segments (same source) get the same reviewer via `data`.
+  if ((action === "approve" || action === "reject") && reviewer) {
+    data.reviewedById = reviewer.id ?? null;
+    data.reviewedByName = reviewer.name ?? null;
   }
 
   if (levenshteinDistance) {
@@ -327,7 +334,10 @@ export async function updateTuStatusService(payload, actorUser) {
   const document = await assertTuAccessibleByActor(tu, actorUser);
   assertActorMayEditDocument(document, actorUser);
 
-  return applyTuStatusUpdate(tu, payload);
+  return applyTuStatusUpdate(tu, payload, {
+    id: actorUser?.id ?? null,
+    name: actorUser?.name || actorUser?.email || null,
+  });
 }
 
 // Public "share as translator" link consumer: authorization is proving
@@ -361,5 +371,9 @@ export async function updateTuStatusByShareTokenService(token, payload) {
     throw new HttpError(404, "Tu not found");
   }
 
-  return applyTuStatusUpdate(tu, payload);
+  // Anonymous link: no user identity — attribute the action to the link.
+  return applyTuStatusUpdate(tu, payload, {
+    id: null,
+    name: "Translator link",
+  });
 }
