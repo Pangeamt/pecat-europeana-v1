@@ -630,7 +630,8 @@
       "addError": "Failed to add user",
       "avatarTypeError": "You can only upload JPG/PNG file!",
       "avatarSizeError": "Image must smaller than 2MB!"
-    }
+    },
+    "searchPlaceholder": "Search by name, email or role…"
   },
   "languages": {
     "en": "English",

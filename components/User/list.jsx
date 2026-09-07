@@ -4,6 +4,7 @@ import {
   Button,
   Card,
   Empty,
+  Input,
   Popconfirm,
   Space,
   Table,
@@ -21,7 +22,7 @@ import {
 } from "@/services/user.services";
 import { getMembersOfWorkspace } from "@/services/workspace.services";
 import { StatCard, StatCardGrid } from "@/components/shared/StatCard";
-import { ShieldCheck, Trash2, UserCircle, UserCog, Users } from "lucide-react";
+import { Search as SearchIcon, ShieldCheck, Trash2, UserCircle, UserCog, Users } from "lucide-react";
 import { useEffect } from "react";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { userStore } from "@/store";
@@ -34,6 +35,19 @@ const UserList = () => {
   const { user: currentUser } = store;
   const [requesting, setRequesting] = useState(true);
   const [users, setUsers] = useState([]);
+  const [searchText, setSearchText] = useState("");
+
+  // Client-side search over the loaded list: name, email and role.
+  const normalizedSearch = searchText.trim().toLowerCase();
+  const visibleUsers = normalizedSearch
+    ? users.filter((record) =>
+        [record.name, record.email, record.role]
+          .filter(Boolean)
+          .some((field) =>
+            String(field).toLowerCase().includes(normalizedSearch),
+          ),
+      )
+    : users;
 
   const fetchData = useCallback(async () => {
     if (!currentUser) {
@@ -246,10 +260,26 @@ const UserList = () => {
         />
       </StatCardGrid>
 
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <Input
+          allowClear
+          prefix={<SearchIcon size={14} className="text-slate-400" />}
+          placeholder={t("users.searchPlaceholder")}
+          value={searchText}
+          onChange={(event) => setSearchText(event.target.value)}
+          style={{ maxWidth: 320 }}
+        />
+        {normalizedSearch ? (
+          <Tag color="blue">
+            {visibleUsers.length}/{users.length}
+          </Tag>
+        ) : null}
+      </div>
+
       <Table
         loading={requesting}
         columns={columns}
-        dataSource={users}
+        dataSource={visibleUsers}
         rowKey={(record) => record.id}
         size="small"
         scroll={{ x: 800 }}

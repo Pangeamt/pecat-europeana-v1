@@ -630,7 +630,8 @@
       "addError": "No se pudo añadir el usuario",
       "avatarTypeError": "¡Solo puedes subir archivos JPG/PNG!",
       "avatarSizeError": "¡La imagen debe ser menor de 2 MB!"
-    }
+    },
+    "searchPlaceholder": "Buscar por nombre, email o rol…"
   },
   "languages": {
     "en": "Inglés",
