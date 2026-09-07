@@ -1,3 +1,4 @@
+import prisma from "@/lib/prisma";
 import {
   MONITORED_QUEUE_NAMES,
   getQueueByName,
@@ -32,4 +33,21 @@ export async function getQueueJobs(queue, state, start, end) {
 
 export async function getQueueJob(queue, jobId) {
   return queue.getJob(jobId);
+}
+
+// Names behind the job payloads: documentId -> document label/filename plus
+// its client-project and workspace names, so the monitor shows people-facing
+// names instead of raw ids.
+export async function findDocumentsMeta(documentIds) {
+  if (documentIds.length === 0) return [];
+  return prisma.document.findMany({
+    where: { id: { in: documentIds } },
+    select: {
+      id: true,
+      label: true,
+      filename: true,
+      project: { select: { name: true } },
+      workspace: { select: { name: true } },
+    },
+  });
 }

@@ -1,5 +1,6 @@
 import { HttpError } from "../shared/http-error";
 import {
+  findDocumentsMeta,
   getQueueCounts,
   getQueueJob,
   getQueueJobs,
@@ -79,10 +80,27 @@ export async function listQueueJobsService(
   const start = (page - 1) * pageSize;
   const jobs = await getQueueJobs(queue, state, start, start + pageSize - 1);
   const counts = await getQueueCounts(queue);
+  const shaped = jobs.filter(Boolean).map((job) => shapeJob(job, state));
+
+  // Resolve names for the page's documents so the UI shows workspace /
+  // project / document instead of raw ids (payloads carry documentId only).
+  const documentIds = [
+    ...new Set(shaped.map((job) => job.data?.projectId).filter(Boolean)),
+  ];
+  const metaById = new Map(
+    (await findDocumentsMeta(documentIds)).map((doc) => [doc.id, doc]),
+  );
+  for (const job of shaped) {
+    const meta = metaById.get(job.data?.projectId);
+    job.documentName = meta ? (meta.label ?? meta.filename) : null;
+    job.projectName = meta?.project?.name ?? null;
+    job.workspaceName = meta?.workspace?.name ?? null;
+  }
+
   return {
     total: counts[state] ?? 0,
     counts,
-    jobs: jobs.filter(Boolean).map((job) => shapeJob(job, state)),
+    jobs: shaped,
   };
 }
 

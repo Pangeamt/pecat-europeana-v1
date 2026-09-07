@@ -20,6 +20,9 @@ export interface QueueJob {
   processedOn: number | null;
   finishedOn: number | null;
   failedReason: string | null;
+  documentName: string | null;
+  projectName: string | null;
+  workspaceName: string | null;
 }
 
 export const listQueueJobs = async (

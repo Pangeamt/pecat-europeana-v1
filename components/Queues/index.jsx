@@ -107,16 +107,38 @@ const QueuesMonitor = () => {
 
   const columns = useMemo(
     () => [
-      { title: "Job", dataIndex: "id", width: 90 },
-      { title: "Type", dataIndex: "name", width: 150 },
+      { title: "Job", dataIndex: "id", width: 80 },
+      { title: "Type", dataIndex: "name", width: 140 },
+      {
+        title: "Workspace",
+        dataIndex: "workspaceName",
+        width: 140,
+        ellipsis: true,
+        render: (text) => text ?? "—",
+      },
+      {
+        title: "Project",
+        dataIndex: "projectName",
+        width: 150,
+        ellipsis: true,
+        render: (text) => text ?? "—",
+      },
       {
         title: "Document",
-        width: 240,
-        render: (_, record) => (
-          <Text code copyable={{ text: record.data?.projectId ?? "" }}>
-            {record.data?.projectId ?? "—"}
-          </Text>
-        ),
+        width: 220,
+        ellipsis: true,
+        render: (_, record) =>
+          record.documentName ? (
+            <Tooltip title={`id: ${record.data?.projectId ?? ""}`}>
+              <Text copyable={{ text: record.data?.projectId ?? "" }}>
+                {record.documentName}
+              </Text>
+            </Tooltip>
+          ) : (
+            <Text code copyable={{ text: record.data?.projectId ?? "" }}>
+              {record.data?.projectId ?? "—"}
+            </Text>
+          ),
       },
       {
         title: "Attempts",
