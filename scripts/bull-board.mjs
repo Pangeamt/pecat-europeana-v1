@@ -21,7 +21,8 @@ try {
 }
 
 const REDIS_URL = process.env.REDIS_URL || "redis://127.0.0.1:6379";
-const PORT = Number(process.env.BULL_BOARD_PORT || 3010);
+// 3011 by default — 3010 tends to be taken on dev machines (e.g. Open WebUI).
+const PORT = Number(process.env.BULL_BOARD_PORT || 3011);
 
 const url = new URL(REDIS_URL);
 const connection = {
@@ -66,6 +67,15 @@ process.on("unhandledRejection", (error) =>
 
 const app = express();
 app.use("/", serverAdapter.getRouter());
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Bull Board on http://localhost:${PORT} (redis: ${url.hostname}:${url.port || 6379})`);
+});
+server.on("error", (error) => {
+  if (error?.code === "EADDRINUSE") {
+    console.error(
+      `Port ${PORT} is already in use by another app. Run with BULL_BOARD_PORT=<free port> pnpm queues`,
+    );
+    process.exit(1);
+  }
+  throw error;
 });
