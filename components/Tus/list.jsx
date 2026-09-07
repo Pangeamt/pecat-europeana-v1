@@ -754,7 +754,7 @@ const TusList = ({ shareToken } = {}) => {
               </Tag>
             </Tooltip>
             {v2 !== null ? (
-              <Tooltip title="QE v2 (independent second score)">
+              <Tooltip title="QE v2 — combined score (weighs TM references)">
                 <Tag bordered={false} color={bandColor(v2)}>
                   <span className="text-[10px] opacity-70">v2</span>{" "}
                   {v2.toFixed(2)}

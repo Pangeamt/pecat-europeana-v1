@@ -74,7 +74,7 @@ export async function handleScoreMtqeJob({ projectId: documentId }) {
       translatedLiteral: { not: null },
       mtqeOriginal: null,
     },
-    select: { id: true, srcLiteral: true, translatedLiteral: true },
+    select: { id: true, srcLiteral: true, translatedLiteral: true, tmInfo: true },
     orderBy: { count: "asc" },
   });
 
@@ -126,19 +126,30 @@ export async function handleScoreMtqeJob({ projectId: documentId }) {
     }
   }
 
-  // QE v2 pass (best-effort, never blocks READY): a second, independent
-  // score per segment for side-by-side comparison with v1. 0-100 upstream,
-  // normalized to 0-1 so both scores live on the same scale.
+  // QE v2 pass (best-effort, never blocks READY): a second score per segment
+  // from the combined-score-with-references endpoint — same 0-1 scale as v1,
+  // but TM references (the segment's tmInfo matches) weigh into the score.
   let v2Scored = 0;
   if (isMtqeV2Configured()) {
     for (let i = 0; i < tus.length; i += MTQE_V2_BATCH_SIZE) {
       const batch = tus.slice(i, i + MTQE_V2_BATCH_SIZE);
-      let response;
+      let result;
       try {
-        response = await postMTQEv2({
+        result = await postMTQEv2({
           pairs: batch.map((tu) => ({
             source: tu.srcLiteral,
             target: tu.translatedLiteral,
+            references: (Array.isArray(tu.tmInfo) ? tu.tmInfo : [])
+              .filter(
+                (match) =>
+                  typeof match?.source === "string" &&
+                  typeof match?.target === "string",
+              )
+              .slice(0, 2)
+              .map((match) => ({
+                source: match.source,
+                target: match.target,
+              })),
           })),
           sourceLanguage: document.sourceLanguage,
           targetLanguage: document.targetLanguage,
@@ -151,15 +162,25 @@ export async function handleScoreMtqeJob({ projectId: documentId }) {
         continue;
       }
 
-      // Results come back in request order; a per-segment error has score
-      // null and must not shift alignment.
-      const results = Array.isArray(response?.results) ? response.results : [];
+      // Pairs come back in request order (verified by source when possible,
+      // like the v1 handling above).
+      const items = Array.isArray(result?.pairs) ? result.pairs : [];
+      const scoreByPair = new Map();
+      for (const item of items) {
+        if (typeof item?.source === "string" && typeof item?.target === "string") {
+          scoreByPair.set(`${item.source}\u0000${item.target}`, item.score);
+        }
+      }
       for (let j = 0; j < batch.length; j++) {
-        const raw = results[j]?.score;
-        if (typeof raw !== "number") continue;
+        const tu = batch[j];
+        const echoed = scoreByPair.get(
+          `${tu.srcLiteral}\u0000${tu.translatedLiteral}`,
+        );
+        const score = typeof echoed === "number" ? echoed : items[j]?.score;
+        if (typeof score !== "number") continue;
         await prisma.tu.update({
-          where: { id: batch[j].id },
-          data: { mtqeV2Score: raw / 100 },
+          where: { id: tu.id },
+          data: { mtqeV2Score: score },
         });
         v2Scored += 1;
       }
