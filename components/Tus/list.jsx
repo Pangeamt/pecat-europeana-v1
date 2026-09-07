@@ -66,6 +66,16 @@ const stripHTML = (html) => {
   return temporalDiv.textContent || temporalDiv.innerText || "";
 };
 
+// Shared color bands for both QE columns (scores 0-1).
+const qeBandColor = (score) =>
+  score === null
+    ? "default"
+    : score >= 0.85
+      ? "green"
+      : score >= 0.65
+        ? "gold"
+        : "red";
+
 const EMPTY_STATS = {
   notReviewed: 0,
   rejected: 0,
@@ -706,62 +716,56 @@ const TusList = ({ shareToken } = {}) => {
         </Tag>
       ),
     },
+    // MTQE bands (modules/documents/pipeline-constants.js): >=0.85 reliable,
+    // >=0.65 doubtful, below priority. One column per QE version — both 0-1,
+    // same bands, so the two scores compare side by side.
     {
-      title: "QE",
-      width: 110,
+      title: "QE v1",
+      width: 84,
       dataIndex: "translationScorePercent",
       key: "translationScorePercent",
       sorter: (a, b) =>
-        (scoreSource === "v2"
-          ? (a.mtqeV2Score ?? -1) - (b.mtqeV2Score ?? -1)
-          : a.translationScorePercent - b.translationScorePercent),
-      // MTQE bands (modules/documents/pipeline-constants.js): >=0.85 reliable,
-      // >=0.65 doubtful, below priority. "↻" = re-scored after an edit.
-      // v1 and v2 render stacked with the same bands so they compare at a
-      // glance (both stored 0-1; v2 normalized from the service's 0-100).
+        (a.translationScorePercent ?? -1) - (b.translationScorePercent ?? -1),
+      // "↻" = re-scored after an edit (differs from the pipeline's first score).
       render: (text, record) => {
-        const bandColor = (score) =>
-          score === null
-            ? "default"
-            : score >= 0.85
-              ? "green"
-              : score >= 0.65
-                ? "gold"
-                : "red";
         const score =
           text !== null && text !== undefined && text !== ""
             ? Number.parseFloat(text)
             : null;
-        const v2 =
-          typeof record.mtqeV2Score === "number" ? record.mtqeV2Score : null;
         const recalculated =
           score !== null &&
           record.mtqeOriginal != null &&
           Math.abs(score - record.mtqeOriginal) > 1e-6;
         return (
-          <Space direction="vertical" size={2}>
-            <Tooltip
-              title={
-                recalculated
-                  ? `QE v1 — re-scored (initial: ${Number(record.mtqeOriginal).toFixed(2)})`
-                  : "QE v1"
-              }
-            >
-              <Tag bordered={false} color={bandColor(score)}>
-                <span className="text-[10px] opacity-70">v1</span>{" "}
-                {score !== null ? score.toFixed(2) : "—"}
-                {recalculated ? " ↻" : ""}
-              </Tag>
-            </Tooltip>
-            {v2 !== null ? (
-              <Tooltip title="QE v2 — combined score (weighs TM references)">
-                <Tag bordered={false} color={bandColor(v2)}>
-                  <span className="text-[10px] opacity-70">v2</span>{" "}
-                  {v2.toFixed(2)}
-                </Tag>
-              </Tooltip>
-            ) : null}
-          </Space>
+          <Tooltip
+            title={
+              recalculated
+                ? `Re-scored (initial: ${Number(record.mtqeOriginal).toFixed(2)})`
+                : undefined
+            }
+          >
+            <Tag bordered={false} color={qeBandColor(score)}>
+              {score !== null ? score.toFixed(2) : "—"}
+              {recalculated ? " ↻" : ""}
+            </Tag>
+          </Tooltip>
+        );
+      },
+    },
+    {
+      title: "QE v2",
+      width: 84,
+      dataIndex: "mtqeV2Score",
+      key: "mtqeV2Score",
+      sorter: (a, b) => (a.mtqeV2Score ?? -1) - (b.mtqeV2Score ?? -1),
+      render: (value) => {
+        const score = typeof value === "number" ? value : null;
+        return (
+          <Tooltip title="Combined score (weighs TM references)">
+            <Tag bordered={false} color={qeBandColor(score)}>
+              {score !== null ? score.toFixed(2) : "—"}
+            </Tag>
+          </Tooltip>
         );
       },
     },

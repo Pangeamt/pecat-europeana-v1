@@ -1,5 +1,5 @@
 import prisma from "@/lib/prisma";
-import { startProjectImportWorker } from "@/lib/queue";
+import { startMtqeV2Worker, startProjectImportWorker } from "@/lib/queue";
 import { DOCUMENT_STATUS } from "@/lib/document-status";
 import {
   handleSdlxliffImportJob,
@@ -7,10 +7,13 @@ import {
   resolveDocumentErrorStatus,
 } from "./import-service";
 import {
+  MTQE_V2_JOB,
   PIPELINE_REVIEW_JOB,
   PIPELINE_SCORE_JOB,
   handleLlmReviewJob,
   handleScoreMtqeJob,
+  handleScoreMtqeV2Job,
+  recordMtqeV2Failure,
   recordReviewFailure,
   releaseDocumentAfterScoreFailure,
 } from "./pipeline-service";
@@ -27,6 +30,21 @@ function errorStatusFor(job, error) {
  * process from instrumentation.js.
  */
 export function startImportWorker() {
+  // Second QE score on its own queue/worker: progresses and retries without
+  // competing with the import pipeline (concurrency 1 — the MTQE service
+  // dislikes parallel scoring).
+  startMtqeV2Worker({
+    handlers: { [MTQE_V2_JOB]: handleScoreMtqeV2Job },
+    onFinalFailure: async (job, error) => {
+      const documentId = job.data?.projectId;
+      console.error(
+        `[mtqe-v2-worker] Job for document ${documentId} failed permanently:`,
+        error?.message ?? error,
+      );
+      if (documentId) await recordMtqeV2Failure(documentId, error);
+    },
+  });
+
   return startProjectImportWorker({
     handlers: {
       "import-upload": handleUploadImportJob,

@@ -6,7 +6,7 @@ import {
   postMTQEv2,
 } from "../../lib/utils";
 import { postEditContent } from "../../lib/daait";
-import { enqueueProjectImport } from "../../lib/queue";
+import { enqueueMtqeV2, enqueueProjectImport } from "../../lib/queue";
 import { DOCUMENT_STATUS } from "../../lib/document-status";
 import {
   BLOCK_REASON,
@@ -27,6 +27,8 @@ const POST_EDIT_BATCH_SIZE = 25;
 
 export const PIPELINE_SCORE_JOB = "pipeline-score";
 export const PIPELINE_REVIEW_JOB = "pipeline-review";
+// Runs on the dedicated MTQE_V2_QUEUE, not the import queue.
+export const MTQE_V2_JOB = "score-mtqe-v2";
 
 async function mergePipelineStats(documentId, patch) {
   const doc = await prisma.document.findUnique({
@@ -126,74 +128,12 @@ export async function handleScoreMtqeJob({ projectId: documentId }) {
     }
   }
 
-  // QE v2 pass (best-effort, never blocks READY): a second score per segment
-  // from the combined-score-with-references endpoint — same 0-1 scale as v1,
-  // but TM references (the segment's tmInfo matches) weigh into the score.
-  let v2Scored = 0;
-  if (isMtqeV2Configured()) {
-    for (let i = 0; i < tus.length; i += MTQE_V2_BATCH_SIZE) {
-      const batch = tus.slice(i, i + MTQE_V2_BATCH_SIZE);
-      let result;
-      try {
-        result = await postMTQEv2({
-          pairs: batch.map((tu) => ({
-            source: tu.srcLiteral,
-            target: tu.translatedLiteral,
-            references: (Array.isArray(tu.tmInfo) ? tu.tmInfo : [])
-              .filter(
-                (match) =>
-                  typeof match?.source === "string" &&
-                  typeof match?.target === "string",
-              )
-              .slice(0, 2)
-              .map((match) => ({
-                source: match.source,
-                target: match.target,
-              })),
-          })),
-          sourceLanguage: document.sourceLanguage,
-          targetLanguage: document.targetLanguage,
-        });
-      } catch (error) {
-        console.error(
-          `[pipeline] MTQE v2 batch failed for document ${documentId}:`,
-          error.message,
-        );
-        continue;
-      }
-
-      // Pairs come back in request order (verified by source when possible,
-      // like the v1 handling above).
-      const items = Array.isArray(result?.pairs) ? result.pairs : [];
-      const scoreByPair = new Map();
-      for (const item of items) {
-        if (typeof item?.source === "string" && typeof item?.target === "string") {
-          scoreByPair.set(`${item.source}\u0000${item.target}`, item.score);
-        }
-      }
-      for (let j = 0; j < batch.length; j++) {
-        const tu = batch[j];
-        const echoed = scoreByPair.get(
-          `${tu.srcLiteral}\u0000${tu.translatedLiteral}`,
-        );
-        const score = typeof echoed === "number" ? echoed : items[j]?.score;
-        if (typeof score !== "number") continue;
-        await prisma.tu.update({
-          where: { id: tu.id },
-          data: { mtqeV2Score: score },
-        });
-        v2Scored += 1;
-      }
-    }
-  }
-
   const totalOutage = tus.length > 0 && scored === 0 && failed === tus.length;
   await mergePipelineStats(documentId, {
     // SCORED = waiting for the LLM review stage to pick the document up.
     stage: "SCORED",
     mtqeSecs: Math.round((Date.now() - started) / 1000),
     mtqeScored: scored,
-    mtqeV2Scored: isMtqeV2Configured() ? v2Scored : null,
     mtqeError: failed > 0 ? `${failed} segments could not be scored` : null,
   });
 
@@ -215,6 +155,122 @@ export async function handleScoreMtqeJob({ projectId: documentId }) {
         error.message,
       ),
   );
+
+  // The second QE score runs on its own Bull queue (MTQE_V2_QUEUE) so it
+  // progresses and retries independently of the import pipeline — the
+  // document is already READY at this point and never waits for it.
+  if (isMtqeV2Configured() && tus.length > 0) {
+    await enqueueMtqeV2(MTQE_V2_JOB, { projectId: documentId }).catch((error) =>
+      console.error(
+        `[pipeline] could not enqueue MTQE v2 for ${documentId}:`,
+        error.message,
+      ),
+    );
+  }
+}
+
+/**
+ * MTQE v2 job (own queue): scores every visible segment that still lacks a
+ * second score, via the combined-score-with-references async API. Same 0-1
+ * scale as v1; each pair carries up to 2 TM references from the segment's
+ * tmInfo. Throws on a total outage so BullMQ retries the job; partial
+ * failures are recorded in pipelineStats and never touch Document.status.
+ */
+export async function handleScoreMtqeV2Job({ projectId: documentId }) {
+  if (!isMtqeV2Configured()) return;
+  const document = await prisma.document.findUnique({
+    where: { id: documentId },
+    select: { id: true, sourceLanguage: true, targetLanguage: true },
+  });
+  if (!document) return;
+
+  const tus = await prisma.tu.findMany({
+    where: {
+      documentId,
+      visible: true,
+      block: false,
+      translatedLiteral: { not: null },
+      mtqeV2Score: null,
+    },
+    select: { id: true, srcLiteral: true, translatedLiteral: true, tmInfo: true },
+    orderBy: { count: "asc" },
+  });
+  if (tus.length === 0) return;
+
+  const started = Date.now();
+  let scored = 0;
+  let failed = 0;
+  for (let i = 0; i < tus.length; i += MTQE_V2_BATCH_SIZE) {
+    const batch = tus.slice(i, i + MTQE_V2_BATCH_SIZE);
+    let result;
+    try {
+      result = await postMTQEv2({
+        pairs: batch.map((tu) => ({
+          source: tu.srcLiteral,
+          target: tu.translatedLiteral,
+          references: (Array.isArray(tu.tmInfo) ? tu.tmInfo : [])
+            .filter(
+              (match) =>
+                typeof match?.source === "string" &&
+                typeof match?.target === "string",
+            )
+            .slice(0, 2)
+            .map((match) => ({ source: match.source, target: match.target })),
+        })),
+        sourceLanguage: document.sourceLanguage,
+        targetLanguage: document.targetLanguage,
+      });
+    } catch (error) {
+      failed += batch.length;
+      console.error(
+        `[pipeline] MTQE v2 batch failed for document ${documentId}:`,
+        error.message,
+      );
+      continue;
+    }
+
+    // Pairs come back in request order; verify by source/target when
+    // possible (same convention as the v1 pass).
+    const items = Array.isArray(result?.pairs) ? result.pairs : [];
+    const scoreByPair = new Map();
+    for (const item of items) {
+      if (typeof item?.source === "string" && typeof item?.target === "string") {
+        scoreByPair.set(`${item.source}\u0000${item.target}`, item.score);
+      }
+    }
+    for (let j = 0; j < batch.length; j++) {
+      const tu = batch[j];
+      const echoed = scoreByPair.get(
+        `${tu.srcLiteral}\u0000${tu.translatedLiteral}`,
+      );
+      const score = typeof echoed === "number" ? echoed : items[j]?.score;
+      if (typeof score !== "number") continue;
+      await prisma.tu.update({
+        where: { id: tu.id },
+        data: { mtqeV2Score: score },
+      });
+      scored += 1;
+    }
+  }
+
+  await mergePipelineStats(documentId, {
+    mtqeV2Scored: scored,
+    mtqeV2Secs: Math.round((Date.now() - started) / 1000),
+    mtqeV2Error:
+      failed > 0 ? `${failed} segments could not be v2-scored` : null,
+  });
+
+  if (tus.length > 0 && scored === 0 && failed === tus.length) {
+    throw new Error("MTQE v2 unavailable: no segment could be scored");
+  }
+}
+
+// Final-failure hook for the v2 queue: informational only — the document is
+// long READY, so the outcome lands in pipelineStats and nowhere else.
+export async function recordMtqeV2Failure(documentId, error) {
+  await mergePipelineStats(documentId, {
+    mtqeV2Error: error?.message ?? "MTQE v2 scoring failed",
+  }).catch(() => {});
 }
 
 // Called by the worker when the score job exhausts its retries: the document
