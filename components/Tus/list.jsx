@@ -6,11 +6,9 @@ import {
   Card,
   Divider,
   Input,
-  InputNumber,
   message,
   Modal,
   Popconfirm,
-  Radio,
   Select,
   Slider,
   Space,
@@ -20,7 +18,7 @@ import {
   Tooltip,
 } from "antd";
 import axios from "axios";
-import { Ban, CircleCheck, CircleX, Filter, Hourglass, LockIcon, Pencil, Plus, Search, SendHorizontal, UnlockIcon, X } from "lucide-react";
+import { Ban, CircleCheck, CircleX, Filter, Hourglass, LockIcon, Pencil, Search, SendHorizontal, UnlockIcon } from "lucide-react";
 import { useParams } from "next/navigation";
 
 import React, {
@@ -109,15 +107,17 @@ const TusList = ({ shareToken } = {}) => {
   const [projectConfig, setProjectConfig] = useState(null);
   const [showUnderThreshold, setShowUnderThreshold] = useState(false);
 
-  // QE score filter (client-side, over the loaded segments). Each metric has
-  // its own independent rule set: a range slider per metric (v1 and v2), and
-  // operator conditions (=, >=, <=, <, >) that each target one metric,
-  // combined with AND/OR. The filtered list is the working list — confirm
-  // advances to the next row within it.
-  const [v1Range, setV1Range] = useState([0, 1]);
-  const [v2Range, setV2Range] = useState([0, 1]);
-  const [scoreConditions, setScoreConditions] = useState([]);
+  // QE score filter: one rule per metric — [QE v1 op+slider] AND/OR
+  // [QE v2 op+slider] — applied only when the user confirms it ("Apply").
+  // Clear resets the controls to the top (<= 1.00) and shows every segment.
+  // The filtered list is the working list: confirm on a segment advances to
+  // the next row within it.
+  const NEUTRAL_RULE = { op: "<=", value: 1 };
+  const [v1Rule, setV1Rule] = useState(NEUTRAL_RULE);
+  const [v2Rule, setV2Rule] = useState(NEUTRAL_RULE);
   const [scoreLogic, setScoreLogic] = useState("AND");
+  // Snapshot of the controls at the moment "Apply" was pressed (null = off).
+  const [appliedScoreFilter, setAppliedScoreFilter] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
   const [selectedRow, setSelectedRow] = useState(null);
@@ -323,21 +323,23 @@ const TusList = ({ shareToken } = {}) => {
   };
 
   // ----- QE score filter --------------------------------------------------
-  const activeScoreConditions = useMemo(
-    () => scoreConditions.filter((cond) => typeof cond.value === "number"),
-    [scoreConditions],
-  );
-  const v1RangeActive = v1Range[0] > 0 || v1Range[1] < 1;
-  const v2RangeActive = v2Range[0] > 0 || v2Range[1] < 1;
-  const scoreFilterActive =
-    v1RangeActive || v2RangeActive || activeScoreConditions.length > 0;
+  // A rule left at its resting position (<= 1.00) matches everything, so it
+  // is treated as inactive — segments without that score are not excluded.
+  const isNeutralRule = (rule) => rule.op === "<=" && rule.value >= 1;
+  const scoreFilterActive = appliedScoreFilter !== null;
 
   const tableData = useMemo(() => {
-    if (!scoreFilterActive) return data;
-    const scoreOf = (record, source) =>
-      source === "v2" ? record?.mtqeV2Score : record?.translationScorePercent;
-    const evalCondition = (record, { source, op, value }) => {
-      const score = scoreOf(record, source);
+    if (!appliedScoreFilter) return data;
+    const { v1, v2, logic } = appliedScoreFilter;
+    const rules = [
+      v1 ? { ...v1, source: "v1" } : null,
+      v2 ? { ...v2, source: "v2" } : null,
+    ].filter(Boolean);
+    if (rules.length === 0) return data;
+
+    const evalRule = (record, { source, op, value }) => {
+      const score =
+        source === "v2" ? record?.mtqeV2Score : record?.translationScorePercent;
       if (typeof score !== "number") return false;
       switch (op) {
         case "=":
@@ -355,31 +357,26 @@ const TusList = ({ shareToken } = {}) => {
           return true;
       }
     };
-    const inRange = (record, source, range) => {
-      const score = scoreOf(record, source);
-      return (
-        typeof score === "number" && score >= range[0] && score <= range[1]
-      );
-    };
-    return data.filter((record) => {
-      // Each narrowed slider is a hard constraint on its own metric.
-      if (v1RangeActive && !inRange(record, "v1", v1Range)) return false;
-      if (v2RangeActive && !inRange(record, "v2", v2Range)) return false;
-      if (activeScoreConditions.length === 0) return true;
-      return scoreLogic === "AND"
-        ? activeScoreConditions.every((cond) => evalCondition(record, cond))
-        : activeScoreConditions.some((cond) => evalCondition(record, cond));
-    });
-  }, [
-    data,
-    scoreFilterActive,
-    activeScoreConditions,
-    scoreLogic,
-    v1Range,
-    v2Range,
-    v1RangeActive,
-    v2RangeActive,
-  ]);
+
+    return data.filter((record) =>
+      logic === "AND"
+        ? rules.every((rule) => evalRule(record, rule))
+        : rules.some((rule) => evalRule(record, rule)),
+    );
+  }, [data, appliedScoreFilter]);
+
+  const applyScoreFilter = () => {
+    const v1 = isNeutralRule(v1Rule) ? null : v1Rule;
+    const v2 = isNeutralRule(v2Rule) ? null : v2Rule;
+    setAppliedScoreFilter(v1 || v2 ? { v1, v2, logic: scoreLogic } : null);
+  };
+
+  const clearScoreFilter = () => {
+    setV1Rule(NEUTRAL_RULE);
+    setV2Rule(NEUTRAL_RULE);
+    setScoreLogic("AND");
+    setAppliedScoreFilter(null);
+  };
 
   // The filtered list is the working list: if the current selection falls
   // out of it (filter changed, or the confirmed segment no longer matches),
@@ -1435,132 +1432,93 @@ const TusList = ({ shareToken } = {}) => {
             collapsible
           />
         </Modal>
-        <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
           <span className="flex items-center gap-1 text-xs font-medium text-slate-500">
             <Filter size={14} /> QE filter
           </span>
-          {[
-            { label: "v1", range: v1Range, setRange: setV1Range },
-            { label: "v2", range: v2Range, setRange: setV2Range },
-          ].map(({ label, range, setRange }) => (
-            <div key={label} className="flex items-center gap-1">
-              <Tag bordered={false} className="m-0">
-                QE {label}
-              </Tag>
-              <span className="text-xs tabular-nums text-slate-500">
-                {range[0].toFixed(2)}
-              </span>
-              <Slider
-                range
-                min={0}
-                max={1}
-                step={0.01}
-                value={range}
-                onChange={setRange}
-                style={{ width: 130, margin: "0 6px" }}
-              />
-              <span className="text-xs tabular-nums text-slate-500">
-                {range[1].toFixed(2)}
-              </span>
-            </div>
-          ))}
-          {scoreConditions.map((cond, idx) => (
-            <Space.Compact key={idx} size="small">
-              <Select
-                size="small"
-                value={cond.source}
-                style={{ width: 78 }}
-                options={[
-                  { value: "v1", label: "QE v1" },
-                  { value: "v2", label: "QE v2" },
-                ]}
-                onChange={(source) =>
-                  setScoreConditions((prev) =>
-                    prev.map((c, i) => (i === idx ? { ...c, source } : c)),
-                  )
-                }
-              />
-              <Select
-                size="small"
-                value={cond.op}
-                style={{ width: 62 }}
-                options={["=", ">=", "<=", "<", ">"].map((op) => ({
-                  value: op,
-                  label: op,
-                }))}
-                onChange={(op) =>
-                  setScoreConditions((prev) =>
-                    prev.map((c, i) => (i === idx ? { ...c, op } : c)),
-                  )
-                }
-              />
-              <InputNumber
-                size="small"
-                min={0}
-                max={1}
-                step={0.05}
-                placeholder="0.85"
-                value={cond.value}
-                onChange={(value) =>
-                  setScoreConditions((prev) =>
-                    prev.map((c, i) => (i === idx ? { ...c, value } : c)),
-                  )
-                }
-                style={{ width: 78 }}
-              />
-              <Button
-                size="small"
-                icon={<X size={12} />}
-                onClick={() =>
-                  setScoreConditions((prev) =>
-                    prev.filter((_, i) => i !== idx),
-                  )
-                }
-              />
-            </Space.Compact>
-          ))}
+
+          {/* QE v1 rule */}
+          <div className="flex items-center gap-1">
+            <Tag bordered={false} className="m-0">
+              QE v1
+            </Tag>
+            <Select
+              size="small"
+              value={v1Rule.op}
+              style={{ width: 60 }}
+              options={["<=", "<", ">=", ">", "="].map((op) => ({
+                value: op,
+                label: op,
+              }))}
+              onChange={(op) => setV1Rule((prev) => ({ ...prev, op }))}
+            />
+            <Slider
+              min={0}
+              max={1}
+              step={0.01}
+              value={v1Rule.value}
+              onChange={(value) => setV1Rule((prev) => ({ ...prev, value }))}
+              style={{ width: 140, margin: "0 6px" }}
+            />
+            <span className="w-9 text-xs tabular-nums text-slate-600">
+              {v1Rule.value.toFixed(2)}
+            </span>
+          </div>
+
+          <Select
+            size="small"
+            value={scoreLogic}
+            style={{ width: 72 }}
+            options={[
+              { value: "AND", label: "AND" },
+              { value: "OR", label: "OR" },
+            ]}
+            onChange={setScoreLogic}
+          />
+
+          {/* QE v2 rule */}
+          <div className="flex items-center gap-1">
+            <Tag bordered={false} className="m-0">
+              QE v2
+            </Tag>
+            <Select
+              size="small"
+              value={v2Rule.op}
+              style={{ width: 60 }}
+              options={["<=", "<", ">=", ">", "="].map((op) => ({
+                value: op,
+                label: op,
+              }))}
+              onChange={(op) => setV2Rule((prev) => ({ ...prev, op }))}
+            />
+            <Slider
+              min={0}
+              max={1}
+              step={0.01}
+              value={v2Rule.value}
+              onChange={(value) => setV2Rule((prev) => ({ ...prev, value }))}
+              style={{ width: 140, margin: "0 6px" }}
+            />
+            <span className="w-9 text-xs tabular-nums text-slate-600">
+              {v2Rule.value.toFixed(2)}
+            </span>
+          </div>
+
           <Button
             size="small"
-            icon={<Plus size={13} />}
-            onClick={() =>
-              setScoreConditions((prev) => [
-                ...prev,
-                { source: "v1", op: ">=", value: null },
-              ])
-            }
+            type="primary"
+            icon={<Filter size={13} />}
+            onClick={applyScoreFilter}
           >
-            Condition
+            Apply
           </Button>
-          {scoreConditions.length > 1 ? (
-            <Radio.Group
-              size="small"
-              value={scoreLogic}
-              onChange={(event) => setScoreLogic(event.target.value)}
-              optionType="button"
-              buttonStyle="solid"
-              options={[
-                { value: "AND", label: "AND" },
-                { value: "OR", label: "OR" },
-              ]}
-            />
-          ) : null}
+          <Button size="small" onClick={clearScoreFilter}>
+            Clear
+          </Button>
           {scoreFilterActive ? (
-            <>
-              <Tag color="blue">
-                {tableData.length}/{data.length}
-              </Tag>
-              <Button
-                size="small"
-                type="text"
-                onClick={() => {
-                  setV1Range([0, 1]);
-                  setV2Range([0, 1]);
-                  setScoreConditions([]);
-                }}
-              >
-                Clear
-              </Button>
-            </>
+            <Tag color="blue">
+              {tableData.length}/{data.length}
+            </Tag>
           ) : null}
         </div>
         <Table
