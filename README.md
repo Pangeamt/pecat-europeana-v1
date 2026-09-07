@@ -52,6 +52,47 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
 
+## Colas BullMQ y pipeline de procesamiento
+
+Al subir un documento la petición responde al instante y el trabajo pesado corre en segundo plano sobre **tres colas BullMQ** (Redis), procesadas por workers dentro del propio proceso Next (arrancan desde `instrumentation.js`):
+
+| Cola | Jobs | Concurrencia | Qué hace |
+|---|---|---|---|
+| `project-import` | `import-upload`, `import-sdlxliff`, `pipeline-review` | 2 | PDF→docx (LibreOffice), extracción y segmentación (Okapi Tikal + SRX), traducción DAAIT, persistencia de TUs; y la revisión LLM (`/content/post_edit`) |
+| `mtqe-v1` | `pipeline-score` | 1 | Puntuación QE v1 de los segmentos nuevos — **el documento pasa a READY aquí** |
+| `mtqe-v2` | `score-mtqe-v2` | 1 | Segunda puntuación (endpoint combined-score-with-references; requiere `MTQE_V2` + `MTQE_V2_API_KEY`, sin ellas se omite) |
+
+Las colas MTQE van con concurrencia 1 a propósito: el servicio MTQE no tolera bien la puntuación en paralelo, y así el scoring nunca compite con la extracción/traducción de otros documentos.
+
+### Cadena de jobs
+
+```
+import-upload / import-sdlxliff      [project-import]
+        │
+        ▼
+pipeline-score  (QE v1 → READY)      [mtqe-v1]
+        │
+        ├──────────────► pipeline-review  (juez LLM)   [project-import]
+        └──────────────► score-mtqe-v2   (QE v2)       [mtqe-v2]      (en paralelo)
+```
+
+### Reintentos (Attempts) y fallos
+
+Todos los jobs comparten la misma política (`lib/queue.js`): **3 intentos con backoff exponencial desde 5s** (~5s, ~10s, ~20s). Un intento solo se consume si el handler lanza: dentro del scoring, un lote fallido se registra y se salta; el job entero solo reintenta ante una caída total del servicio (ningún segmento puntuado).
+
+Al agotar los 3 intentos, cada tipo degrada distinto — **solo la fase de import puede dejar un documento en error**; todo lo posterior degrada sin bloquear la revisión humana:
+
+| Job | Al agotar reintentos |
+|---|---|
+| `import-upload` / `import-sdlxliff` | Documento en estado de error (`FILE_ERROR`/`MTQE_ERROR` según causa) |
+| `pipeline-score` | El documento se libera como **READY** igualmente (segmentos sin score = banda baja); el fallo queda en `pipelineStats.mtqeError` |
+| `pipeline-review` | Solo se anota en `pipelineStats` (el documento ya estaba READY) |
+| `score-mtqe-v2` | Solo informativo: `pipelineStats.mtqeV2Error`; la columna QE v2 muestra "—" |
+
+### Monitor de colas
+
+Los usuarios con rol **SUPER** tienen un monitor embebido en **`/dashboard/queues`** (entrada "Colas" del menú): pestaña por cola con contadores por estado, tabla de jobs con workspace/proyecto/documento por nombre, intentos, fechas y error, y acciones de **reintentar** (solo fallidos; los jobs de score/review son idempotentes — solo procesan segmentos sin resultado) y **eliminar** (nunca uno en ejecución). La API correspondiente (`/api/admin/queues*`) valida el rol en servidor.
+
 ## Despliegue con Docker y persistencia de datos
 
 El despliegue con Docker se hace con `./devops-docker.sh` (`docker compose build` + `up -d`). **Reconstruir la imagen o recrear el contenedor NO borra los archivos subidos**: `docker-compose.yml` guarda los datos en volúmenes con nombre, que viven fuera del contenedor y se vuelven a montar en cada arranque.
