@@ -161,6 +161,13 @@ model Document {
   /// it lives indefinitely until an ADMIN/SUPER revokes it — no auto-expiry.
   translatorShareToken     String?            @unique
   translatorShareCreatedAt DateTime?
+  /// Submission locks: once set, the corresponding role can no longer edit
+  /// segments (ADMIN/SUPER keep editing). Cleared by a PM reopen.
+  translatorSubmittedAt    DateTime?
+  reviewerSubmittedAt      DateTime?
+  /// Append-only trace of submit/reopen actions:
+  /// [{ action, role, by, byUserId?, at }] — see modules/documents/submission-service.js.
+  editLog                  Json?
   User                     User               @relation(fields: [userId], references: [id])
   workspace                Workspace          @relation(fields: [workspaceId], references: [id])
   project                  Project?           @relation(fields: [projectId], references: [id])
@@ -207,6 +214,9 @@ model Tu {
   /// First MTQE score from the pipeline; translationScorePercent holds the
   /// current one (re-scored on each edit). Differ => "recalculated" badge.
   mtqeOriginal            Float?
+  /// QE v2 score from the second MTQE service, set once by the pipeline and
+  /// shown next to the v1 score for comparison (never re-scored on edit).
+  mtqeV2Score             Float?
   /// LLM review outcome: OK (auto-approved) or REVIEW (needs a human).
   llmVerdict              String?
   llmComment              String?   @db.VarChar(400)

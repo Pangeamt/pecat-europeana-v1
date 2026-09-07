@@ -11,6 +11,12 @@ export {
   assignDocumentUserService,
 } from "./service";
 
+export {
+  submitDocumentService,
+  reopenDocumentService,
+  submitDocumentByShareTokenService,
+} from "./submission-service";
+
 export { importDocumentsService } from "./import-service";
 
 export {
@@ -24,4 +30,5 @@ export {
   updateDocumentSchema,
   updateDocumentTmsSchema,
   assignDocumentUserSchema,
+  documentSubmissionSchema,
 } from "./schemas";

@@ -1,5 +1,10 @@
 import prisma from "../../lib/prisma";
-import { postMTQE } from "../../lib/utils";
+import {
+  MTQE_V2_BATCH_SIZE,
+  isMtqeV2Configured,
+  postMTQE,
+  postMTQEv2,
+} from "../../lib/utils";
 import { postEditContent } from "../../lib/daait";
 import { enqueueProjectImport } from "../../lib/queue";
 import { DOCUMENT_STATUS } from "../../lib/document-status";
@@ -121,12 +126,53 @@ export async function handleScoreMtqeJob({ projectId: documentId }) {
     }
   }
 
+  // QE v2 pass (best-effort, never blocks READY): a second, independent
+  // score per segment for side-by-side comparison with v1. 0-100 upstream,
+  // normalized to 0-1 so both scores live on the same scale.
+  let v2Scored = 0;
+  if (isMtqeV2Configured()) {
+    for (let i = 0; i < tus.length; i += MTQE_V2_BATCH_SIZE) {
+      const batch = tus.slice(i, i + MTQE_V2_BATCH_SIZE);
+      let response;
+      try {
+        response = await postMTQEv2({
+          pairs: batch.map((tu) => ({
+            source: tu.srcLiteral,
+            target: tu.translatedLiteral,
+          })),
+          sourceLanguage: document.sourceLanguage,
+          targetLanguage: document.targetLanguage,
+        });
+      } catch (error) {
+        console.error(
+          `[pipeline] MTQE v2 batch failed for document ${documentId}:`,
+          error.message,
+        );
+        continue;
+      }
+
+      // Results come back in request order; a per-segment error has score
+      // null and must not shift alignment.
+      const results = Array.isArray(response?.results) ? response.results : [];
+      for (let j = 0; j < batch.length; j++) {
+        const raw = results[j]?.score;
+        if (typeof raw !== "number") continue;
+        await prisma.tu.update({
+          where: { id: batch[j].id },
+          data: { mtqeV2Score: raw / 100 },
+        });
+        v2Scored += 1;
+      }
+    }
+  }
+
   const totalOutage = tus.length > 0 && scored === 0 && failed === tus.length;
   await mergePipelineStats(documentId, {
     // SCORED = waiting for the LLM review stage to pick the document up.
     stage: "SCORED",
     mtqeSecs: Math.round((Date.now() - started) / 1000),
     mtqeScored: scored,
+    mtqeV2Scored: isMtqeV2Configured() ? v2Scored : null,
     mtqeError: failed > 0 ? `${failed} segments could not be scored` : null,
   });
 

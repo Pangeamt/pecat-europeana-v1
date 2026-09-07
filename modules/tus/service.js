@@ -30,6 +30,36 @@ async function assertTuAccessibleByActor(tu, actorUser) {
   return document;
 }
 
+// Submission locks (see modules/documents/submission-service.js): once a
+// role submitted, that role can no longer edit segments. ADMIN/SUPER act as
+// PM and always keep editing; a user holding both roles keeps editing while
+// at least one of their roles is still open.
+function assertActorMayEditDocument(document, actorUser) {
+  if (["ADMIN", "SUPER"].includes(actorUser?.role)) return;
+
+  const heldRoles = [];
+  if (document.translatorId && document.translatorId === actorUser?.id) {
+    heldRoles.push("translator");
+  }
+  if (document.reviewerId && document.reviewerId === actorUser?.id) {
+    heldRoles.push("reviewer");
+  }
+  if (heldRoles.length === 0) return;
+
+  const someRoleOpen = heldRoles.some((role) =>
+    role === "translator"
+      ? !document.translatorSubmittedAt
+      : !document.reviewerSubmittedAt,
+  );
+  if (!someRoleOpen) {
+    throw new HttpError(
+      409,
+      "Editing is closed: this work was already submitted. Ask a project manager to reopen it.",
+      "SUBMISSION_LOCKED",
+    );
+  }
+}
+
 function clearText(txt) {
   return txt
     .normalize("NFKC")
@@ -294,7 +324,8 @@ export async function updateTuStatusService(payload, actorUser) {
     throw new HttpError(404, "Tu not found");
   }
 
-  await assertTuAccessibleByActor(tu, actorUser);
+  const document = await assertTuAccessibleByActor(tu, actorUser);
+  assertActorMayEditDocument(document, actorUser);
 
   return applyTuStatusUpdate(tu, payload);
 }
@@ -313,6 +344,16 @@ export async function updateTuStatusByShareTokenService(token, payload) {
   const document = await findDocumentByTusShareToken(token);
   if (!document) {
     throw new HttpError(404, "Document not found");
+  }
+
+  // The share link IS the translator role: once the translation was
+  // submitted, the link becomes read-only until a PM reopens it.
+  if (document.translatorSubmittedAt) {
+    throw new HttpError(
+      409,
+      "Editing is closed: this translation was already submitted. Ask a project manager to reopen it.",
+      "SUBMISSION_LOCKED",
+    );
   }
 
   const tu = await findTuById(tuId);
