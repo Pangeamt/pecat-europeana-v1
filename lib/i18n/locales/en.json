@@ -240,6 +240,14 @@
       "uploadError": "{name} upload failed.",
       "tooLarge": "Files must be smaller than {max}MB",
       "invalidType": "File type not supported"
+    },
+    "submission": {
+      "markTranslated": "Mark translation submitted",
+      "reopenTranslation": "Reopen translation",
+      "markReviewed": "Mark review submitted",
+      "reopenReview": "Reopen review",
+      "saved": "Submission state updated",
+      "saveError": "Could not update the submission state"
     }
   },
   "projects": {

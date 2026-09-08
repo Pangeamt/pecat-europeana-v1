@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, CircleCheck, CircleX, Clock, Database, Dumbbell, LoaderCircle, Pencil, PieChart } from "lucide-react";
+import { ArrowLeft, CircleCheck, CircleX, Clock, Database, Dumbbell, LoaderCircle, Lock, LockOpen, Pencil, PieChart } from "lucide-react";
 import Link from "next/link";
 import PropTypes from "prop-types";
 import { useEffect, useMemo, useState } from "react";
@@ -415,6 +415,9 @@ const StatsTus = ({
   parentProjectId,
   projectTms = [],
   onTmsUpdated,
+  // Informational only: { translatorSubmitted, reviewerSubmitted, showReview }
+  // — the submit/reopen actions live in the documents list (ADMIN/SUPER).
+  submission = null,
 }) => {
   const [showEffortModal, setShowEffortModal] = useState(false);
   const [showTmModal, setShowTmModal] = useState(false);
@@ -474,6 +477,41 @@ const StatsTus = ({
               />
             </span>
           </span>
+
+          {submission
+            ? [
+                {
+                  key: "translation",
+                  label: "Translation",
+                  submitted: submission.translatorSubmitted,
+                },
+                ...(submission.showReview
+                  ? [
+                      {
+                        key: "review",
+                        label: "Review",
+                        submitted: submission.reviewerSubmitted,
+                      },
+                    ]
+                  : []),
+              ].map(({ key, label, submitted }) => (
+                <span
+                  key={key}
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-xs font-medium ${
+                    submitted
+                      ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                      : "border-slate-200 bg-slate-50 text-slate-600"
+                  }`}
+                  role="status"
+                >
+                  {submitted ? <Lock size={13} /> : <LockOpen size={13} />}
+                  <span>{label}</span>
+                  <span className="font-bold">
+                    {submitted ? "submitted" : "open"}
+                  </span>
+                </span>
+              ))
+            : null}
 
           <Tooltip title="View translation effort">
             <Button

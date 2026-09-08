@@ -240,6 +240,14 @@
       "uploadError": "Error al subir {name}.",
       "tooLarge": "Los archivos deben ser menores de {max} MB",
       "invalidType": "Tipo de archivo no admitido"
+    },
+    "submission": {
+      "markTranslated": "Marcar traducción entregada",
+      "reopenTranslation": "Reabrir traducción",
+      "markReviewed": "Marcar revisión entregada",
+      "reopenReview": "Reabrir revisión",
+      "saved": "Estado de entrega actualizado",
+      "saveError": "No se pudo actualizar el estado de entrega"
     }
   },
   "projects": {

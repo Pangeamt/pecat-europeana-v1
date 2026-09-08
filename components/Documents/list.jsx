@@ -24,13 +24,14 @@ import {
   assignDocumentUser,
   getDocumentShareLink,
   removeDocument,
+  updateDocumentSubmission,
 } from "@/services/document.services";
 import UserAvatar from "@/components/shared/UserAvatar";
 import AssignUserModal from "./AssignUserModal";
 import PipelineStageCell from "./PipelineStages";
 import DocumentEdit from "./edit";
 import TranslatorShareModal from "./TranslatorShareModal";
-import { ArrowRight, Download, EllipsisVertical, Link2, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowRight, Download, EllipsisVertical, Link2, Lock, LockOpen, Pencil, Plus, Trash2 } from "lucide-react";
 
 const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -82,6 +83,25 @@ const DocumentList = ({
     } catch (error) {
       console.error(error);
       message.error(t("documents.downloadError"));
+    } finally {
+      setRequesting("");
+    }
+  };
+
+  // Submission toggles (ADMIN/SUPER only, from the row dropdown): close or
+  // reopen the translator/reviewer editing lock. The editor itself only
+  // shows the state informationally.
+  const handleSubmission = async (documentId, role, action) => {
+    try {
+      setRequesting(documentId);
+      await updateDocumentSubmission(documentId, role, action);
+      message.success(t("documents.submission.saved"));
+      onRefresh?.();
+    } catch (error) {
+      console.error(error);
+      message.error(
+        error?.response?.data?.message || t("documents.submission.saveError"),
+      );
     } finally {
       setRequesting("");
     }
@@ -369,6 +389,34 @@ const DocumentList = ({
                     },
                   ]
                 : []),
+              // Submission locks — ADMIN/SUPER only, once the pipeline is done.
+              ...(canAssign && record.status === DOCUMENT_STATUS.READY
+                ? [
+                    { type: "divider" },
+                    record.translatorSubmittedAt
+                      ? {
+                          key: "reopen-translator",
+                          icon: <LockOpen size={15} />,
+                          label: t("documents.submission.reopenTranslation"),
+                        }
+                      : {
+                          key: "submit-translator",
+                          icon: <Lock size={15} />,
+                          label: t("documents.submission.markTranslated"),
+                        },
+                    record.reviewerSubmittedAt
+                      ? {
+                          key: "reopen-reviewer",
+                          icon: <LockOpen size={15} />,
+                          label: t("documents.submission.reopenReview"),
+                        }
+                      : {
+                          key: "submit-reviewer",
+                          icon: <Lock size={15} />,
+                          label: t("documents.submission.markReviewed"),
+                        },
+                  ]
+                : []),
               { type: "divider" },
               {
                 key: "delete",
@@ -381,6 +429,14 @@ const DocumentList = ({
               if (key === "download") getDownloadLink(record.id);
               else if (key === "edit") setEditTarget(record);
               else if (key === "share") setShareTarget(record.id);
+              else if (key === "submit-translator")
+                handleSubmission(record.id, "translator", "submit");
+              else if (key === "reopen-translator")
+                handleSubmission(record.id, "translator", "reopen");
+              else if (key === "submit-reviewer")
+                handleSubmission(record.id, "reviewer", "submit");
+              else if (key === "reopen-reviewer")
+                handleSubmission(record.id, "reviewer", "reopen");
               else if (key === "delete") {
                 Modal.confirm({
                   title: t("documents.deleteTitle"),

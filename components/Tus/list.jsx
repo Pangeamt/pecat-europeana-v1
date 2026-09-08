@@ -8,7 +8,6 @@ import {
   Input,
   message,
   Modal,
-  Popconfirm,
   Select,
   Slider,
   Space,
@@ -18,7 +17,7 @@ import {
   Tooltip,
 } from "antd";
 import axios from "axios";
-import { Ban, CircleCheck, CircleX, Filter, Hourglass, LockIcon, Pencil, Search, SendHorizontal, UnlockIcon } from "lucide-react";
+import { Ban, CircleCheck, CircleX, Filter, Hourglass, LockIcon, Pencil, Search, UnlockIcon } from "lucide-react";
 import { useParams } from "next/navigation";
 
 import React, {
@@ -39,8 +38,6 @@ import TmTool from "@/components/Tus/tmTool";
 import {
   getDocument as getProject,
   getDocumentConfigByShareToken,
-  submitDocumentByShareToken,
-  updateDocumentSubmission,
 } from "@/services/document.services";
 import {
   appendTu,
@@ -118,7 +115,6 @@ const TusList = ({ shareToken } = {}) => {
   const [scoreLogic, setScoreLogic] = useState("AND");
   // Snapshot of the controls at the moment "Apply" was pressed (null = off).
   const [appliedScoreFilter, setAppliedScoreFilter] = useState(null);
-  const [submitting, setSubmitting] = useState(false);
 
   const [selectedRow, setSelectedRow] = useState(null);
   // Bumped when an LLM suggestion is applied so the target editor remounts
@@ -298,30 +294,6 @@ const TusList = ({ shareToken } = {}) => {
         (isReviewer && !reviewerSubmitted)
       );
 
-  const handleSubmission = async (role, action) => {
-    setSubmitting(true);
-    try {
-      if (shareToken) {
-        await submitDocumentByShareToken(shareToken);
-      } else {
-        await updateDocumentSubmission(projectId, role, action);
-      }
-      await getProjectConfig();
-      messageApi.success(
-        action === "submit"
-          ? "Work submitted — editing is now closed"
-          : `Editing reopened for the ${role}`,
-      );
-    } catch (error) {
-      console.error(error);
-      messageApi.error(
-        error?.response?.data?.message || "Could not update the submission",
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   // ----- QE score filter --------------------------------------------------
   // A rule left at its resting position (<= 1.00) matches everything, so it
   // is treated as inactive — segments without that score are not excluded.
@@ -380,13 +352,17 @@ const TusList = ({ shareToken } = {}) => {
 
   // The filtered list is the working list: if the current selection falls
   // out of it (filter changed, or the confirmed segment no longer matches),
-  // jump to the first visible row so confirm/next keeps flowing.
-  useEffect(() => {
-    if (!scoreFilterActive || tableData.length === 0) return;
-    if (selectedRow && !tableData.some((row) => row.id === selectedRow.id)) {
-      setSelectedRow(tableData[0]);
-    }
-  }, [tableData, scoreFilterActive, selectedRow]);
+  // jump to the first visible row so confirm/next keeps flowing. Render-phase
+  // state adjustment (per React's "you might not need an effect") — React
+  // re-renders immediately with the corrected selection.
+  if (
+    scoreFilterActive &&
+    tableData.length > 0 &&
+    selectedRow &&
+    !tableData.some((row) => row.id === selectedRow.id)
+  ) {
+    setSelectedRow(tableData[0]);
+  }
 
   // Rows in the order the table displays them (fetch order until the user
   // sorts or filters; the QE score filter applies first). Ids missing from
@@ -1260,94 +1236,25 @@ const TusList = ({ shareToken } = {}) => {
           parentProjectId={shareToken ? undefined : projectConfig?.projectId}
           projectTms={projectConfig?.tms}
           onTmsUpdated={getProjectConfig}
+          submission={
+            projectConfig
+              ? {
+                  translatorSubmitted,
+                  reviewerSubmitted,
+                  showReview: !shareToken,
+                }
+              : null
+          }
         />
       </div>
 
-      {(isTranslator || isReviewer || isPm) && projectConfig ? (
-        <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
-          <Tag color={translatorSubmitted ? "green" : "default"}>
-            <span className="inline-flex items-center gap-1 align-middle">
-              {translatorSubmitted ? <LockIcon size={11} /> : null}
-              {translatorSubmitted
-                ? "Translation submitted"
-                : "Translation open"}
-            </span>
-          </Tag>
-          {!shareToken && (
-            <Tag color={reviewerSubmitted ? "green" : "default"}>
-              <span className="inline-flex items-center gap-1 align-middle">
-                {reviewerSubmitted ? <LockIcon size={11} /> : null}
-                {reviewerSubmitted ? "Review submitted" : "Review open"}
-              </span>
-            </Tag>
-          )}
-
-          <div className="ml-auto flex flex-wrap items-center gap-2">
-            {isTranslator && !translatorSubmitted ? (
-              <Popconfirm
-                title="Submit the translation?"
-                description="After submitting you will no longer be able to edit."
-                okText="Submit"
-                onConfirm={() => handleSubmission("translator", "submit")}
-              >
-                <Button
-                  type="primary"
-                  size="small"
-                  loading={submitting}
-                  icon={<SendHorizontal size={14} />}
-                >
-                  Submit translation
-                </Button>
-              </Popconfirm>
-            ) : null}
-            {isReviewer && !reviewerSubmitted ? (
-              <Popconfirm
-                title="Submit the review?"
-                description="After submitting you will no longer be able to edit."
-                okText="Submit"
-                onConfirm={() => handleSubmission("reviewer", "submit")}
-              >
-                <Button
-                  type="primary"
-                  size="small"
-                  loading={submitting}
-                  icon={<SendHorizontal size={14} />}
-                >
-                  Submit review
-                </Button>
-              </Popconfirm>
-            ) : null}
-            {isPm && translatorSubmitted ? (
-              <Button
-                size="small"
-                loading={submitting}
-                icon={<UnlockIcon size={14} />}
-                onClick={() => handleSubmission("translator", "reopen")}
-              >
-                Reopen translator
-              </Button>
-            ) : null}
-            {isPm && reviewerSubmitted ? (
-              <Button
-                size="small"
-                loading={submitting}
-                icon={<UnlockIcon size={14} />}
-                onClick={() => handleSubmission("reviewer", "reopen")}
-              >
-                Reopen reviewer
-              </Button>
-            ) : null}
-          </div>
-
-          {editingLocked ? (
-            <Alert
-              className="w-full"
-              type="warning"
-              showIcon
-              message="Editing is closed — this work was submitted. A project manager can reopen it."
-            />
-          ) : null}
-        </div>
+      {editingLocked ? (
+        <Alert
+          className="mb-2"
+          type="warning"
+          showIcon
+          message="Editing is closed — this work was submitted. A project manager can reopen it."
+        />
       ) : null}
 
       <div className="mb-2">
