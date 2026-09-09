@@ -99,7 +99,7 @@ const EffortModal = ({ open, onClose, effort, requesting, totalSegments }) => {
       open={open}
       onCancel={onClose}
       footer={null}
-      width={620}
+      width={760}
       centered
       destroyOnHidden
       className="effort-modal"
@@ -137,23 +137,23 @@ const EffortModal = ({ open, onClose, effort, requesting, totalSegments }) => {
             </p>
           </div>
 
-          <div className="flex gap-3">
-            <div className="shrink-0 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center backdrop-blur-sm">
+          <div className="flex shrink-0 flex-wrap justify-end gap-3">
+            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center backdrop-blur-sm">
               <div className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
                 Effort
               </div>
-              <div className="mt-0.5 text-3xl font-bold tabular-nums leading-none">
+              <div className="mt-0.5 text-2xl font-bold tabular-nums leading-none">
                 {requesting ? "—" : `${effortSummary.effortIndex}%`}
               </div>
               <div className="mt-1 text-[11px] text-slate-400">
                 {requesting ? "…" : `${totalSegments} segments`}
               </div>
             </div>
-            <div className="shrink-0 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center backdrop-blur-sm">
+            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center backdrop-blur-sm">
               <div className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
                 Weighted
               </div>
-              <div className="mt-0.5 text-3xl font-bold tabular-nums leading-none">
+              <div className="mt-0.5 text-2xl font-bold tabular-nums leading-none">
                 {requesting ? "—" : effortSummary.weightedWords.toLocaleString()}
               </div>
               <div className="mt-1 text-[11px] text-slate-400">
@@ -162,11 +162,11 @@ const EffortModal = ({ open, onClose, effort, requesting, totalSegments }) => {
                   : `≈ ${effortSummary.estimatedHours.toFixed(1)} h @ ${effortSummary.throughputWph} w/h`}
               </div>
             </div>
-            <div className="shrink-0 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center backdrop-blur-sm">
+            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center backdrop-blur-sm">
               <div className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
                 Words
               </div>
-              <div className="mt-0.5 text-3xl font-bold tabular-nums leading-none">
+              <div className="mt-0.5 text-2xl font-bold tabular-nums leading-none">
                 {requesting ? "—" : effortSummary.totalWords.toLocaleString()}
               </div>
               <div className="mt-1 text-[11px] text-slate-400">
