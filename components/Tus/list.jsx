@@ -337,6 +337,25 @@ const TusList = ({ shareToken } = {}) => {
     );
   }, [data, appliedScoreFilter]);
 
+  // Right edge of the filter bar: segments and source words of the visible
+  // list (filtered/total while a filter is applied). Same word criterion as
+  // the stats strip: whitespace-separated tokens of the source literal.
+  const wordCountOf = (doc) =>
+    doc?.srcLiteral
+      ? doc.srcLiteral.trim().split(/\s+/).filter(Boolean).length
+      : 0;
+  const totalWords = useMemo(
+    () => data.reduce((sum, doc) => sum + wordCountOf(doc), 0),
+    [data],
+  );
+  const filteredWords = useMemo(
+    () =>
+      scoreFilterActive
+        ? tableData.reduce((sum, doc) => sum + wordCountOf(doc), 0)
+        : totalWords,
+    [scoreFilterActive, tableData, totalWords],
+  );
+
   const applyScoreFilter = () => {
     const v1 = isNeutralRule(v1Rule) ? null : v1Rule;
     const v2 = isNeutralRule(v2Rule) ? null : v2Rule;
@@ -1432,11 +1451,25 @@ const TusList = ({ shareToken } = {}) => {
           <Button size="small" onClick={clearScoreFilter}>
             Clear
           </Button>
-          {scoreFilterActive ? (
-            <Tag color="blue">
-              {tableData.length}/{data.length}
+
+          <div className="ml-auto flex items-center gap-2">
+            <Tag bordered={false} color={scoreFilterActive ? "blue" : "default"} className="m-0">
+              Segments{" "}
+              <span className="font-bold tabular-nums">
+                {scoreFilterActive
+                  ? `${tableData.length}/${data.length}`
+                  : data.length}
+              </span>
             </Tag>
-          ) : null}
+            <Tag bordered={false} color={scoreFilterActive ? "blue" : "default"} className="m-0">
+              Words{" "}
+              <span className="font-bold tabular-nums">
+                {scoreFilterActive
+                  ? `${filteredWords.toLocaleString()}/${totalWords.toLocaleString()}`
+                  : totalWords.toLocaleString()}
+              </span>
+            </Tag>
+          </div>
         </div>
         <Table
           loading={requesting}
