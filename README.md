@@ -93,6 +93,45 @@ Al agotar los 3 intentos, cada tipo degrada distinto — **solo la fase de impor
 
 Los usuarios con rol **SUPER** tienen un monitor embebido en **`/dashboard/queues`** (entrada "Colas" del menú): pestaña por cola con contadores por estado, tabla de jobs con workspace/proyecto/documento por nombre, intentos, fechas y error, y acciones de **reintentar** (solo fallidos; los jobs de score/review son idempotentes — solo procesan segmentos sin resultado) y **eliminar** (nunca uno en ejecución). La API correspondiente (`/api/admin/queues*`) valida el rol en servidor.
 
+## Cálculo de esfuerzo (panel "Effort" del editor)
+
+Implementado en `lib/effort.js` (una sola fuente de verdad; el modal de la franja de stats y el contador "Weighted" del filtro la consumen).
+
+**Por segmento:**
+
+```
+effortScore = min(QE v1, QE v2)        # si falta una métrica, se usa la que haya
+discrepante = (ambas presentes) y |v1 − v2| ≥ 0.25
+```
+
+Se usa el **mínimo** (no la media) porque para estimar trabajo importa el riesgo: un segmento solo es "bueno" si ambos evaluadores coinciden. Un segmento **discrepante** cuenta como esfuerzo completo aunque una de las dos métricas sea alta — es el bucket "revisar primero". Un segmento **sin ninguna puntuación** cuenta como esfuerzo completo (peor caso hasta que llegue el score).
+
+**Bandas y pesos** (α, sobre las palabras del texto origen):
+
+| Banda (effortScore) | Peso α | Interpretación |
+|---|---|---|
+| ≥ 0.95 | 0.1 | lectura rápida |
+| 0.85 – 0.94 | 0.3 | revisión ligera |
+| 0.75 – 0.84 | 0.5 | revisión moderada |
+| 0.50 – 0.74 | 0.8 | post-edición seria |
+| < 0.50, sin score o discrepante | 1.0 | como traducir de cero |
+
+**Por documento (o por corte filtrado):**
+
+```
+palabrasPonderadas = Σ (palabras_segmento × α_banda)
+índiceEsfuerzo     = palabrasPonderadas / palabrasTotales × 100
+horasEstimadas     = palabrasPonderadas / throughput      # 800 palabras ponderadas/hora por defecto
+```
+
+Las palabras son los tokens separados por espacios del literal origen (mismo criterio que la franja de stats). **Configurable por proyecto** vía `Project.settings.effort` (sin UI de momento):
+
+```json
+{ "weights": { "b95": 0.1, "b85": 0.3, "b75": 0.5, "b50": 0.8, "b0": 1, "disagree": 1 },
+  "disagreement": 0.25,
+  "throughputWph": 800 }
+```
+
 ## Despliegue con Docker y persistencia de datos
 
 El despliegue con Docker se hace con `./devops-docker.sh` (`docker compose build` + `up -d`). **Reconstruir la imagen o recrear el contenedor NO borra los archivos subidos**: `docker-compose.yml` guarda los datos en volúmenes con nombre, que viven fuera del contenedor y se vuelven a montar en cada arranque.

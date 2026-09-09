@@ -54,6 +54,7 @@ import { getTextDirection } from "@/lib/locale-direction";
 import CustomTextArea from "../../components/CustomTextArea";
 import TagEditor from "@/components/TagEditor";
 import { TagText, hasInlineTags } from "@/components/shared/inline-tags";
+import { computeEffort } from "@/lib/effort";
 
 const stripHTML = (html) => {
   let temporalDiv = document.createElement("div");
@@ -337,24 +338,21 @@ const TusList = ({ shareToken } = {}) => {
     );
   }, [data, appliedScoreFilter]);
 
-  // Right edge of the filter bar: segments and source words of the visible
-  // list (filtered/total while a filter is applied). Same word criterion as
-  // the stats strip: whitespace-separated tokens of the source literal.
-  const wordCountOf = (doc) =>
-    doc?.srcLiteral
-      ? doc.srcLiteral.trim().split(/\s+/).filter(Boolean).length
-      : 0;
-  const totalWords = useMemo(
-    () => data.reduce((sum, doc) => sum + wordCountOf(doc), 0),
-    [data],
+  // Effort model (lib/effort.js): min(QE v1, v2) bands + disagreement,
+  // weighted words and estimated hours. Project.settings.effort can override
+  // weights/threshold/throughput. Also powers the filter-bar counters.
+  const effortOptions = projectConfig?.settings?.effort;
+  const documentEffort = useMemo(
+    () => computeEffort(data, effortOptions),
+    [data, effortOptions],
   );
-  const filteredWords = useMemo(
+  const filteredEffort = useMemo(
     () =>
-      scoreFilterActive
-        ? tableData.reduce((sum, doc) => sum + wordCountOf(doc), 0)
-        : totalWords,
-    [scoreFilterActive, tableData, totalWords],
+      scoreFilterActive ? computeEffort(tableData, effortOptions) : documentEffort,
+    [scoreFilterActive, tableData, effortOptions, documentEffort],
   );
+  const totalWords = documentEffort.totalWords;
+  const filteredWords = filteredEffort.totalWords;
 
   const applyScoreFilter = () => {
     const v1 = isNeutralRule(v1Rule) ? null : v1Rule;
@@ -1264,6 +1262,7 @@ const TusList = ({ shareToken } = {}) => {
                 }
               : null
           }
+          effort={documentEffort}
         />
       </div>
 
@@ -1469,6 +1468,16 @@ const TusList = ({ shareToken } = {}) => {
                   : totalWords.toLocaleString()}
               </span>
             </Tag>
+            <Tooltip title="Word-weighted effort of the visible list (see the Effort panel)">
+              <Tag bordered={false} color={scoreFilterActive ? "blue" : "default"} className="m-0">
+                Weighted{" "}
+                <span className="font-bold tabular-nums">
+                  {scoreFilterActive
+                    ? `${filteredEffort.weightedWords.toLocaleString()}/${documentEffort.weightedWords.toLocaleString()}`
+                    : documentEffort.weightedWords.toLocaleString()}
+                </span>
+              </Tag>
+            </Tooltip>
           </div>
         </div>
         <Table

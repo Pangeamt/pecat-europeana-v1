@@ -44,97 +44,53 @@ const METRICS = [
   },
 ];
 
-const EFFORT_BUCKETS = [
-  {
-    key: "notMatch",
-    wordsKey: "notMatchWords",
-    label: "No match",
-    range: "< 50%",
-    hint: "Full translation",
+// Visual styles per effort band (band math lives in lib/effort.js).
+const BAND_STYLES = {
+  disagree: {
+    bar: "from-violet-500 to-purple-400",
+    ring: "ring-violet-200",
+    badge: "bg-violet-100 text-violet-700",
+  },
+  b0: {
     bar: "from-rose-500 to-rose-400",
     ring: "ring-rose-200",
     badge: "bg-rose-100 text-rose-700",
-    weight: 1,
   },
-  {
-    key: "mtqe50",
-    wordsKey: "mtqe50Words",
-    label: "50% – 74%",
-    range: "Low QE",
-    hint: "Heavy review",
+  b50: {
     bar: "from-orange-500 to-amber-400",
     ring: "ring-orange-200",
     badge: "bg-orange-100 text-orange-700",
-    weight: 0.82,
   },
-  {
-    key: "mtqe75",
-    wordsKey: "mtqe75Words",
-    label: "75% – 84%",
-    range: "Medium QE",
-    hint: "Moderate review",
+  b75: {
     bar: "from-amber-500 to-yellow-400",
     ring: "ring-amber-200",
     badge: "bg-amber-100 text-amber-800",
-    weight: 0.62,
   },
-  {
-    key: "mtqe85",
-    wordsKey: "mtqe85Words",
-    label: "85% – 94%",
-    range: "High QE",
-    hint: "Minor adjustments",
+  b85: {
     bar: "from-lime-500 to-green-400",
     ring: "ring-lime-200",
     badge: "bg-lime-100 text-lime-800",
-    weight: 0.4,
   },
-  {
-    key: "mtqe95",
-    wordsKey: "mtqe95Words",
-    label: "95% – 99%",
-    range: "Near exact",
-    hint: "Light review",
+  b95: {
     bar: "from-emerald-500 to-teal-400",
     ring: "ring-emerald-200",
     badge: "bg-emerald-100 text-emerald-800",
-    weight: 0.18,
   },
-  {
-    key: "mtqe100",
-    wordsKey: "mtqe100Words",
-    label: "100%",
-    range: "Exact match",
-    hint: "No effort",
-    bar: "from-sky-600 to-blue-500",
-    ring: "ring-sky-200",
-    badge: "bg-sky-100 text-sky-800",
-    weight: 0.02,
-  },
-];
+};
 
-const EffortModal = ({ open, onClose, stats, requesting, totalSegments }) => {
+const EffortModal = ({ open, onClose, effort, requesting, totalSegments }) => {
+  // Band math (min(v1,v2), disagreement, weighted words, hours) comes
+  // precomputed from lib/effort.js; here we only attach the visuals.
+  // Disagreement first — it is the "look at me" bucket — then worst to best.
   const effortSummary = useMemo(() => {
-    const buckets = EFFORT_BUCKETS.map((bucket) => ({
-      ...bucket,
-      count: Number(stats[bucket.key] ?? 0),
-      words: Number(stats[bucket.wordsKey] ?? 0),
-    }));
-
-    const totalWords = buckets.reduce((sum, b) => sum + b.words, 0);
-    const totalCount = buckets.reduce((sum, b) => sum + b.count, 0);
-
-    // Effort index weighted by source word count per MTQE bucket:
-    // E = Σ(words_i × α_i) / totalWords × 100
-    const weighted =
-      totalWords > 0
-        ? buckets.reduce((sum, b) => sum + b.words * b.weight, 0) / totalWords
-        : 0;
-
-    const effortIndex = Math.round(weighted * 100);
-
-    return { buckets, totalWords, totalCount, effortIndex };
-  }, [stats]);
+    const buckets = [
+      { ...effort.disagree, ...BAND_STYLES.disagree },
+      ...[...effort.bands]
+        .reverse()
+        .map((band) => ({ ...band, ...BAND_STYLES[band.key] })),
+    ];
+    return { ...effort, buckets };
+  }, [effort]);
 
   const maxWords = Math.max(...effortSummary.buckets.map((b) => b.words), 1);
 
@@ -143,7 +99,7 @@ const EffortModal = ({ open, onClose, stats, requesting, totalSegments }) => {
       open={open}
       onCancel={onClose}
       footer={null}
-      width={520}
+      width={620}
       centered
       destroyOnHidden
       className="effort-modal"
@@ -176,8 +132,8 @@ const EffortModal = ({ open, onClose, stats, requesting, totalSegments }) => {
               Translation effort
             </h2>
             <p className="mt-1 max-w-sm text-sm text-slate-300">
-              Word-weighted effort by MTQE range. Lower QE scores mean more
-              review work per source word.
+              Word-weighted effort over min(QE v1, QE v2). Disagreeing scores
+              count as full effort — review those first.
             </p>
           </div>
 
@@ -191,6 +147,19 @@ const EffortModal = ({ open, onClose, stats, requesting, totalSegments }) => {
               </div>
               <div className="mt-1 text-[11px] text-slate-400">
                 {requesting ? "…" : `${totalSegments} segments`}
+              </div>
+            </div>
+            <div className="shrink-0 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center backdrop-blur-sm">
+              <div className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                Weighted
+              </div>
+              <div className="mt-0.5 text-3xl font-bold tabular-nums leading-none">
+                {requesting ? "—" : effortSummary.weightedWords.toLocaleString()}
+              </div>
+              <div className="mt-1 text-[11px] text-slate-400">
+                {requesting
+                  ? "…"
+                  : `≈ ${effortSummary.estimatedHours.toFixed(1)} h @ ${effortSummary.throughputWph} w/h`}
               </div>
             </div>
             <div className="shrink-0 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center backdrop-blur-sm">
@@ -235,7 +204,7 @@ const EffortModal = ({ open, onClose, stats, requesting, totalSegments }) => {
                     <span
                       className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${bucket.badge}`}
                     >
-                      {bucket.range}
+                      ×{bucket.weight}
                     </span>
                   </div>
                   <p className="mt-0.5 text-xs text-slate-500">{bucket.hint}</p>
@@ -296,7 +265,7 @@ const EffortModal = ({ open, onClose, stats, requesting, totalSegments }) => {
 EffortModal.propTypes = {
   open: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
-  stats: PropTypes.object.isRequired,
+  effort: PropTypes.object.isRequired,
   requesting: PropTypes.bool.isRequired,
   totalSegments: PropTypes.number.isRequired,
 };
@@ -418,6 +387,8 @@ const StatsTus = ({
   // Informational only: { translatorSubmitted, reviewerSubmitted, showReview }
   // — the submit/reopen actions live in the documents list (ADMIN/SUPER).
   submission = null,
+  // Precomputed effort model (lib/effort.js computeEffort over the segments).
+  effort = null,
 }) => {
   const [showEffortModal, setShowEffortModal] = useState(false);
   const [showTmModal, setShowTmModal] = useState(false);
@@ -559,13 +530,15 @@ const StatsTus = ({
         </div>
       </div>
 
+      {effort ? (
       <EffortModal
         open={showEffortModal}
         onClose={() => setShowEffortModal(false)}
-        stats={stats}
+        effort={effort}
         requesting={requesting}
         totalSegments={totalSegments}
       />
+      ) : null}
 
       <TmUpdateModal
         open={showTmModal}
