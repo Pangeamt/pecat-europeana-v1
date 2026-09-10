@@ -1,5 +1,5 @@
 "use client";
-import { Badge, Tooltip } from "antd";
+import { Tooltip } from "antd";
 
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { DOCUMENT_PENDING_STATUSES, DOCUMENT_STATUS } from "@/lib/document-status";
@@ -10,14 +10,33 @@ import { DOCUMENT_PENDING_STATUSES, DOCUMENT_STATUS } from "@/lib/document-statu
 // -> REVIEWING -> DONE, plus mtqeError / llmError / llmSkipped).
 //
 // Rendered as a bare status dot per column — the column header names the
-// stage, the dot color is the state (grey waiting, pulsing blue running,
-// green done, red error, "—" not applicable) and the tooltip carries the
-// exact state plus details (scored counts, auto-approvals, error messages).
-const BADGE_STATUS = {
-  waiting: "default",
-  running: "processing",
-  done: "success",
-  error: "error",
+// stage, the dot color is the state (grey waiting, PULSING AMBER running,
+// solid green done, red error, "—" not applicable) and the tooltip carries
+// the exact state plus details (scored counts, auto-approvals, errors).
+// Custom dots on purpose: antd's Badge "processing" takes the theme color
+// (our brand green), so a running stage looked identical to a finished one.
+const DOT_CLASS = {
+  waiting: "bg-slate-300",
+  done: "bg-emerald-500",
+  error: "bg-red-500",
+};
+
+const StageDot = ({ state }) => {
+  if (state === "running") {
+    return (
+      <span className="relative inline-flex size-2 align-middle">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+        <span className="relative inline-flex size-2 rounded-full bg-amber-500" />
+      </span>
+    );
+  }
+  return (
+    <span
+      className={`inline-block size-2 rounded-full align-middle ${
+        DOT_CLASS[state] ?? "bg-slate-300"
+      }`}
+    />
+  );
 };
 
 export function deriveStages(doc) {
@@ -85,7 +104,7 @@ const PipelineStageCell = ({ document, stage }) => {
       {derived.state === "off" ? (
         <span className="cursor-default text-slate-300">—</span>
       ) : (
-        <Badge status={BADGE_STATUS[derived.state] ?? "default"} />
+        <StageDot state={derived.state} />
       )}
     </Tooltip>
   );
