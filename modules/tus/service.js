@@ -1,6 +1,6 @@
 import { HttpError } from "../shared/http-error";
 import { DOCUMENT_STATUS } from "../../lib/document-status";
-import { postMTQE } from "../../lib/utils";
+import { postMTQE, toQeReferences } from "../../lib/utils";
 import {
   BLOCK_REASON,
   SUGGESTION_STATUS,
@@ -129,7 +129,13 @@ async function rescoreReviewedPair(tu, target) {
   try {
     const response = await Promise.race([
       postMTQE({
-        pairs: [{ source: tu.srcLiteral, target }],
+        pairs: [
+          {
+            source: tu.srcLiteral,
+            target,
+            references: toQeReferences(tu.tmInfo),
+          },
+        ],
         sourceLanguage: tu.sourceLanguage,
         targetLanguage: tu.targetLanguage,
       }),

@@ -1,9 +1,9 @@
 import prisma from "../../lib/prisma";
 import {
-  MTQE_V2_BATCH_SIZE,
   isMtqeV2Configured,
   postMTQE,
   postMTQEv2,
+  toQeReferences,
 } from "../../lib/utils";
 import { postEditContent } from "../../lib/daait";
 import { enqueueMtqeV2, enqueueProjectImport } from "../../lib/queue";
@@ -87,6 +87,7 @@ export async function handleScoreMtqeJob({ projectId: documentId }) {
     const pairs = batch.map((tu) => ({
       source: tu.srcLiteral,
       target: tu.translatedLiteral,
+      references: toQeReferences(tu.tmInfo),
     }));
 
     let response;
@@ -171,10 +172,11 @@ export async function handleScoreMtqeJob({ projectId: documentId }) {
 
 /**
  * MTQE v2 job (own queue): scores every visible segment that still lacks a
- * second score, via the combined-score-with-references async API. Same 0-1
- * scale as v1; each pair carries up to 2 TM references from the segment's
- * tmInfo. Throws on a total outage so BullMQ retries the job; partial
- * failures are recorded in pipelineStats and never touch Document.status.
+ * second score, via /score-with-references — ONE segment per request, with
+ * the segment's own TM matches (tmInfo) and glossary hits (glossaryInfo) as
+ * references. Scores come back 0-100 and are stored normalized to 0-1.
+ * Throws on a total outage so BullMQ retries the job; partial failures are
+ * recorded in pipelineStats and never touch Document.status.
  */
 export async function handleScoreMtqeV2Job({ projectId: documentId }) {
   if (!isMtqeV2Configured()) return;
@@ -192,7 +194,13 @@ export async function handleScoreMtqeV2Job({ projectId: documentId }) {
       translatedLiteral: { not: null },
       mtqeV2Score: null,
     },
-    select: { id: true, srcLiteral: true, translatedLiteral: true, tmInfo: true },
+    select: {
+      id: true,
+      srcLiteral: true,
+      translatedLiteral: true,
+      tmInfo: true,
+      glossaryInfo: true,
+    },
     orderBy: { count: "asc" },
   });
   if (tus.length === 0) return;
@@ -200,57 +208,37 @@ export async function handleScoreMtqeV2Job({ projectId: documentId }) {
   const started = Date.now();
   let scored = 0;
   let failed = 0;
-  for (let i = 0; i < tus.length; i += MTQE_V2_BATCH_SIZE) {
-    const batch = tus.slice(i, i + MTQE_V2_BATCH_SIZE);
+  for (const tu of tus) {
     let result;
     try {
       result = await postMTQEv2({
-        pairs: batch.map((tu) => ({
-          source: tu.srcLiteral,
-          target: tu.translatedLiteral,
-          references: (Array.isArray(tu.tmInfo) ? tu.tmInfo : [])
-            .filter(
-              (match) =>
-                typeof match?.source === "string" &&
-                typeof match?.target === "string",
-            )
-            .slice(0, 2)
-            .map((match) => ({ source: match.source, target: match.target })),
-        })),
+        source: tu.srcLiteral,
+        target: tu.translatedLiteral,
+        tm: toQeReferences(tu.tmInfo),
+        glossary: toQeReferences(tu.glossaryInfo),
         sourceLanguage: document.sourceLanguage,
         targetLanguage: document.targetLanguage,
       });
     } catch (error) {
-      failed += batch.length;
+      failed += 1;
       console.error(
-        `[pipeline] MTQE v2 batch failed for document ${documentId}:`,
+        `[pipeline] MTQE v2 failed for segment ${tu.id} (document ${documentId}):`,
         error.message,
       );
       continue;
     }
 
-    // Pairs come back in request order; verify by source/target when
-    // possible (same convention as the v1 pass).
-    const items = Array.isArray(result?.pairs) ? result.pairs : [];
-    const scoreByPair = new Map();
-    for (const item of items) {
-      if (typeof item?.source === "string" && typeof item?.target === "string") {
-        scoreByPair.set(`${item.source}\u0000${item.target}`, item.score);
-      }
+    // A per-segment upstream error comes back as { score: null, error }.
+    const raw = result?.score;
+    if (typeof raw !== "number") {
+      failed += 1;
+      continue;
     }
-    for (let j = 0; j < batch.length; j++) {
-      const tu = batch[j];
-      const echoed = scoreByPair.get(
-        `${tu.srcLiteral}\u0000${tu.translatedLiteral}`,
-      );
-      const score = typeof echoed === "number" ? echoed : items[j]?.score;
-      if (typeof score !== "number") continue;
-      await prisma.tu.update({
-        where: { id: tu.id },
-        data: { mtqeV2Score: score },
-      });
-      scored += 1;
-    }
+    await prisma.tu.update({
+      where: { id: tu.id },
+      data: { mtqeV2Score: raw / 100 },
+    });
+    scored += 1;
   }
 
   await mergePipelineStats(documentId, {

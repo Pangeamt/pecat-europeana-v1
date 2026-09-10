@@ -59,8 +59,8 @@ Al subir un documento la petición responde al instante y el trabajo pesado corr
 | Cola | Jobs | Concurrencia | Qué hace |
 |---|---|---|---|
 | `project-import` | `import-upload`, `import-sdlxliff`, `pipeline-review` | 2 | PDF→docx (LibreOffice), extracción y segmentación (Okapi Tikal + SRX), traducción DAAIT, persistencia de TUs; y la revisión LLM (`/content/post_edit`) |
-| `mtqe-v1` | `pipeline-score` | 1 | Puntuación QE v1 de los segmentos nuevos — **el documento pasa a READY aquí** |
-| `mtqe-v2` | `score-mtqe-v2` | 1 | Segunda puntuación (endpoint combined-score-with-references; requiere `MTQE_V2` + `MTQE_V2_API_KEY`, sin ellas se omite) |
+| `mtqe-v1` | `pipeline-score` | 1 | Puntuación QE v1 (`MTQE_V1` combined-score-with-references, con las referencias de TM de cada segmento) — **el documento pasa a READY aquí** |
+| `mtqe-v2` | `score-mtqe-v2` | 1 | Segunda puntuación (`MTQE_V2` score-with-references: una llamada por segmento con sus referencias de TM y glosario; sin `MTQE_V2`/`MTQE_V2_API_KEY` se omite) |
 
 Las colas MTQE van con concurrencia 1 a propósito: el servicio MTQE no tolera bien la puntuación en paralelo, y así el scoring nunca compite con la extracción/traducción de otros documentos.
 
