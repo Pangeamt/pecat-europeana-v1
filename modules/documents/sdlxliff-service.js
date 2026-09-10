@@ -334,16 +334,26 @@ export async function enrichSdlxliffSegments(segments, {
       if (!result) return;
 
       const tmInfoArray = Array.isArray(result.tm_info) ? result.tm_info : [];
-      const bestTm = tmInfoArray.find(
+      const exactTm = tmInfoArray.find(
         (tm) => tm.tm_match === true && tm.tm_score === 1,
+      );
+      // "Fuzzy" = the segment's best TM similarity (tm_score, 0-1), exact or
+      // not — storing it only for 100% matches left the Fuzzy column empty
+      // for every fuzzy match, which is exactly where it matters.
+      const bestScore = tmInfoArray.reduce(
+        (max, tm) =>
+          typeof tm?.tm_score === "number" && tm.tm_score > max
+            ? tm.tm_score
+            : max,
+        null,
       );
 
       seg.target = result.target ?? null;
       seg.tmInfo = result.tm_info ?? null;
       seg.glossaryInfo = result.glossary_info ?? null;
       seg.machineTranslated = true;
-      seg.tmExactMatch = Boolean(bestTm);
-      seg.levenshteinDistance = bestTm ? bestTm.tm_score : null;
+      seg.tmExactMatch = Boolean(exactTm);
+      seg.levenshteinDistance = bestScore;
     });
   }
 
