@@ -23,7 +23,6 @@ export default function EditProjectModal({ open, project, onClose, onSaved }) {
   const [profiles, setProfiles] = useState([]);
   const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [saving, setSaving] = useState(false);
-  const thresholdValue = Form.useWatch("threshold", form);
   const mtqeThresholdValue = Form.useWatch("mtqeThreshold", form);
   const llmJudgeValue = Form.useWatch("llmJudge", form);
 
@@ -42,7 +41,6 @@ export default function EditProjectModal({ open, project, onClose, onSaved }) {
       name: project.name,
       description: project.description ?? "",
       profileId: project.profileId ?? undefined,
-      threshold: project.tmThreshold ?? 0.75,
       mtqeThreshold: project.pipeline?.mtqeThreshold ?? 0.85,
       llmJudge: project.pipeline?.llmJudge ?? true,
       llmSuggest: project.pipeline?.llmSuggest ?? true,
@@ -109,25 +107,6 @@ export default function EditProjectModal({ open, project, onClose, onSaved }) {
           name="description"
         >
           <Input.TextArea rows={2} />
-        </Form.Item>
-        <Form.Item label={t("projects.create.thresholdLabel")} name="threshold">
-          <div className="flex items-center gap-3">
-            <Slider
-              className="flex-1"
-              min={0}
-              max={1}
-              step={0.01}
-              value={thresholdValue}
-              onChange={(value) => form.setFieldsValue({ threshold: value })}
-            />
-            <InputNumber
-              min={0}
-              max={1}
-              step={0.01}
-              value={thresholdValue}
-              onChange={(value) => form.setFieldsValue({ threshold: value ?? 0 })}
-            />
-          </div>
         </Form.Item>
         <Form.Item
           label={t("projects.create.mtqeThresholdLabel")}

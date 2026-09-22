@@ -2,7 +2,7 @@
 import { Button, Card, Empty, Space, Spin, message } from "antd";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, CircleCheck, Files, Pencil, Percent, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, CircleCheck, Files, Pencil, SlidersHorizontal } from "lucide-react";
 
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { StatCard, StatCardGrid } from "@/components/shared/StatCard";
@@ -149,7 +149,7 @@ const ProjectDetail = ({ projectId }) => {
         </div>
       </div>
 
-      <StatCardGrid columns={4} ariaLabel={t("projects.detail.statsAria")}>
+      <StatCardGrid columns={3} ariaLabel={t("projects.detail.statsAria")}>
         <StatCard
           label={t("projects.profileColumn")}
           value={
@@ -167,12 +167,6 @@ const ProjectDetail = ({ projectId }) => {
           icon={SlidersHorizontal}
           theme="violet"
           compactValue
-        />
-        <StatCard
-          label={t("projects.create.thresholdLabel")}
-          value={`${Math.round((project.tmThreshold ?? 0) * 100)}%`}
-          icon={Percent}
-          theme="sky"
         />
         <StatCard
           label={t("projects.docsColumn")}

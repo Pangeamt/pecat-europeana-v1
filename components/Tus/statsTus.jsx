@@ -9,7 +9,6 @@ import {
   Empty,
   Modal,
   Switch,
-  Tag,
   Tooltip,
   message,
 } from "antd";
@@ -377,8 +376,6 @@ const StatsTus = ({
   stats,
   percentage = 0,
   requesting,
-  mode = "",
-  tmThreshold = 0,
   totalSegments = 0,
   projectId,
   parentProjectId,
@@ -508,25 +505,6 @@ const StatsTus = ({
               <Database size={16} />
             </Button>
           </Tooltip>
-
-          <span
-            className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-700"
-            aria-label={`Mode ${mode}`}
-          >
-            <span>Mode: </span>
-            <span className="uppercase text-xs font-medium text-gray-400">
-              {mode ? `${mode}` : "—"}
-            </span>
-          </span>
-
-          <span
-            className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-700"
-            aria-label={`Threshold ${Math.round(tmThreshold * 100)}%`}
-          >
-            <span>Threshold: </span>
-            <Tag color="blue">{tmThreshold ? `${tmThreshold}` : "—"}</Tag>
-          </span>
-
         </div>
       </div>
 
@@ -568,8 +546,6 @@ StatsTus.propTypes = {
   }).isRequired,
   percentage: PropTypes.number,
   requesting: PropTypes.bool.isRequired,
-  mode: PropTypes.string,
-  tmThreshold: PropTypes.number,
   totalSegments: PropTypes.number,
   projectId: PropTypes.string,
   parentProjectId: PropTypes.string,

@@ -28,7 +28,6 @@ function toProjectDoc(record) {
     description: record.description,
     profileId: record.profileId,
     profileName: record.profile?.name ?? record.profileName ?? null,
-    tmThreshold: record.tmThreshold,
     // Post-translation pipeline settings with defaults applied.
     pipeline: resolvePipelineSettings(record.settings),
     workspaceId: record.workspaceId,
@@ -74,7 +73,6 @@ export async function listProjectsService(actorUser) {
       description: row.description,
       profileId: row.profileId,
       profileName: row.profileName,
-      tmThreshold: row.tmThreshold,
       pipeline: resolvePipelineSettings(row.settings),
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
@@ -110,7 +108,6 @@ export async function createProjectService(payload, actorUser) {
     name: payload.name,
     description: optionalText(payload.description),
     profileId: payload.profileId ?? null,
-    tmThreshold: payload.threshold ?? 0.75,
     settings: Object.keys(pipelinePatch).length > 0 ? pipelinePatch : undefined,
     createdByUserId: actorUser.id,
     workspaceId,
@@ -159,9 +156,6 @@ export async function updateProjectService(projectId, payload, actorUser) {
       );
       data.profileId = payload.profileId;
     }
-  }
-  if (payload.threshold !== undefined && payload.threshold !== null) {
-    data.tmThreshold = payload.threshold;
   }
   const pipelinePatch = pipelineSettingsPatch(payload);
   if (Object.keys(pipelinePatch).length > 0) {

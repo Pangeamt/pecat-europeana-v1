@@ -3,10 +3,8 @@
 import {
   Button,
   Form,
-  InputNumber,
   Modal,
   Select,
-  Slider,
   Steps,
   Switch,
   Upload,
@@ -48,7 +46,6 @@ const DocumentAdd = ({ project, refetch }) => {
   const [tms, setTms] = useState([]);
   const [glossaries, setGlossaries] = useState([]);
   const [loadingAssets, setLoadingAssets] = useState(false);
-  const [threshold, setThreshold] = useState(project?.tmThreshold ?? 0.75);
   const { user } = userStore();
 
   const filteredTms = useMemo(() => {
@@ -87,7 +84,6 @@ const DocumentAdd = ({ project, refetch }) => {
     setInheritProfile(true);
     setTmIds([]);
     setGlossaryIds([]);
-    setThreshold(project?.tmThreshold ?? 0.75);
   };
 
   const showModal = () => {
@@ -142,7 +138,6 @@ const DocumentAdd = ({ project, refetch }) => {
       src,
       tgt,
       inherit_profile: String(inheritProfile),
-      tm_threshold: threshold,
       ...(inheritProfile
         ? {}
         : {
@@ -296,26 +291,6 @@ const DocumentAdd = ({ project, refetch }) => {
               </Form.Item>
             </>
           ) : null}
-
-          <Form.Item label={t("documents.add.thresholdLabel", { value: Math.round(threshold * 100) })}>
-            <div className="flex items-center gap-3">
-              <Slider
-                className="flex-1"
-                min={0}
-                max={1}
-                step={0.01}
-                value={threshold}
-                onChange={setThreshold}
-              />
-              <InputNumber
-                min={0}
-                max={1}
-                step={0.01}
-                value={threshold}
-                onChange={(value) => setThreshold(value ?? 0)}
-              />
-            </div>
-          </Form.Item>
         </section>
       );
     }

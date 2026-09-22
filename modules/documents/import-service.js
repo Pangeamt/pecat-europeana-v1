@@ -41,20 +41,7 @@ async function setDocumentStatus(documentId, status) {
   });
 }
 
-function normalizeThreshold(rawValue, fallback) {
-  if (rawValue === null || rawValue === undefined || rawValue === "") {
-    return fallback;
-  }
-  const parsed = Number.parseFloat(rawValue);
-  if (!Number.isFinite(parsed)) return fallback;
-  return Math.min(Math.max(parsed > 1 ? parsed / 100 : parsed, 0), 1);
-}
-
 function parseDocumentTmSettings(formData) {
-  const requestedTmMode = formData.get("tm_mode") || "standard";
-  const tmMode = ["standard", "smart"].includes(requestedTmMode)
-    ? requestedTmMode
-    : "standard";
   const rawTmIds = formData.get("tm_ids");
   let tmIds = [];
 
@@ -78,7 +65,6 @@ function parseDocumentTmSettings(formData) {
   }
 
   return {
-    tmMode,
     tmIds: Array.isArray(tmIds) ? tmIds : [],
     updateTmIds: Array.isArray(updateTmIds) ? updateTmIds : [],
   };
@@ -146,8 +132,6 @@ async function processDocumentFile({
   src,
   tgt,
   mt,
-  tmMode,
-  tmThreshold,
   tmIds,
   glossaryIds,
   profileId,
@@ -202,8 +186,6 @@ async function processDocumentFile({
     await enrichSdlxliffSegments(working, {
       sourceLanguage: src,
       targetLanguage: tgt,
-      tmMode,
-      tmThreshold,
       tmIds,
       glossaryIds,
       profileId,
@@ -318,8 +300,6 @@ export async function handleSdlxliffImportJob({
   filePath,
   src,
   tgt,
-  tmMode,
-  tmThreshold,
   tmIds,
   glossaryIds,
   profileId,
@@ -360,8 +340,6 @@ export async function handleSdlxliffImportJob({
   const { translated } = await enrichSdlxliffSegments(segments, {
     sourceLanguage: normalizedSrc,
     targetLanguage: normalizedTgt,
-    tmMode,
-    tmThreshold,
     tmIds,
     glossaryIds,
     profileId,
@@ -394,8 +372,6 @@ export async function handleUploadImportJob({
   mt,
   src,
   tgt,
-  tmMode,
-  tmThreshold,
   tmIds,
   glossaryIds,
   profileId,
@@ -410,8 +386,6 @@ export async function handleUploadImportJob({
     src,
     tgt,
     mt,
-    tmMode,
-    tmThreshold,
     tmIds,
     glossaryIds,
     profileId,
@@ -456,10 +430,6 @@ async function enqueueImportJobOrFail(jobName, data) {
 // inherit_profile=false the wizard's manual selection is used instead.
 async function resolveDocumentAssets({ formData, project }) {
   const inheritProfile = formData.get("inherit_profile") !== "false";
-  const tmThreshold = normalizeThreshold(
-    formData.get("tm_threshold"),
-    project.tmThreshold ?? 0.75,
-  );
 
   if (inheritProfile) {
     const profileTmIds =
@@ -476,8 +446,6 @@ async function resolveDocumentAssets({ formData, project }) {
 
     return {
       inheritProfile: true,
-      tmMode: "standard",
-      tmThreshold,
       tmIds: readyTmIds,
       updateTmIds: [],
       glossaryIds: readyGlossaryIds,
@@ -496,8 +464,6 @@ async function resolveDocumentAssets({ formData, project }) {
 
   return {
     inheritProfile: false,
-    tmMode: tmSettings.tmMode,
-    tmThreshold,
     tmIds: validTmIds,
     updateTmIds: tmSettings.updateTmIds,
     glossaryIds: validGlossaryIds,
@@ -566,8 +532,6 @@ export async function importDocumentsService({
         inheritProfile: assets.inheritProfile,
         filePath,
         mt,
-        tmMode: assets.tmMode,
-        tmThreshold: assets.tmThreshold,
         extension: fileExtension,
         sourceLanguage: src,
         targetLanguage: tgt,
@@ -586,8 +550,6 @@ export async function importDocumentsService({
         filePath,
         src,
         tgt,
-        tmMode: assets.tmMode,
-        tmThreshold: assets.tmThreshold,
         tmIds: assets.tmIds,
         glossaryIds: assets.glossaryIds,
         profileId: effectiveProfileId,
@@ -601,8 +563,6 @@ export async function importDocumentsService({
         mt,
         src,
         tgt,
-        tmMode: assets.tmMode,
-        tmThreshold: assets.tmThreshold,
         tmIds: assets.tmIds,
         glossaryIds: assets.glossaryIds,
         profileId: effectiveProfileId,

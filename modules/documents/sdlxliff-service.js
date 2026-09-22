@@ -276,8 +276,6 @@ export async function parseSdlxliffFile(filePath) {
 export async function enrichSdlxliffSegments(segments, {
   sourceLanguage,
   targetLanguage,
-  tmMode = 'standard',
-  tmThreshold = 0.75,
   tmIds = [],
   glossaryIds = [],
   profileId = null,
@@ -298,8 +296,6 @@ export async function enrichSdlxliffSegments(segments, {
       source_language: sourceLanguage,
       target_language: targetLanguage,
       texts: toTranslate.map((seg) => seg.source),
-      tm_mode: tmMode,
-      tm_threshold: tmThreshold,
       tm_ids: tmIds,
       glossary_ids: glossaryIds,
       workspace: workspaceId,
