@@ -136,7 +136,7 @@ selectiva, por defecto todos**.
 | Crear proyecto | Perfil obligatorio (API y formulario). |
 | Editar proyecto | Se puede cambiar o quitar el perfil. Sin perfil, aviso en el formulario: no admite documentos nuevos. |
 | Subir documento | 409 `PROFILE_REQUIRED` si el proyecto no tiene perfil (o está borrado); 409 `PROFILE_LANGUAGE_MISMATCH` si un perfil antiguo con par fijo no encaja; 409 `PROFILE_NOT_IN_DAAIT` si el espejo no existe en DAAIT (se arregla abriendo el perfil y guardándolo). Si DAAIT no responde, la subida sigue y el job reintenta. El botón de subir sale deshabilitado sin perfil. |
-| Paso 2 del asistente | TMs y glosarios **del perfil** para el par elegido, todos marcados por defecto; se pueden quitar, pero no dejar ninguno (para DAAIT, lista vacía = todos). `tm_ids`/`glossary_ids` restringen dentro del perfil; lo que no es del perfil se ignora. |
+| Paso 2 del asistente | TMs y glosarios **del perfil** para el par elegido, todos marcados por defecto; se pueden quitar todos (entonces no se aplica ninguno). `tm_ids`/`glossary_ids` eligen dentro del perfil: sin el campo = todos, `[]` = ninguno; lo que no es del perfil se ignora. Se manda a DAAIT exactamente la selección. |
 | Traducción (job) | Siempre con el `profile_id` del proyecto. Si DAAIT dice que el perfil no existe → el job falla sin reintentar (ya no se traduce sin perfil). |
 | Borrar perfil | 409 `PROFILE_IN_USE` con los proyectos que lo usan; el perfil sigue en la lista. |
 
@@ -155,7 +155,10 @@ y el resolvedor lo interpreta como "ninguno". El mismo error ya se arregló en `
 - **Consecuencia hasta ahora:** PECAT-E mandaba siempre los ids de los glosarios del perfil, así que **la
   traducción automática nunca aplicaba los glosarios** (el juez LLM sí). Deducido del código; queda por
   comprobarlo con documentos reales (`tus.glossaryInfo` vacío).
-- **Qué hace PECAT-E ahora:** si la selección cubre todos los glosarios del par, manda `[]` a
-  `/content/pecat` (DAAIT aplica todos, lo mismo que se eligió). Una selección parcial se manda tal cual y
-  **no aplicará glosarios en la traducción hasta que se corrija DAAIT** (una línea en
-  `pecat_service.py`: `use_all_glossaries=True if not data.glossary_ids else None`, más release).
+- **Arreglo en DAAIT** (rama `fix/pecat-explicit-resource-ids`, PR a `staging`): con perfil, `/content/pecat`
+  aplica **solo** las memorias y glosarios cuyos ids recibe, y **ninguno** si la lista va vacía (antes: memorias
+  vacío = todas; glosarios con ids = ninguno). Sin perfil ya funcionaba así.
+- **PECAT-E (commit 4)** manda exactamente la selección del usuario. ⚠️ **Hay que desplegar antes el arreglo de
+  DAAIT**: contra el DAAIT de ahora, los glosarios elegidos no se aplicarían en la traducción, y una lista de
+  memorias vacía seguiría significando "todas".
+- El juez LLM (`/content/post_edit`) conserva su semántica: memorias vacío = todas, glosarios vacío = ninguno.

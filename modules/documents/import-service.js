@@ -9,7 +9,7 @@ import { DOCUMENT_STATUS } from "../../lib/document-status";
 import { HttpError } from "../shared/http-error";
 import { assertWorkspaceAssetAccess } from "../shared/roles";
 import {
-  findValidGlossariesInWorkspace,
+  findValidGlossaryIdsInWorkspace,
   findValidTmIdsInWorkspace,
 } from "./repository";
 // Direct file import on purpose: the barrels of modules/projects and
@@ -380,9 +380,10 @@ async function enqueueImportJobOrFail(jobName, data) {
   }
 }
 
+// null = the field was not sent (default: all); [] = explicitly none.
 function parseIdList(formData, field) {
   const raw = formData.get(field);
-  if (!raw) return [];
+  if (raw === null || raw === undefined || raw === "") return null;
   let ids;
   try {
     ids = JSON.parse(raw);
@@ -392,17 +393,13 @@ function parseIdList(formData, field) {
   return normalizeIds(ids);
 }
 
-const primaryTag = (code) =>
-  String(code ?? "")
-    .toLowerCase()
-    .split(/[-_]/)[0];
-
 // A document takes the TMs and glossaries of its project's profile (only the
-// ones DAAIT has ready), materialized at upload time. tm_ids/glossary_ids
-// narrow that set; absent or empty = all of them (the default). Ids outside
-// the profile are ignored: with a profile, DAAIT only searches its attached
-// resources anyway.
-async function resolveDocumentAssets(project, formData, src, tgt) {
+// ones DAAIT has ready), materialized at upload time. tm_ids/glossary_ids pick
+// which of them apply: absent = all of them (the default), [] = none. Ids
+// outside the profile are ignored. DAAIT /content/pecat (with a profile)
+// applies exactly the ids it receives — none for an empty list — so the
+// selection travels as is.
+async function resolveDocumentAssets(project, formData) {
   const profileTmIds =
     project.profile?.profileTms?.map((link) => link.tmId) ?? [];
   const profileGlossaryIds =
@@ -410,41 +407,17 @@ async function resolveDocumentAssets(project, formData, src, tgt) {
 
   // Profile assets were SUCCESS when attached, but one may be rebuilding
   // (re-import) right now — drop it rather than block the whole upload.
-  const [readyTmIds, readyGlossaries] = await Promise.all([
+  const [readyTmIds, readyGlossaryIds] = await Promise.all([
     findValidTmIdsInWorkspace(profileTmIds, project.workspaceId),
-    findValidGlossariesInWorkspace(profileGlossaryIds, project.workspaceId),
+    findValidGlossaryIdsInWorkspace(profileGlossaryIds, project.workspaceId),
   ]);
 
-  const narrow = (ready, requested) =>
-    requested.length > 0 ? ready.filter((id) => requested.includes(id)) : ready;
-  const tmIds = narrow(readyTmIds, parseIdList(formData, "tm_ids"));
-  const glossaryIds = narrow(
-    readyGlossaries.map((glossary) => glossary.id),
-    parseIdList(formData, "glossary_ids"),
-  );
-
-  // DAAIT /content/pecat (2.3.49) applies NO glossary when it receives
-  // explicit glossary_ids with a profile (it passes use_all_glossaries=False
-  // to its resolver), while an empty list applies all of the profile's for
-  // the pair. So when the selection covers every glossary of the pair, the
-  // translation request sends [] — the same result the user chose. A partial
-  // selection is sent as is (it only works once DAAIT is fixed). The review
-  // stage (/content/post_edit) honours explicit ids and always gets them.
-  const pairGlossaryIds = readyGlossaries
-    .filter(
-      (glossary) =>
-        primaryTag(glossary.sourceLanguage) === primaryTag(src) &&
-        primaryTag(glossary.targetLanguage) === primaryTag(tgt),
-    )
-    .map((glossary) => glossary.id);
-  const allPairGlossaries = pairGlossaryIds.every((id) =>
-    glossaryIds.includes(id),
-  );
+  const pick = (ready, requested) =>
+    requested === null ? ready : ready.filter((id) => requested.includes(id));
 
   return {
-    tmIds,
-    glossaryIds,
-    translateGlossaryIds: allPairGlossaries ? [] : glossaryIds,
+    tmIds: pick(readyTmIds, parseIdList(formData, "tm_ids")),
+    glossaryIds: pick(readyGlossaryIds, parseIdList(formData, "glossary_ids")),
   };
 }
 
@@ -509,7 +482,7 @@ export async function importDocumentsService({
   const src = formData.get("src");
   const tgt = formData.get("tgt");
   const profile = await resolveTranslationProfile(project, src, tgt);
-  const assets = await resolveDocumentAssets(project, formData, src, tgt);
+  const assets = await resolveDocumentAssets(project, formData);
 
   if (files.length === 0) {
     throw new HttpError(400, "No file uploaded");
@@ -556,7 +529,7 @@ export async function importDocumentsService({
         src,
         tgt,
         tmIds: assets.tmIds,
-        glossaryIds: assets.translateGlossaryIds,
+        glossaryIds: assets.glossaryIds,
         profileId: profile.id,
         workspaceId: project.workspaceId,
       });
@@ -569,7 +542,7 @@ export async function importDocumentsService({
         src,
         tgt,
         tmIds: assets.tmIds,
-        glossaryIds: assets.translateGlossaryIds,
+        glossaryIds: assets.glossaryIds,
         profileId: profile.id,
         workspaceId: project.workspaceId,
       });

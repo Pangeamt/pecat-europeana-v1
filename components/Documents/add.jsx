@@ -121,17 +121,6 @@ const DocumentAdd = ({ project, refetch }) => {
       setTmSelection(null);
       setGlossarySelection(null);
     }
-    if (currentStep === 1) {
-      // An empty list means "all of them" to DAAIT, so leaving none selected
-      // would silently apply everything: keep at least one.
-      if (
-        (matchingTms.length > 0 && tmIds.length === 0) ||
-        (matchingGlossaries.length > 0 && glossaryIds.length === 0)
-      ) {
-        message.warning(t("documents.add.selectAtLeastOne"));
-        return;
-      }
-    }
     setCurrentStep((step) => Math.min(step + 1, WIZARD_STEPS.length - 1));
   };
 

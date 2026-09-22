@@ -200,24 +200,6 @@ export async function findValidGlossaryIdsInWorkspace(glossaryIds, workspaceId) 
   return rows.map((row) => row.id);
 }
 
-// Same filter as findValidGlossaryIdsInWorkspace, with the language pair of
-// each glossary (the import needs it to tell "all of the profile's glossaries
-// for this pair" apart from a partial selection).
-export async function findValidGlossariesInWorkspace(glossaryIds, workspaceId) {
-  if (!Array.isArray(glossaryIds) || glossaryIds.length === 0) return [];
-  if (!workspaceId) return [];
-
-  return prisma.glossary.findMany({
-    where: {
-      id: { in: glossaryIds },
-      workspaceId,
-      deletedAt: null,
-      status: MEMORY_ASSET_READY_STATUS,
-    },
-    select: { id: true, sourceLanguage: true, targetLanguage: true },
-  });
-}
-
 export async function findTusByDocumentId(documentId) {
   return prisma.tu.findMany({
     where: { documentId },
