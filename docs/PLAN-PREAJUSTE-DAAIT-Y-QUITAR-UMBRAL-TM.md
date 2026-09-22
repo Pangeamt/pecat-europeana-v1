@@ -78,16 +78,16 @@ de `tm_info`), columna *Fuzzy*, juez LLM, evaluación en vivo, esfuerzo, export.
 **Backend**
 | Fichero | Cambio |
 |---|---|
-| `lib/daait.js` | `listLlmPresets()` → `GET /llm/presets` (timeout de listado). `createProfile`/`updateProfile` mandan `llm_preset`; en el PATCH, `null` explícito para quitarlo. |
+| `lib/daait.js` | `listLlmPresets()` → `GET /llm/presets` (timeout de listado). `createProfile`/`updateProfile` mandan `llm_preset`; en el PATCH, `null` explícito para quitarlo. **`task_level` deja de enviarse** (perfil y `/content/post_edit`). |
 | `modules/profiles/daait-repository.js` | `llm_preset` en el payload del espejo. |
 | `modules/profiles/schemas.js` | `llmPreset: string ≤ 64 \| null` en crear y editar. |
-| `modules/profiles/service.js` | Guardar y devolver `llmPreset`. |
+| `modules/profiles/service.js` | Guardar y devolver `llmPreset`. Antes de escribir en local, comprobar que el preajuste está en la lista de DAAIT (activo y con todos sus modelos) → si no, 400 `PRESET_NOT_AVAILABLE`. Deja de escribir `taskLevel`. |
 | `modules/profiles/…` + `app/api/profiles/presets/route.js` (nuevo) | `GET /api/profiles/presets`, solo ADMIN/SUPER: los preajustes de DAAIT (nombre, descripción, activo, disponible, nivel, memoria volátil, modelos por rol). |
 
 **Frontend**
 | Fichero | Cambio |
 |---|---|
-| `components/Profiles/add.jsx`, `detail.jsx` | Selector "Preajuste de DAAIT" con opción vacía ("ninguno"). Muestra el guardado **solo si sigue en la lista** de DAAIT; si se borró allí, el selector sale vacío. |
+| `components/Profiles/add.jsx`, `detail.jsx` | Selector "Preajuste de DAAIT" con opción vacía ("ninguno"); sustituye al selector de nivel, que desaparece. Muestra el guardado **solo si sigue en la lista** de DAAIT; si se borró allí, el selector sale vacío. En la edición el campo solo se envía si el usuario lo toca (vaciarlo manda `null`), así que guardar otros campos no borra un preajuste que ya no se muestra. |
 | `components/Profiles/list.jsx` | Etiqueta con el preajuste del perfil. |
 | `services/profiles.services.ts` | Tipos + `listPresetsRequest`. |
 | `lib/i18n/locales/{en,es}.json` | Textos. |

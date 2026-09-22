@@ -17,6 +17,7 @@ import { StatCard, StatCardGrid } from "@/components/shared/StatCard";
 import { useWorkspaceScopeLabel } from "@/components/shared/useWorkspaceScopeLabel";
 import {
   deleteProfileRequest,
+  listDaaitPresetsRequest,
   listProfilesRequest,
 } from "@/services/profiles.services";
 import { userStore } from "@/store";
@@ -37,6 +38,9 @@ const ProfileList = () => {
     useWorkspaceScopeLabel(user);
   const [loading, setLoading] = useState(false);
   const [profiles, setProfiles] = useState([]);
+  // Lower-cased names of the presets DAAIT currently lists: a stored preset
+  // that is no longer there is not shown.
+  const [presetNames, setPresetNames] = useState(new Set());
 
   const fetchProfiles = useCallback(async () => {
     try {
@@ -71,6 +75,18 @@ const ProfileList = () => {
   useEffect(() => {
     void fetchProfiles();
   }, [fetchProfiles]);
+
+  useEffect(() => {
+    listDaaitPresetsRequest()
+      .then((response) =>
+        setPresetNames(
+          new Set(
+            (response?.presets ?? []).map((preset) => preset.name.toLowerCase()),
+          ),
+        ),
+      )
+      .catch((error) => console.error(error));
+  }, []);
 
   const handleDelete = async (id) => {
     try {
@@ -155,6 +171,18 @@ const ProfileList = () => {
           {record.formality}
         </Tag>
       ),
+    },
+    {
+      title: t("profiles.presetColumn"),
+      key: "llmPreset",
+      render: (record) =>
+        record.llmPreset && presetNames.has(record.llmPreset.toLowerCase()) ? (
+          <Tag color="purple" className="rounded-full">
+            {record.llmPreset}
+          </Tag>
+        ) : (
+          <span className="text-slate-400">-</span>
+        ),
     },
     {
       title: t("profiles.tmsColumn"),

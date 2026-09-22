@@ -343,11 +343,17 @@ model Profile {
   /// Language pair of the DAAIT mirror (target is required by DAAIT).
   sourceLanguage    String?
   targetLanguage    String?
-  /// DAAIT pipeline depth: BASIC | MEDIUM | ADVANCED.
+  /// DEPRECATED: no longer read, written or sent. DAAIT applies its own
+  /// level (MEDIUM by default, or the one the preset fixes). Kept because the
+  /// database is shared.
   taskLevel         String            @default("MEDIUM")
   /// Optional LLM role overrides for the DAAIT mirror
   /// ({ post_editor, reviewer, conciliator, translate_basic, ... }).
   llmModels         Json?
+  /// Name of the DAAIT quality preset (GET /llm/presets) the mirror points
+  /// to. Only the name is stored; DAAIT resolves models, batching, level and
+  /// volatile memory from it.
+  llmPreset         String?           @db.VarChar(64)
   createdByUserId   String
   workspaceId       String
   createdAt         DateTime          @default(now())
