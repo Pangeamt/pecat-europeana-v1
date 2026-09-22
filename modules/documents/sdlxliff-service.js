@@ -1,4 +1,5 @@
 import xml2js from 'xml2js';
+import { UnrecoverableError } from 'bullmq';
 import { HttpError } from '../shared/http-error';
 import { pecatTranslate } from '../../lib/daait';
 import { BLOCK_REASON } from './pipeline-constants';
@@ -276,8 +277,6 @@ export async function parseSdlxliffFile(filePath) {
 export async function enrichSdlxliffSegments(segments, {
   sourceLanguage,
   targetLanguage,
-  tmMode = 'standard',
-  tmThreshold = 0.75,
   tmIds = [],
   glossaryIds = [],
   profileId = null,
@@ -298,8 +297,6 @@ export async function enrichSdlxliffSegments(segments, {
       source_language: sourceLanguage,
       target_language: targetLanguage,
       texts: toTranslate.map((seg) => seg.source),
-      tm_mode: tmMode,
-      tm_threshold: tmThreshold,
       tm_ids: tmIds,
       glossary_ids: glossaryIds,
       workspace: workspaceId,
@@ -309,18 +306,20 @@ export async function enrichSdlxliffSegments(segments, {
     try {
       response = await pecatTranslate(payload);
     } catch (error) {
-      // A profile without a DAAIT mirror (legacy or deleted upstream) must
-      // not kill the import: retry unprofiled — TMs/glossaries still apply,
-      // only the profile's instructions/formality are lost this run.
+      // Documents are always translated with their profile: a profile whose
+      // DAAIT mirror is gone fails the import instead of translating without
+      // it (the upload pre-checks this; here it only happens on a race).
+      // Retrying cannot fix it, so the job fails on the spot.
       const missingProfile =
         profileId &&
         error?.status === 404 &&
         /profile/i.test(error?.message ?? '');
-      if (!missingProfile) throw error;
-      console.warn(
-        `[documents] DAAIT has no mirror for profile ${profileId}; translating without profile`,
-      );
-      response = await pecatTranslate({ ...payload, profile_id: null });
+      if (missingProfile) {
+        throw new UnrecoverableError(
+          `Profile ${profileId} does not exist in DAAIT: open the profile and save it to recreate it`,
+        );
+      }
+      throw error;
     }
 
     const results = response?.segments;

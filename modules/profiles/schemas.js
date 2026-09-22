@@ -1,7 +1,6 @@
 import Joi from "joi";
 
 export const FORMALITY_VALUES = ["FORMAL", "NEUTRO", "INFORMAL"];
-export const TASK_LEVEL_VALUES = ["BASIC", "MEDIUM", "ADVANCED"];
 
 export const createProfileSchema = Joi.object({
   name: Joi.string().trim().min(1).max(191).required(),
@@ -15,9 +14,11 @@ export const createProfileSchema = Joi.object({
   // Profiles are language-agnostic: the pair always comes from the document
   // upload. (Legacy profiles may still carry a stored pair, which the
   // pipeline uses only as a mismatch guard.)
-  taskLevel: Joi.string()
-    .valid(...TASK_LEVEL_VALUES)
-    .optional(),
+  // The pipeline level is DAAIT's (MEDIUM by default or the preset's): no
+  // longer accepted, stripped so an older client never gets a 400.
+  taskLevel: Joi.any().strip(),
+  // Name of a DAAIT quality preset (GET /llm/presets); null/"" = none.
+  llmPreset: Joi.string().trim().max(64).optional().allow(null, ""),
   llmModels: Joi.object().optional().allow(null),
   workspaceId: Joi.string().optional().allow(null),
   tmIds: Joi.array().items(Joi.string()).optional().default([]),
@@ -34,9 +35,9 @@ export const updateProfileSchema = Joi.object({
   domain: Joi.string().trim().max(191).optional().allow("", null),
   // The language pair is immutable after creation (the DAAIT mirror cannot
   // change it via PATCH), so it is deliberately absent here.
-  taskLevel: Joi.string()
-    .valid(...TASK_LEVEL_VALUES)
-    .optional(),
+  taskLevel: Joi.any().strip(),
+  // null/"" removes the preset.
+  llmPreset: Joi.string().trim().max(64).optional().allow(null, ""),
   llmModels: Joi.object().optional().allow(null),
   tmIds: Joi.array().items(Joi.string()).optional(),
   glossaryIds: Joi.array().items(Joi.string()).optional(),

@@ -17,6 +17,8 @@ export interface Profile {
   formality: ProfileFormality;
   instructions?: string | null;
   domain?: string | null;
+  /** Name of the DAAIT quality preset, or null. */
+  llmPreset?: string | null;
   workspaceId: string;
   createdByUserId: string;
   createdBy?: { id: string; name: string; email: string };
@@ -32,12 +34,20 @@ export interface CreateProfilePayload {
   formality?: ProfileFormality;
   instructions?: string;
   domain?: string;
+  /** DAAIT preset name; null removes it. */
+  llmPreset?: string | null;
   workspaceId?: string;
   tmIds?: string[];
   glossaryIds?: string[];
 }
 
 export type UpdateProfilePayload = Partial<CreateProfilePayload>;
+
+/** A DAAIT quality preset a profile can point to (only its name is stored). */
+export interface DaaitPreset {
+  name: string;
+  description?: string | null;
+}
 
 export interface ListProfilesQuery {
   workspaceId?: string;
@@ -47,6 +57,13 @@ export const listProfilesRequest = async (query?: ListProfilesQuery) => {
   const response = await httpClient.get<{ profiles: Profile[] }>(
     "/api/profiles",
     { params: query },
+  );
+  return response.data;
+};
+
+export const listDaaitPresetsRequest = async () => {
+  const response = await httpClient.get<{ presets: DaaitPreset[] }>(
+    "/api/profiles/presets",
   );
   return response.data;
 };

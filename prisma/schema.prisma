@@ -95,6 +95,8 @@ model Project {
   /// Nullable in DB only for backfilled legacy "General" projects; the create
   /// API requires it.
   profileId       String?
+  /// DEPRECATED: no longer read or written — DAAIT decides which memories
+  /// apply. Kept (with its default) because the database is shared.
   tmThreshold     Float      @default(0.75)
   /// Free-form bag for future per-project options (no migration needed).
   settings        Json?
@@ -130,6 +132,9 @@ model Document {
   workspaceId              String
   deletedAt                DateTime?
   mt                       Boolean            @default(false)
+  /// DEPRECATED (tmMode, tmThreshold): no longer read or written — DAAIT
+  /// ignores the TM mode and applies its own memory threshold. Kept (with
+  /// their defaults) because the database is shared.
   tmMode                   String             @default("standard")
   tmThreshold              Float              @default(0)
   extension                String             @default("json")
@@ -338,11 +343,17 @@ model Profile {
   /// Language pair of the DAAIT mirror (target is required by DAAIT).
   sourceLanguage    String?
   targetLanguage    String?
-  /// DAAIT pipeline depth: BASIC | MEDIUM | ADVANCED.
+  /// DEPRECATED: no longer read, written or sent. DAAIT applies its own
+  /// level (MEDIUM by default, or the one the preset fixes). Kept because the
+  /// database is shared.
   taskLevel         String            @default("MEDIUM")
   /// Optional LLM role overrides for the DAAIT mirror
   /// ({ post_editor, reviewer, conciliator, translate_basic, ... }).
   llmModels         Json?
+  /// Name of the DAAIT quality preset (GET /llm/presets) the mirror points
+  /// to. Only the name is stored; DAAIT resolves models, batching, level and
+  /// volatile memory from it.
+  llmPreset         String?           @db.VarChar(64)
   createdByUserId   String
   workspaceId       String
   createdAt         DateTime          @default(now())
