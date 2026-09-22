@@ -23,6 +23,7 @@ export default function EditProjectModal({ open, project, onClose, onSaved }) {
   const [profiles, setProfiles] = useState([]);
   const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [saving, setSaving] = useState(false);
+  const profileIdValue = Form.useWatch("profileId", form);
   const mtqeThresholdValue = Form.useWatch("mtqeThreshold", form);
   const llmJudgeValue = Form.useWatch("llmJudge", form);
 
@@ -89,7 +90,19 @@ export default function EditProjectModal({ open, project, onClose, onSaved }) {
         >
           <Input />
         </Form.Item>
-        <Form.Item label={t("projects.create.profileLabel")} name="profileId">
+        <Form.Item
+          label={t("projects.create.profileLabel")}
+          name="profileId"
+          // The profile can be unassigned, but then no new document can be
+          // uploaded until one is assigned again.
+          extra={
+            profileIdValue ? undefined : (
+              <span className="text-amber-600">
+                {t("projects.create.profileEmptyWarning")}
+              </span>
+            )
+          }
+        >
           <Select
             showSearch
             allowClear

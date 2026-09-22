@@ -9,13 +9,14 @@ import { DOCUMENT_STATUS } from "../../lib/document-status";
 import { HttpError } from "../shared/http-error";
 import { assertWorkspaceAssetAccess } from "../shared/roles";
 import {
-  findValidGlossaryIdsInWorkspace,
+  findValidGlossariesInWorkspace,
   findValidTmIdsInWorkspace,
 } from "./repository";
 // Direct file import on purpose: the barrels of modules/projects and
 // modules/documents reference each other, so going through them here would
 // close an import cycle before the bindings are initialized.
 import { findProjectWithProfileForActor } from "../projects/repository";
+import { getProfileDaait } from "../profiles/daait-repository";
 import { Prisma } from "@prisma/client";
 import { UnrecoverableError } from "bullmq";
 import {
@@ -39,52 +40,6 @@ async function setDocumentStatus(documentId, status) {
     where: { id: documentId },
     data: { status },
   });
-}
-
-function parseDocumentTmSettings(formData) {
-  const rawTmIds = formData.get("tm_ids");
-  let tmIds = [];
-
-  if (rawTmIds) {
-    try {
-      tmIds = JSON.parse(rawTmIds);
-    } catch {
-      throw new HttpError(400, "tm_ids must be a valid JSON array");
-    }
-  }
-
-  const rawUpdateTmIds = formData.get("tm_update_ids");
-  let updateTmIds = [];
-
-  if (rawUpdateTmIds) {
-    try {
-      updateTmIds = JSON.parse(rawUpdateTmIds);
-    } catch {
-      throw new HttpError(400, "tm_update_ids must be a valid JSON array");
-    }
-  }
-
-  return {
-    tmIds: Array.isArray(tmIds) ? tmIds : [],
-    updateTmIds: Array.isArray(updateTmIds) ? updateTmIds : [],
-  };
-}
-
-function parseDocumentGlossarySettings(formData) {
-  const rawGlossaryIds = formData.get("glossary_ids");
-  let glossaryIds = [];
-
-  if (rawGlossaryIds) {
-    try {
-      glossaryIds = JSON.parse(rawGlossaryIds);
-    } catch {
-      throw new HttpError(400, "glossary_ids must be a valid JSON array");
-    }
-  }
-
-  return {
-    glossaryIds: Array.isArray(glossaryIds) ? glossaryIds : [],
-  };
 }
 
 function normalizeIds(ids) {
@@ -425,49 +380,114 @@ async function enqueueImportJobOrFail(jobName, data) {
   }
 }
 
-// Resolves the effective TM/glossary configuration for a new document: by
-// default it inherits (materializes) the project profile's assets; with
-// inherit_profile=false the wizard's manual selection is used instead.
-async function resolveDocumentAssets({ formData, project }) {
-  const inheritProfile = formData.get("inherit_profile") !== "false";
-
-  if (inheritProfile) {
-    const profileTmIds =
-      project.profile?.profileTms?.map((link) => link.tmId) ?? [];
-    const profileGlossaryIds =
-      project.profile?.profileGlossaries?.map((link) => link.glossaryId) ?? [];
-
-    // Profile assets were SUCCESS when attached, but one may be rebuilding
-    // (re-import) right now — drop it rather than block the whole upload.
-    const [readyTmIds, readyGlossaryIds] = await Promise.all([
-      findValidTmIdsInWorkspace(profileTmIds, project.workspaceId),
-      findValidGlossaryIdsInWorkspace(profileGlossaryIds, project.workspaceId),
-    ]);
-
-    return {
-      inheritProfile: true,
-      tmIds: readyTmIds,
-      updateTmIds: [],
-      glossaryIds: readyGlossaryIds,
-    };
+function parseIdList(formData, field) {
+  const raw = formData.get(field);
+  if (!raw) return [];
+  let ids;
+  try {
+    ids = JSON.parse(raw);
+  } catch {
+    throw new HttpError(400, `${field} must be a valid JSON array`);
   }
+  return normalizeIds(ids);
+}
 
-  const tmSettings = parseDocumentTmSettings(formData);
-  const glossarySettings = parseDocumentGlossarySettings(formData);
-  const [validTmIds, validGlossaryIds] = await Promise.all([
-    findValidTmIdsInWorkspace(tmSettings.tmIds, project.workspaceId),
-    findValidGlossaryIdsInWorkspace(
-      glossarySettings.glossaryIds,
-      project.workspaceId,
-    ),
+const primaryTag = (code) =>
+  String(code ?? "")
+    .toLowerCase()
+    .split(/[-_]/)[0];
+
+// A document takes the TMs and glossaries of its project's profile (only the
+// ones DAAIT has ready), materialized at upload time. tm_ids/glossary_ids
+// narrow that set; absent or empty = all of them (the default). Ids outside
+// the profile are ignored: with a profile, DAAIT only searches its attached
+// resources anyway.
+async function resolveDocumentAssets(project, formData, src, tgt) {
+  const profileTmIds =
+    project.profile?.profileTms?.map((link) => link.tmId) ?? [];
+  const profileGlossaryIds =
+    project.profile?.profileGlossaries?.map((link) => link.glossaryId) ?? [];
+
+  // Profile assets were SUCCESS when attached, but one may be rebuilding
+  // (re-import) right now — drop it rather than block the whole upload.
+  const [readyTmIds, readyGlossaries] = await Promise.all([
+    findValidTmIdsInWorkspace(profileTmIds, project.workspaceId),
+    findValidGlossariesInWorkspace(profileGlossaryIds, project.workspaceId),
   ]);
 
+  const narrow = (ready, requested) =>
+    requested.length > 0 ? ready.filter((id) => requested.includes(id)) : ready;
+  const tmIds = narrow(readyTmIds, parseIdList(formData, "tm_ids"));
+  const glossaryIds = narrow(
+    readyGlossaries.map((glossary) => glossary.id),
+    parseIdList(formData, "glossary_ids"),
+  );
+
+  // DAAIT /content/pecat (2.3.49) applies NO glossary when it receives
+  // explicit glossary_ids with a profile (it passes use_all_glossaries=False
+  // to its resolver), while an empty list applies all of the profile's for
+  // the pair. So when the selection covers every glossary of the pair, the
+  // translation request sends [] — the same result the user chose. A partial
+  // selection is sent as is (it only works once DAAIT is fixed). The review
+  // stage (/content/post_edit) honours explicit ids and always gets them.
+  const pairGlossaryIds = readyGlossaries
+    .filter(
+      (glossary) =>
+        primaryTag(glossary.sourceLanguage) === primaryTag(src) &&
+        primaryTag(glossary.targetLanguage) === primaryTag(tgt),
+    )
+    .map((glossary) => glossary.id);
+  const allPairGlossaries = pairGlossaryIds.every((id) =>
+    glossaryIds.includes(id),
+  );
+
   return {
-    inheritProfile: false,
-    tmIds: validTmIds,
-    updateTmIds: tmSettings.updateTmIds,
-    glossaryIds: validGlossaryIds,
+    tmIds,
+    glossaryIds,
+    translateGlossaryIds: allPairGlossaries ? [] : glossaryIds,
   };
+}
+
+const PROFILE_CHECK_TIMEOUT_MS = 10_000;
+
+// Documents are always translated with the project's profile — never without
+// it. Fail the upload with a clear reason instead of translating unprofiled:
+// no profile (or a deleted one), a legacy profile bound to another language
+// pair, or a profile whose DAAIT mirror no longer exists. A DAAIT outage is
+// not a reason to reject: the queued job retries the translation.
+async function resolveTranslationProfile(project, src, tgt) {
+  const profile =
+    project.profile && !project.profile.deletedAt ? project.profile : null;
+  if (!profile) {
+    throw new HttpError(
+      409,
+      "Assign a profile to the project before uploading documents",
+      "PROFILE_REQUIRED",
+    );
+  }
+  if (!profileMatchesLanguagePair(profile, src, tgt)) {
+    throw new HttpError(
+      409,
+      `The profile "${profile.name}" only translates ${profile.sourceLanguage ?? "?"} -> ${profile.targetLanguage}; change the project profile or the language pair`,
+      "PROFILE_LANGUAGE_MISMATCH",
+    );
+  }
+  try {
+    await getProfileDaait(profile.id, { timeout: PROFILE_CHECK_TIMEOUT_MS });
+  } catch (error) {
+    if (error?.status === 404) {
+      throw new HttpError(
+        409,
+        `The profile "${profile.name}" does not exist in DAAIT: open the profile and save it to recreate it`,
+        "PROFILE_NOT_IN_DAAIT",
+      );
+    }
+    console.warn(
+      `[import] could not check profile ${profile.id} in DAAIT, continuing:`,
+      error?.message,
+    );
+  }
+  return profile;
 }
 
 export async function importDocumentsService({
@@ -488,22 +508,8 @@ export async function importDocumentsService({
   const mt = formData.get("mt") === "true";
   const src = formData.get("src");
   const tgt = formData.get("tgt");
-  const assets = await resolveDocumentAssets({ formData, project });
-
-  // The profile only travels to DAAIT when (a) the document inherits it (a
-  // hand-picked selection outside the profile would be silently ignored) and
-  // (b) its language pair matches the upload's — a wrong-direction profile
-  // makes DAAIT return the source untranslated.
-  const profileUsable =
-    assets.inheritProfile &&
-    project.profile &&
-    profileMatchesLanguagePair(project.profile, src, tgt);
-  const effectiveProfileId = profileUsable ? (project.profileId ?? null) : null;
-  if (assets.inheritProfile && project.profile && !profileUsable) {
-    console.warn(
-      `[import] profile ${project.profileId} pair (${project.profile.sourceLanguage ?? "?"}->${project.profile.targetLanguage ?? "?"}) does not match upload ${src}->${tgt}; translating without profile`,
-    );
-  }
+  const profile = await resolveTranslationProfile(project, src, tgt);
+  const assets = await resolveDocumentAssets(project, formData, src, tgt);
 
   if (files.length === 0) {
     throw new HttpError(400, "No file uploaded");
@@ -529,7 +535,6 @@ export async function importDocumentsService({
         userId: actorUser.id,
         workspaceId: project.workspaceId,
         projectId: project.id,
-        inheritProfile: assets.inheritProfile,
         filePath,
         mt,
         extension: fileExtension,
@@ -539,7 +544,7 @@ export async function importDocumentsService({
       },
     });
 
-    await linkDocumentTms(createdDocument.id, assets.tmIds, assets.updateTmIds);
+    await linkDocumentTms(createdDocument.id, assets.tmIds);
     await linkDocumentGlossaries(createdDocument.id, assets.glossaryIds);
 
     createdDocumentIds.push(createdDocument.id);
@@ -551,8 +556,8 @@ export async function importDocumentsService({
         src,
         tgt,
         tmIds: assets.tmIds,
-        glossaryIds: assets.glossaryIds,
-        profileId: effectiveProfileId,
+        glossaryIds: assets.translateGlossaryIds,
+        profileId: profile.id,
         workspaceId: project.workspaceId,
       });
     } else {
@@ -564,8 +569,8 @@ export async function importDocumentsService({
         src,
         tgt,
         tmIds: assets.tmIds,
-        glossaryIds: assets.glossaryIds,
-        profileId: effectiveProfileId,
+        glossaryIds: assets.translateGlossaryIds,
+        profileId: profile.id,
         workspaceId: project.workspaceId,
       });
     }

@@ -3,6 +3,7 @@ import {
   createProfile,
   deleteProfile,
   detachProfileResources,
+  getProfile,
   listLlmPresets,
   updateProfile as updateProfileDaaitApi,
 } from "@/lib/daait";
@@ -35,6 +36,10 @@ export async function createProfileDaait(record) {
 
 export async function deleteProfileDaait(id) {
   return deleteProfile(id);
+}
+
+export async function getProfileDaait(id, options) {
+  return getProfile(id, options);
 }
 
 export async function listLlmPresetsDaait() {

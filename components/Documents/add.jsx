@@ -1,12 +1,13 @@
 "use client";
 
 import {
+  Alert,
   Button,
   Form,
   Modal,
   Select,
   Steps,
-  Switch,
+  Tooltip,
   Upload,
   message,
 } from "antd";
@@ -15,9 +16,7 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import locales from "@/lib/locales.json";
 import { checkFile } from "@/lib/utils";
-import { fetchGlossariesRequest } from "@/services/glossary.services";
-import { fetchTMRequest } from "@/services/tm.services";
-import { userStore } from "@/store";
+import { fetchProfileByIdRequest } from "@/services/profiles.services";
 import { ArrowLeft, ArrowRight, Plus, Upload as UploadIcon } from "lucide-react";
 
 const { Dragger } = Upload;
@@ -27,11 +26,25 @@ const languageOptions = Object.keys(locales).map((code) => ({
   label: locales[code][0],
 }));
 
+// Documents are always translated with the project's profile. Step 2 lets
+// the user narrow which of the profile's TMs/glossaries apply to this
+// document (all of them by default); nothing outside the profile.
 const WIZARD_STEPS = [
   { key: "languages", titleKey: "documents.add.steps.principal" },
-  { key: "profile", titleKey: "documents.add.steps.tms" },
+  { key: "resources", titleKey: "documents.add.steps.tms" },
   { key: "file", titleKey: "documents.add.steps.file" },
 ];
+
+// Primary language subtag ("en-US" -> "en"), the granularity DAAIT uses to
+// match a resource to the document's pair.
+const primaryTag = (code) =>
+  String(code ?? "")
+    .toLowerCase()
+    .split(/[-_]/)[0];
+
+const matchesPair = (asset, src, tgt) =>
+  primaryTag(asset.sourceLanguage) === primaryTag(src) &&
+  primaryTag(asset.targetLanguage) === primaryTag(tgt);
 
 const DocumentAdd = ({ project, refetch }) => {
   const { t } = useTranslation();
@@ -40,69 +53,54 @@ const DocumentAdd = ({ project, refetch }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [src, setSrc] = useState(null);
   const [tgt, setTgt] = useState(null);
-  const [inheritProfile, setInheritProfile] = useState(true);
-  const [tmIds, setTmIds] = useState([]);
-  const [glossaryIds, setGlossaryIds] = useState([]);
-  const [tms, setTms] = useState([]);
-  const [glossaries, setGlossaries] = useState([]);
+  // Without a profile the project cannot receive documents (the API answers
+  // 409 PROFILE_REQUIRED): the upload stays disabled until one is assigned.
+  const hasProfile = Boolean(project?.profileId);
+  const [profileAssets, setProfileAssets] = useState({ tms: [], glossaries: [] });
   const [loadingAssets, setLoadingAssets] = useState(false);
-  const { user } = userStore();
+  // null = untouched = every matching resource (the default); an array once
+  // the user edits the selection.
+  const [tmSelection, setTmSelection] = useState(null);
+  const [glossarySelection, setGlossarySelection] = useState(null);
 
-  const filteredTms = useMemo(() => {
-    if (!src || !tgt) return [];
-    const srcPfx = src.substring(0, 2);
-    const tgtPfx = tgt.substring(0, 2);
-    return tms.filter((tm) => {
-      const tmSource = tm.sourceLanguage ?? tm.context?.source;
-      const tmTarget = tm.targetLanguage ?? tm.context?.target;
-      return (
-        tmSource?.substring(0, 2) === srcPfx &&
-        tmTarget?.substring(0, 2) === tgtPfx
-      );
-    });
-  }, [src, tgt, tms]);
-
-  const filteredGlossaries = useMemo(() => {
-    if (!src || !tgt) return [];
-    const srcPfx = src.substring(0, 2);
-    const tgtPfx = tgt.substring(0, 2);
-    return glossaries.filter((glossary) => {
-      const glossarySource = glossary.context?.source;
-      const glossaryTarget = glossary.context?.target;
-      return (
-        glossarySource?.substring(0, 2) === srcPfx &&
-        glossaryTarget?.substring(0, 2) === tgtPfx
-      );
-    });
-  }, [src, tgt, glossaries]);
+  // Only the profile's resources for the chosen pair are offered.
+  const matchingTms = useMemo(
+    () => (src && tgt ? profileAssets.tms.filter((tm) => matchesPair(tm, src, tgt)) : []),
+    [profileAssets.tms, src, tgt],
+  );
+  const matchingGlossaries = useMemo(
+    () =>
+      src && tgt
+        ? profileAssets.glossaries.filter((glossary) => matchesPair(glossary, src, tgt))
+        : [],
+    [profileAssets.glossaries, src, tgt],
+  );
+  const tmIds = tmSelection ?? matchingTms.map((tm) => tm.id);
+  const glossaryIds =
+    glossarySelection ?? matchingGlossaries.map((glossary) => glossary.id);
 
   const resetWizard = () => {
     form.resetFields();
     setCurrentStep(0);
     setSrc(null);
     setTgt(null);
-    setInheritProfile(true);
-    setTmIds([]);
-    setGlossaryIds([]);
+    setTmSelection(null);
+    setGlossarySelection(null);
   };
 
   const showModal = () => {
     setIsModalOpen(true);
-    if (!user?.workspaceId) return;
     setLoadingAssets(true);
-    // Only DAAIT-ready assets (SUCCESS) can be picked for a document.
-    Promise.all([
-      fetchTMRequest({ workspaceId: user.workspaceId, size: 1000, status: "SUCCESS" }),
-      fetchGlossariesRequest({ workspaceId: user.workspaceId, size: 1000, status: "SUCCESS" }),
-    ])
-      .then(([tmResponse, glossaryResponse]) => {
-        setTms(tmResponse?.docs ?? []);
-        setGlossaries(glossaryResponse?.docs ?? []);
-      })
+    fetchProfileByIdRequest(project.profileId)
+      .then((response) =>
+        setProfileAssets({
+          tms: response?.profile?.tms ?? [],
+          glossaries: response?.profile?.glossaries ?? [],
+        }),
+      )
       .catch((error) => {
         console.error(error);
-        setTms([]);
-        setGlossaries([]);
+        setProfileAssets({ tms: [], glossaries: [] });
       })
       .finally(() => setLoadingAssets(false));
   };
@@ -117,6 +115,20 @@ const DocumentAdd = ({ project, refetch }) => {
       try {
         await form.validateFields(["src", "tgt"]);
       } catch {
+        return;
+      }
+      // A (new) pair resets the selection to its default: all of them.
+      setTmSelection(null);
+      setGlossarySelection(null);
+    }
+    if (currentStep === 1) {
+      // An empty list means "all of them" to DAAIT, so leaving none selected
+      // would silently apply everything: keep at least one.
+      if (
+        (matchingTms.length > 0 && tmIds.length === 0) ||
+        (matchingGlossaries.length > 0 && glossaryIds.length === 0)
+      ) {
+        message.warning(t("documents.add.selectAtLeastOne"));
         return;
       }
     }
@@ -137,13 +149,8 @@ const DocumentAdd = ({ project, refetch }) => {
       mt: "true",
       src,
       tgt,
-      inherit_profile: String(inheritProfile),
-      ...(inheritProfile
-        ? {}
-        : {
-            tm_ids: JSON.stringify(tmIds),
-            glossary_ids: JSON.stringify(glossaryIds),
-          }),
+      tm_ids: JSON.stringify(tmIds),
+      glossary_ids: JSON.stringify(glossaryIds),
     }),
     onChange(info) {
       if (info.file.status === "done") {
@@ -154,7 +161,12 @@ const DocumentAdd = ({ project, refetch }) => {
         setIsModalOpen(false);
         resetWizard();
       } else if (info.file.status === "error") {
-        message.error(t("documents.add.uploadError", { name: info.file.name }));
+        // Show the API reason when there is one (e.g. the profile does not
+        // match the language pair or no longer exists in DAAIT).
+        message.error(
+          info.file.response?.message ||
+            t("documents.add.uploadError", { name: info.file.name }),
+        );
       }
     },
     beforeUpload: (file) => {
@@ -190,6 +202,14 @@ const DocumentAdd = ({ project, refetch }) => {
               {t("documents.add.step1Subtitle")}
             </p>
           </div>
+          <Alert
+            className="mb-4"
+            type="info"
+            showIcon
+            message={t("documents.add.profileInfo", {
+              name: project?.profileName ?? "—",
+            })}
+          />
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <Form.Item
               label={t("documents.add.sourceLabel")}
@@ -232,65 +252,46 @@ const DocumentAdd = ({ project, refetch }) => {
     if (currentStep === 1) {
       return (
         <section className="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-sky-50/50 to-white p-5">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-600/80">
-                {t("documents.add.step2Eyebrow")}
-              </div>
-              <h3 className="mt-1 text-lg font-semibold text-slate-900">
-                {t("documents.add.step2Title")}
-              </h3>
-              <p className="mt-1 text-sm text-slate-500">
-                {t("documents.add.useProjectProfileHint")}
-              </p>
+          <div className="mb-4">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-600/80">
+              {t("documents.add.step2Eyebrow")}
             </div>
-            <Switch checked={inheritProfile} onChange={setInheritProfile} />
+            <h3 className="mt-1 text-lg font-semibold text-slate-900">
+              {t("documents.add.step2Title")}
+            </h3>
+            <p className="mt-1 text-sm text-slate-500">
+              {t("documents.add.useProjectProfileHint")}
+            </p>
           </div>
-
-          {!inheritProfile ? (
-            <>
-              <Form.Item label={t("documents.add.matchingTms")}>
-                <Select
-                  mode="multiple"
-                  size="large"
-                  loading={loadingAssets}
-                  placeholder={t("documents.add.selectTms")}
-                  notFoundContent={
-                    filteredTms.length === 0
-                      ? t("documents.add.noMatchingTms")
-                      : undefined
-                  }
-                  optionFilterProp="label"
-                  value={tmIds}
-                  onChange={setTmIds}
-                  options={filteredTms.map((tm) => ({
-                    value: tm.id,
-                    label: tm.name,
-                  }))}
-                />
-              </Form.Item>
-              <Form.Item label={t("documents.add.matchingGlossaries")}>
-                <Select
-                  mode="multiple"
-                  size="large"
-                  loading={loadingAssets}
-                  placeholder={t("documents.add.selectGlossaries")}
-                  notFoundContent={
-                    filteredGlossaries.length === 0
-                      ? t("documents.add.noMatchingGlossaries")
-                      : undefined
-                  }
-                  optionFilterProp="label"
-                  value={glossaryIds}
-                  onChange={setGlossaryIds}
-                  options={filteredGlossaries.map((glossary) => ({
-                    value: glossary.id,
-                    label: glossary.name,
-                  }))}
-                />
-              </Form.Item>
-            </>
-          ) : null}
+          <Form.Item label={t("documents.add.matchingTms")}>
+            <Select
+              mode="multiple"
+              size="large"
+              loading={loadingAssets}
+              placeholder={t("documents.add.selectTms")}
+              notFoundContent={t("documents.add.noMatchingTms")}
+              optionFilterProp="label"
+              value={tmIds}
+              onChange={setTmSelection}
+              options={matchingTms.map((tm) => ({ value: tm.id, label: tm.name }))}
+            />
+          </Form.Item>
+          <Form.Item label={t("documents.add.matchingGlossaries")}>
+            <Select
+              mode="multiple"
+              size="large"
+              loading={loadingAssets}
+              placeholder={t("documents.add.selectGlossaries")}
+              notFoundContent={t("documents.add.noMatchingGlossaries")}
+              optionFilterProp="label"
+              value={glossaryIds}
+              onChange={setGlossarySelection}
+              options={matchingGlossaries.map((glossary) => ({
+                value: glossary.id,
+                label: glossary.name,
+              }))}
+            />
+          </Form.Item>
         </section>
       );
     }
@@ -321,18 +322,22 @@ const DocumentAdd = ({ project, refetch }) => {
 
   return (
     <>
-      <Button
-        icon={<Plus size={15} />}
-        type="primary"
-        onClick={showModal}
-        className="shadow-sm"
-        style={{
-          background: "var(--brand-gradient)",
-          border: 0,
-        }}
-      >
-        {t("documents.add.trigger")}
-      </Button>
+      <Tooltip title={hasProfile ? undefined : t("documents.add.profileRequired")}>
+        <Button
+          icon={<Plus size={15} />}
+          type="primary"
+          onClick={showModal}
+          disabled={!hasProfile}
+          className="shadow-sm"
+          style={
+            hasProfile
+              ? { background: "var(--brand-gradient)", border: 0 }
+              : undefined
+          }
+        >
+          {t("documents.add.trigger")}
+        </Button>
+      </Tooltip>
       <Modal
         title={t("documents.add.modalTitle")}
         open={isModalOpen}

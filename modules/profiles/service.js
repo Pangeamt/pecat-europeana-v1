@@ -5,6 +5,7 @@ import {
   createProfile,
   findProfileById,
   findProfileByIdBasic,
+  findActiveProjectsUsingProfile,
   findProfiles,
   findGlossaryAssetsInWorkspace,
   findTmAssetsInWorkspace,
@@ -336,6 +337,19 @@ export async function listPresetsService(actorUser) {
 export async function deleteProfileService(id, actorUser) {
   assertWorkspaceAssetAccess(actorUser);
   await assertProfileInWorkspace(id, actorUser);
+
+  // A profile in use is not deleted (it stays in the list): the projects
+  // using it must unassign it or switch to another profile first.
+  const projects = await findActiveProjectsUsingProfile(id);
+  if (projects.length > 0) {
+    const names = projects.slice(0, 5).map((project) => `"${project.name}"`);
+    const more = projects.length > 5 ? ` and ${projects.length - 5} more` : "";
+    throw new HttpError(
+      409,
+      `The profile is used by ${projects.length} project(s): ${names.join(", ")}${more}. Unassign it from them first.`,
+      "PROFILE_IN_USE",
+    );
+  }
   await softDeleteProfileRecord(id);
 
   // A missing mirror (pre-mirror profile) is fine; anything else must

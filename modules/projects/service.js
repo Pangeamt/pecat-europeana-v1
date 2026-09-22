@@ -99,15 +99,14 @@ export async function createProjectService(payload, actorUser) {
     throw new HttpError(400, "A workspace is required to create a project");
   }
 
-  if (payload.profileId) {
-    await assertProfileUsableInWorkspace(payload.profileId, workspaceId);
-  }
+  // Required by the schema: documents are always translated with a profile.
+  await assertProfileUsableInWorkspace(payload.profileId, workspaceId);
 
   const pipelinePatch = pipelineSettingsPatch(payload);
   const record = await createProject({
     name: payload.name,
     description: optionalText(payload.description),
-    profileId: payload.profileId ?? null,
+    profileId: payload.profileId,
     settings: Object.keys(pipelinePatch).length > 0 ? pipelinePatch : undefined,
     createdByUserId: actorUser.id,
     workspaceId,
@@ -146,8 +145,9 @@ export async function updateProjectService(projectId, payload, actorUser) {
   }
   if (payload.profileId !== undefined) {
     if (payload.profileId === null) {
-      // Explicit detach: allowed (documents fall back to manual TM/glossary
-      // selection and the LLM review stage skips itself without a profile).
+      // Explicit detach: allowed. The project keeps its documents, but the
+      // upload rejects new ones (409 PROFILE_REQUIRED) until a profile is
+      // assigned again — nothing is ever translated without a profile.
       data.profileId = null;
     } else {
       await assertProfileUsableInWorkspace(

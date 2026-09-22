@@ -125,36 +125,37 @@ y revisar con los modelos del preajuste (cambian la calidad y el coste), y queda
 | P4 | Nivel del perfil (`task_level`) | ✅ PECAT-E deja de enviarlo, a DAAIT y en `/content/post_edit`, y se quita el selector de nivel del perfil. DAAIT aplica el suyo: MEDIUM por defecto o el que fije el preajuste. Los perfiles que ya existen en DAAIT conservan el nivel que tengan. Va en el commit 2. |
 | P5 | Acceso a vssrv05 y a qué MySQL apunta su `.env` | ⏳ Pendiente del usuario. |
 
-## 6. Propuesta pendiente — obligar a traducir siempre con perfil
+## 6. Commit 3 — Traducir siempre con perfil (implementado)
 
-Hoy PECAT-E traduce **sin perfil** en estos casos:
-1. **Proyecto sin perfil.** Es opcional desde el commit `3dd24e9` (2026-09-02); también los proyectos
-   "General" heredados.
-2. **Documento con selección manual** de TMs/glosarios (interruptor "usar perfil del proyecto" apagado).
-3. **Perfil antiguo con par fijo** que no coincide con el del documento.
-4. **DAAIT responde 404 al perfil** (espejo inexistente o perfil borrado): se reintenta sin perfil.
-5. **Se quita el perfil al editar el proyecto** (`profileId: null`).
+Decisión del usuario (2026-09-22): nada se traduce sin perfil; un perfil en uso **no se borra**; el proyecto
+**sí puede asignar y desasignar** su perfil; las memorias y glosarios del perfil se aplican **de forma
+selectiva, por defecto todos**.
 
-Sin perfil no hay juez LLM (se salta) ni evaluación en vivo, y no se aplican las instrucciones, la formalidad
-ni el preajuste.
+| Dónde | Comportamiento |
+|---|---|
+| Crear proyecto | Perfil obligatorio (API y formulario). |
+| Editar proyecto | Se puede cambiar o quitar el perfil. Sin perfil, aviso en el formulario: no admite documentos nuevos. |
+| Subir documento | 409 `PROFILE_REQUIRED` si el proyecto no tiene perfil (o está borrado); 409 `PROFILE_LANGUAGE_MISMATCH` si un perfil antiguo con par fijo no encaja; 409 `PROFILE_NOT_IN_DAAIT` si el espejo no existe en DAAIT (se arregla abriendo el perfil y guardándolo). Si DAAIT no responde, la subida sigue y el job reintenta. El botón de subir sale deshabilitado sin perfil. |
+| Paso 2 del asistente | TMs y glosarios **del perfil** para el par elegido, todos marcados por defecto; se pueden quitar, pero no dejar ninguno (para DAAIT, lista vacía = todos). `tm_ids`/`glossary_ids` restringen dentro del perfil; lo que no es del perfil se ignora. |
+| Traducción (job) | Siempre con el `profile_id` del proyecto. Si DAAIT dice que el perfil no existe → el job falla sin reintentar (ya no se traduce sin perfil). |
+| Borrar perfil | 409 `PROFILE_IN_USE` con los proyectos que lo usan; el perfil sigue en la lista. |
 
-**Cómo sería (opción recomendada):**
-- **Proyecto:** perfil obligatorio al crear; al editar se puede cambiar, pero no quitar.
-- **Subida:** siempre con el perfil del proyecto; desaparece la selección manual de TMs/glosarios. Con
-  perfil, DAAIT solo busca en los recursos adjuntos al perfil, así que una TM elegida a mano fuera del perfil
-  se ignoraría sin avisar.
-- **Proyecto sin perfil (antiguos):** la subida se rechaza con un 409 que dice "asigna un perfil al proyecto".
-- **Perfil que no encaja con el par o 404 en DAAIT:** error claro en vez de traducir sin perfil. Ante un 404,
-  antes de fallar se puede recrear el espejo del perfil a partir del registro local y reintentar.
-- **Borrar un perfil** que usa algún proyecto → 409.
+### ⚠️ Fallo de DAAIT con los glosarios (verificado en el código de 2.3.49)
+Qué hace cada endpoint con las listas de ids:
 
-**Qué afecta:**
-- Los proyectos que hoy no tienen perfil: hay que asignárselo antes de poder subir documentos. Hay que
-  contarlos en la BD.
-- Revierte a propósito el commit `3dd24e9`.
-- Cada workspace necesita al menos un perfil (y DAAIT disponible) antes de crear proyectos.
-- No afecta a los documentos ya traducidos, al editor ni a la exportación.
+| | Memorias | Glosarios |
+|---|---|---|
+| `/content/pecat` (traducción) | vacío = todas las del perfil; ids = solo esas | vacío = todos; **ids = ninguno** |
+| `/content/post_edit` (juez LLM) | vacío = todas; ids = solo esas | vacío = ninguno; ids = solo esos |
 
-Alternativas: (B) perfil obligatorio, pero la selección manual se queda limitada a un subconjunto de los
-recursos del perfil; (C) perfil por documento (elegible al subir, por defecto el del proyecto), lo que exige
-columna nueva y que el juez LLM use el perfil del documento.
+`pecat_service.py` llama al resolvedor con `use_all_glossaries = not glossary_ids`: con ids eso vale `False`
+y el resolvedor lo interpreta como "ninguno". El mismo error ya se arregló en `translation_service.py`
+(usa `None` en vez de `False`); el test `test_pecat_profile.py` no lo detecta porque simula el resolvedor.
+
+- **Consecuencia hasta ahora:** PECAT-E mandaba siempre los ids de los glosarios del perfil, así que **la
+  traducción automática nunca aplicaba los glosarios** (el juez LLM sí). Deducido del código; queda por
+  comprobarlo con documentos reales (`tus.glossaryInfo` vacío).
+- **Qué hace PECAT-E ahora:** si la selección cubre todos los glosarios del par, manda `[]` a
+  `/content/pecat` (DAAIT aplica todos, lo mismo que se eligió). Una selección parcial se manda tal cual y
+  **no aplicará glosarios en la traducción hasta que se corrija DAAIT** (una línea en
+  `pecat_service.py`: `use_all_glossaries=True if not data.glossary_ids else None`, más release).
