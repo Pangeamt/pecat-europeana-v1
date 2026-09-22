@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { requireAuthUser, toErrorResponse } from "@/modules/shared";
 import { importDocumentsService } from "@/modules/documents";
 
-// Multipart upload of one or more documents into a project. Besides file[],
-// src and tgt, it accepts inherit_profile ("true"/"false"), tm_threshold and
-// — only when not inheriting — tm_ids / tm_update_ids / glossary_ids.
+// Multipart upload of one or more documents into a project: file[], src,
+// tgt and mt. Documents always take the project's profile (and its TMs and
+// glossaries); a project without one answers 409 PROFILE_REQUIRED.
 export const POST = async (req, { params }) => {
   try {
     const { id } = await params;

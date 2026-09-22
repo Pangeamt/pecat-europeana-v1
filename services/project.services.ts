@@ -12,7 +12,6 @@ export interface Project {
   description?: string | null;
   profileId?: string | null;
   profileName?: string | null;
-  tmThreshold: number;
   pipeline?: ProjectPipelineSettings;
   createdAt: string;
   updatedAt: string;
@@ -31,7 +30,6 @@ export interface CreateProjectPayload {
   name: string;
   description?: string;
   profileId: string;
-  threshold?: number;
   /** Post-translation pipeline settings (stored in Project.settings). */
   mtqeThreshold?: number;
   llmJudge?: boolean;

@@ -1,6 +1,6 @@
 "use client";
 
-import { Switch, Table, Tag, Button, Tooltip } from "antd";
+import { Table, Tag, Button, Tooltip } from "antd";
 import PropTypes from "prop-types";
 import { Resizable } from "re-resizable";
 import { useRef, useState } from "react";
@@ -16,11 +16,9 @@ const MIN_TM_TOOL_HEIGHT = 120;
 const DEFAULT_TM_TOOL_HEIGHT = 150;
 const TM_TOOL_CHROME_HEIGHT = 72;
 
-const TmTool = ({
-  filteredTmInfo,
-  showUnderThreshold,
-  onShowUnderThresholdChange,
-}) => {
+// TM matches exactly as DAAIT returns them (all retrieved references, best
+// first, each with its similarity): PECAT-E applies no threshold of its own.
+const TmTool = ({ tmInfo }) => {
   const { t } = useTranslation();
   const [height, setHeight] = useState(DEFAULT_TM_TOOL_HEIGHT);
   const baseHeightRef = useRef(DEFAULT_TM_TOOL_HEIGHT);
@@ -115,16 +113,8 @@ const TmTool = ({
       }}
     >
       <div className="flex h-full min-h-0 flex-col overflow-hidden">
-        <div className="mb-2 flex shrink-0 items-center gap-2">
-          <Switch
-            checked={showUnderThreshold}
-            size="small"
-            onChange={onShowUnderThresholdChange}
-          />
-          <span className="text-xs text-gray-500">Under Threshold</span>
-        </div>
         <Table
-          dataSource={filteredTmInfo}
+          dataSource={tmInfo}
           columns={columns}
           rowKey={(record) =>
             `${record.source}::${record.target ?? ""}::${record.tm_score ?? ""}`
@@ -139,7 +129,7 @@ const TmTool = ({
 };
 
 TmTool.propTypes = {
-  filteredTmInfo: PropTypes.arrayOf(
+  tmInfo: PropTypes.arrayOf(
     PropTypes.shape({
       tm_item_id: PropTypes.string.isRequired,
       tm_score: PropTypes.number.isRequired,
@@ -149,8 +139,6 @@ TmTool.propTypes = {
       best: PropTypes.bool.isRequired,
     }),
   ).isRequired,
-  showUnderThreshold: PropTypes.bool.isRequired,
-  onShowUnderThresholdChange: PropTypes.func.isRequired,
 };
 
 export default TmTool;

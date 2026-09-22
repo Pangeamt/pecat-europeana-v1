@@ -4,6 +4,7 @@ export {
   createProfileService,
   updateProfileService,
   deleteProfileService,
+  listPresetsService,
 } from "./service";
 
 export {
