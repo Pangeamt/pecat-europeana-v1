@@ -286,16 +286,6 @@ const DocumentList = ({
         ),
     },
     {
-      title: "LLM",
-      key: "pipeline-llm",
-      width: 52,
-      align: "center",
-      render: (record) =>
-        record.deletedAt ? null : (
-          <PipelineStageCell document={record} stage="llm" />
-        ),
-    },
-    {
       title: t("documents.assign.translator"),
       key: "translator",
       width: 70,

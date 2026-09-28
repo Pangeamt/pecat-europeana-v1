@@ -6,7 +6,7 @@ import {
   toQeReferences,
 } from "../../lib/utils";
 import { postEditContent } from "../../lib/daait";
-import { enqueueMtqeV2, enqueueProjectImport } from "../../lib/queue";
+import { enqueueMtqeV2 } from "../../lib/queue";
 import { DOCUMENT_STATUS } from "../../lib/document-status";
 import {
   BLOCK_REASON,
@@ -149,13 +149,10 @@ export async function handleScoreMtqeJob({ projectId: documentId }) {
     data: { status: DOCUMENT_STATUS.READY },
   });
 
-  await enqueueProjectImport(PIPELINE_REVIEW_JOB, { projectId: documentId }).catch(
-    (error) =>
-      console.error(
-        `[pipeline] could not enqueue LLM review for ${documentId}:`,
-        error.message,
-      ),
-  );
+  // The automatic LLM judge stage (pipeline-review) is retired: the project
+  // no longer offers an MTQE threshold/judge/suggestion toggle, so nothing
+  // enqueues PIPELINE_REVIEW_JOB anymore. handleLlmReviewJob and friends stay
+  // in pipeline-service.js unused (no call site) rather than deleted.
 
   // The second QE score runs on its own Bull queue (MTQE_V2_QUEUE) so it
   // progresses and retries independently of the import pipeline — the
