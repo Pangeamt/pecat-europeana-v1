@@ -15,7 +15,7 @@ import {
 // Direct file import on purpose: the barrels of modules/projects and
 // modules/documents reference each other, so going through them here would
 // close an import cycle before the bindings are initialized.
-import { findProjectWithProfileForActor } from "../projects/repository";
+import { findProjectWithProfilesForActor } from "../projects/repository";
 import { Prisma } from "@prisma/client";
 import { UnrecoverableError } from "bullmq";
 import {
@@ -452,9 +452,10 @@ async function enqueueImportJobOrFail(jobName, data) {
 }
 
 // Resolves the effective TM/glossary configuration for a new document: by
-// default it inherits (materializes) the project profile's assets; with
+// default it inherits (materializes) the CHOSEN profile's assets (not
+// necessarily the project's default — see resolveChosenProfile); with
 // inherit_profile=false the wizard's manual selection is used instead.
-async function resolveDocumentAssets({ formData, project }) {
+async function resolveDocumentAssets({ formData, profile, project }) {
   const inheritProfile = formData.get("inherit_profile") !== "false";
   const tmThreshold = normalizeThreshold(
     formData.get("tm_threshold"),
@@ -462,10 +463,9 @@ async function resolveDocumentAssets({ formData, project }) {
   );
 
   if (inheritProfile) {
-    const profileTmIds =
-      project.profile?.profileTms?.map((link) => link.tmId) ?? [];
+    const profileTmIds = profile?.profileTms?.map((link) => link.tmId) ?? [];
     const profileGlossaryIds =
-      project.profile?.profileGlossaries?.map((link) => link.glossaryId) ?? [];
+      profile?.profileGlossaries?.map((link) => link.glossaryId) ?? [];
 
     // Profile assets were SUCCESS when attached, but one may be rebuilding
     // (re-import) right now — drop it rather than block the whole upload.
@@ -504,6 +504,30 @@ async function resolveDocumentAssets({ formData, project }) {
   };
 }
 
+// A project can have several assigned profiles (Project.profiles); the
+// upload wizard sends which one this batch uses via `profile_id`, falling
+// back to the project's default (isDefault=true, mirrors Project.profileId)
+// when omitted — every pre-multi-profile caller keeps working unchanged.
+function resolveChosenProfile(project, formData) {
+  const assigned = project.profiles ?? [];
+  const requestedId = formData.get("profile_id") || null;
+
+  if (requestedId) {
+    const entry = assigned.find((link) => link.profileId === requestedId);
+    if (!entry) {
+      throw new HttpError(
+        400,
+        "The selected profile is not assigned to this project",
+      );
+    }
+    return entry.profile;
+  }
+
+  const defaultEntry =
+    assigned.find((link) => link.isDefault) ?? assigned[0] ?? null;
+  return defaultEntry?.profile ?? null;
+}
+
 export async function importDocumentsService({
   formData,
   projectId,
@@ -513,7 +537,7 @@ export async function importDocumentsService({
   // already assigned to, it never creates new ones.
   assertWorkspaceAssetAccess(actorUser);
 
-  const project = await findProjectWithProfileForActor(projectId, actorUser);
+  const project = await findProjectWithProfilesForActor(projectId, actorUser);
   if (!project) {
     throw new HttpError(404, "Project not found");
   }
@@ -522,20 +546,21 @@ export async function importDocumentsService({
   const mt = formData.get("mt") === "true";
   const src = formData.get("src");
   const tgt = formData.get("tgt");
-  const assets = await resolveDocumentAssets({ formData, project });
+  const profile = resolveChosenProfile(project, formData);
+  const assets = await resolveDocumentAssets({ formData, profile, project });
 
   // The profile only travels to DAAIT when (a) the document inherits it (a
   // hand-picked selection outside the profile would be silently ignored) and
   // (b) its language pair matches the upload's — a wrong-direction profile
-  // makes DAAIT return the source untranslated.
+  // makes DAAIT return the source untranslated. Document.profileId itself is
+  // still recorded below regardless, for the live per-segment LLM evaluation
+  // to use later on.
   const profileUsable =
-    assets.inheritProfile &&
-    project.profile &&
-    profileMatchesLanguagePair(project.profile, src, tgt);
-  const effectiveProfileId = profileUsable ? (project.profileId ?? null) : null;
-  if (assets.inheritProfile && project.profile && !profileUsable) {
+    assets.inheritProfile && profile && profileMatchesLanguagePair(profile, src, tgt);
+  const effectiveProfileId = profileUsable ? (profile?.id ?? null) : null;
+  if (assets.inheritProfile && profile && !profileUsable) {
     console.warn(
-      `[import] profile ${project.profileId} pair (${project.profile.sourceLanguage ?? "?"}->${project.profile.targetLanguage ?? "?"}) does not match upload ${src}->${tgt}; translating without profile`,
+      `[import] profile ${profile.id} pair (${profile.sourceLanguage ?? "?"}->${profile.targetLanguage ?? "?"}) does not match upload ${src}->${tgt}; translating without profile`,
     );
   }
 
@@ -563,6 +588,7 @@ export async function importDocumentsService({
         userId: actorUser.id,
         workspaceId: project.workspaceId,
         projectId: project.id,
+        profileId: profile?.id ?? null,
         inheritProfile: assets.inheritProfile,
         filePath,
         mt,

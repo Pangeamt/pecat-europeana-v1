@@ -42,6 +42,12 @@ const DocumentAdd = ({ project, refetch }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [src, setSrc] = useState(null);
   const [tgt, setTgt] = useState(null);
+  const projectProfiles = project?.profiles ?? [];
+  const defaultProfileId =
+    projectProfiles.find((p) => p.isDefault)?.id ??
+    project?.profileId ??
+    null;
+  const [profileId, setProfileId] = useState(defaultProfileId);
   const [inheritProfile, setInheritProfile] = useState(true);
   const [tmIds, setTmIds] = useState([]);
   const [glossaryIds, setGlossaryIds] = useState([]);
@@ -84,6 +90,7 @@ const DocumentAdd = ({ project, refetch }) => {
     setCurrentStep(0);
     setSrc(null);
     setTgt(null);
+    setProfileId(defaultProfileId);
     setInheritProfile(true);
     setTmIds([]);
     setGlossaryIds([]);
@@ -141,6 +148,7 @@ const DocumentAdd = ({ project, refetch }) => {
       mt: "true",
       src,
       tgt,
+      profile_id: profileId ?? "",
       inherit_profile: String(inheritProfile),
       tm_threshold: threshold,
       ...(inheritProfile
@@ -175,7 +183,7 @@ const DocumentAdd = ({ project, refetch }) => {
       }
       return true;
     },
-    disabled: !src || !tgt,
+    disabled: !src || !tgt || (projectProfiles.length > 1 && !profileId),
   };
 
   const isLastStep = currentStep === WIZARD_STEPS.length - 1;
@@ -251,6 +259,27 @@ const DocumentAdd = ({ project, refetch }) => {
             </div>
             <Switch checked={inheritProfile} onChange={setInheritProfile} />
           </div>
+
+          {projectProfiles.length > 1 ? (
+            <Form.Item
+              label={t("documents.add.profileLabel")}
+              required
+              validateStatus={profileId ? "" : "error"}
+              help={profileId ? undefined : t("documents.add.profileRequired")}
+            >
+              <Select
+                size="large"
+                placeholder={t("documents.add.profilePlaceholder")}
+                optionFilterProp="label"
+                value={profileId ?? undefined}
+                onChange={setProfileId}
+                options={projectProfiles.map((p) => ({
+                  value: p.id,
+                  label: p.name,
+                }))}
+              />
+            </Form.Item>
+          ) : null}
 
           {!inheritProfile ? (
             <>

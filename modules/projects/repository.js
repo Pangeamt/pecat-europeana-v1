@@ -5,6 +5,14 @@ const projectInclude = {
   profile: {
     select: { id: true, name: true },
   },
+  // Every profile assigned to the project (superset containing `profile`,
+  // the default) — lets the UI multi-select and the upload wizard's picker
+  // show the full set.
+  profiles: {
+    include: {
+      profile: { select: { id: true, name: true } },
+    },
+  },
 };
 
 // ADMIN/SUPER see every project in scope (workspace / global). USER only
@@ -45,24 +53,30 @@ export async function findProjectForActor(projectId, actorUser) {
   return prisma.project.findFirst({ where, include: projectInclude });
 }
 
-// Used by the document import: resolves the profile's TMs/glossaries so they
-// can be materialized on the new document when it inherits the profile.
-export async function findProjectWithProfileForActor(projectId, actorUser) {
+// Used by the document import: the project's full assigned-profile set, each
+// with its TMs/glossaries resolved, so the caller can validate a per-upload
+// profile choice and materialize THAT profile's assets (not necessarily the
+// project's default).
+export async function findProjectWithProfilesForActor(projectId, actorUser) {
   if (!projectId) return null;
   const where = buildProjectScopeWhere(actorUser, { id: projectId });
 
   return prisma.project.findFirst({
     where,
     include: {
-      profile: {
+      profiles: {
         include: {
-          profileTms: {
-            where: { tm: { deletedAt: null } },
-            select: { tmId: true },
-          },
-          profileGlossaries: {
-            where: { glossary: { deletedAt: null } },
-            select: { glossaryId: true },
+          profile: {
+            include: {
+              profileTms: {
+                where: { tm: { deletedAt: null } },
+                select: { tmId: true },
+              },
+              profileGlossaries: {
+                where: { glossary: { deletedAt: null } },
+                select: { glossaryId: true },
+              },
+            },
           },
         },
       },
