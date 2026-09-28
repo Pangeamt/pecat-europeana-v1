@@ -22,12 +22,21 @@ function optionalText(value) {
 
 function toProjectDoc(record) {
   if (!record) return null;
+  const profiles = (record.profiles ?? []).map((entry) => ({
+    id: entry.profileId,
+    name: entry.profile?.name ?? null,
+    isDefault: entry.isDefault,
+  }));
   return {
     id: record.id,
     name: record.name,
     description: record.description,
     profileId: record.profileId,
     profileName: record.profile?.name ?? record.profileName ?? null,
+    // Full assigned-profile set (superset containing profileId); documents
+    // pick one of these at upload time.
+    profiles,
+    profileIds: profiles.length > 0 ? profiles.map((p) => p.id) : record.profileId ? [record.profileId] : [],
     // Post-translation pipeline settings with defaults applied.
     pipeline: resolvePipelineSettings(record.settings),
     workspaceId: record.workspaceId,
@@ -60,6 +69,52 @@ async function assertProfileUsableInWorkspace(profileId, workspaceId) {
     );
   }
   return profile;
+}
+
+async function assertProfilesUsableInWorkspace(profileIds, workspaceId) {
+  await Promise.all(
+    profileIds.map((id) => assertProfileUsableInWorkspace(id, workspaceId)),
+  );
+}
+
+// profileId (the default, may be null/undefined) plus the extra profileIds
+// the payload sent, deduplicated. Building this in one place keeps "default
+// is always part of the assigned set" true everywhere it matters.
+function resolveProfileSet(profileId, profileIds) {
+  const extra = Array.isArray(profileIds) ? profileIds : [];
+  const all = profileId ? [profileId, ...extra] : extra;
+  return [...new Set(all.filter(Boolean))];
+}
+
+// Nested-write shape for Project.profiles on a CREATE.
+function profilesCreateWrite(defaultProfileId, allProfileIds) {
+  if (allProfileIds.length === 0) return undefined;
+  return {
+    createMany: {
+      data: allProfileIds.map((id) => ({
+        profileId: id,
+        isDefault: id === defaultProfileId,
+      })),
+    },
+  };
+}
+
+// Nested-write shape for Project.profiles on an UPDATE: full replacement of
+// the assigned set (the multi-select always sends the complete selection).
+function profilesUpdateWrite(defaultProfileId, allProfileIds) {
+  return {
+    deleteMany: {},
+    ...(allProfileIds.length > 0
+      ? {
+          createMany: {
+            data: allProfileIds.map((id) => ({
+              profileId: id,
+              isDefault: id === defaultProfileId,
+            })),
+          },
+        }
+      : {}),
+  };
 }
 
 export async function listProjectsService(actorUser) {
@@ -100,7 +155,8 @@ export async function createProjectService(payload, actorUser) {
   }
 
   // Required by the schema: documents are always translated with a profile.
-  await assertProfileUsableInWorkspace(payload.profileId, workspaceId);
+  const allProfileIds = resolveProfileSet(payload.profileId, payload.profileIds);
+  await assertProfilesUsableInWorkspace(allProfileIds, workspaceId);
 
   const pipelinePatch = pipelineSettingsPatch(payload);
   const record = await createProject({
@@ -110,6 +166,7 @@ export async function createProjectService(payload, actorUser) {
     settings: Object.keys(pipelinePatch).length > 0 ? pipelinePatch : undefined,
     createdByUserId: actorUser.id,
     workspaceId,
+    profiles: profilesCreateWrite(payload.profileId ?? null, allProfileIds),
   });
 
   return toProjectDoc(record);
@@ -143,19 +200,21 @@ export async function updateProjectService(projectId, payload, actorUser) {
   if (payload.description !== undefined) {
     data.description = optionalText(payload.description);
   }
-  if (payload.profileId !== undefined) {
-    if (payload.profileId === null) {
-      // Explicit detach: allowed. The project keeps its documents, but the
-      // upload rejects new ones (409 PROFILE_REQUIRED) until a profile is
-      // assigned again — nothing is ever translated without a profile.
-      data.profileId = null;
-    } else {
-      await assertProfileUsableInWorkspace(
-        payload.profileId,
-        existing.workspaceId,
-      );
-      data.profileId = payload.profileId;
+  if (payload.profileId !== undefined || payload.profileIds !== undefined) {
+    // Full replacement: the default (profileId, may be explicitly null to
+    // detach — the project keeps its documents, but the upload rejects new
+    // ones with 409 PROFILE_REQUIRED until a profile is assigned again;
+    // nothing is ever translated without one) plus whatever extra
+    // profileIds were sent — falls back to the project's current default
+    // when only profileIds changed.
+    const nextDefault =
+      payload.profileId !== undefined ? payload.profileId : existing.profileId;
+    const allProfileIds = resolveProfileSet(nextDefault, payload.profileIds);
+    if (allProfileIds.length > 0) {
+      await assertProfilesUsableInWorkspace(allProfileIds, existing.workspaceId);
     }
+    data.profileId = nextDefault ?? null;
+    data.profiles = profilesUpdateWrite(nextDefault ?? null, allProfileIds);
   }
   const pipelinePatch = pipelineSettingsPatch(payload);
   if (Object.keys(pipelinePatch).length > 0) {

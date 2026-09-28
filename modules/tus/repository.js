@@ -31,7 +31,8 @@ export async function findTuById(id) {
 }
 
 // Everything the live draft evaluation needs to call DAAIT for a document:
-// the project profile + pipeline settings and the document's asset links.
+// the document's OWN profile (chosen at upload time, independent of the
+// project's default) and its asset links.
 export async function findDocumentPipelineContext(documentId) {
   return prisma.document.findUnique({
     where: { id: documentId },
@@ -39,13 +40,8 @@ export async function findDocumentPipelineContext(documentId) {
       workspaceId: true,
       sourceLanguage: true,
       targetLanguage: true,
-      project: {
-        select: {
-          profileId: true,
-          settings: true,
-          profile: { select: { sourceLanguage: true, targetLanguage: true } },
-        },
-      },
+      profileId: true,
+      profile: { select: { sourceLanguage: true, targetLanguage: true } },
       documentTms: { select: { tmId: true } },
       documentGlossaries: { select: { glossaryId: true } },
     },

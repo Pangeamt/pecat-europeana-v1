@@ -5,7 +5,6 @@ import {
   BLOCK_REASON,
   SUGGESTION_STATUS,
   profileMatchesLanguagePair,
-  resolvePipelineSettings,
 } from "../documents/pipeline-constants";
 import { reviewDraftSegment } from "../documents/pipeline-service";
 import {
@@ -234,9 +233,11 @@ async function applyTuStatusUpdate(tu, payload, reviewer = null) {
 }
 
 // Live draft evaluation: the editor calls this when the reviewer pauses
-// typing. Returns a fresh MTQE score and — when the project has a profile
-// with the LLM judge enabled — a fresh LLM verdict/suggestion for the draft.
-// NOTHING is persisted: the stored score/suggestion only change on confirm.
+// typing. Returns a fresh MTQE score and — when the document has a profile
+// (chosen at upload time) whose language pair matches — a fresh LLM
+// verdict/suggestion for the draft. Always on, on demand, per segment; no
+// project-level switch. NOTHING is persisted: the stored score/suggestion
+// only change on confirm.
 async function evaluateTuDraft(tu, documentId, target) {
   const text = typeof target === "string" ? target.trim() : "";
   if (!text) {
@@ -244,14 +245,13 @@ async function evaluateTuDraft(tu, documentId, target) {
   }
 
   const context = await findDocumentPipelineContext(documentId);
-  const settings = resolvePipelineSettings(context?.project?.settings);
-  const profileId = context?.project?.profileId;
+  const profileId = context?.profileId;
   // A wrong-direction profile makes DAAIT echo the source back — skip the
   // LLM part entirely (MTQE still runs).
   const profilePairOk =
     profileId &&
     profileMatchesLanguagePair(
-      context?.project?.profile,
+      context?.profile,
       context?.sourceLanguage,
       context?.targetLanguage,
     );
@@ -259,7 +259,7 @@ async function evaluateTuDraft(tu, documentId, target) {
   const [score, review] = await Promise.all([
     rescoreReviewedPair(tu, target),
     (async () => {
-      if (!profileId || !settings.llmJudge || !profilePairOk) return null;
+      if (!profileId || !profilePairOk) return null;
       try {
         return await reviewDraftSegment({
           source: tu.srcLiteral,
@@ -286,7 +286,7 @@ async function evaluateTuDraft(tu, documentId, target) {
   return {
     score,
     verdict: review?.verdict ?? null,
-    suggestion: settings.llmSuggest ? (review?.suggestion ?? null) : null,
+    suggestion: review?.suggestion ?? null,
     meta: review?.meta ?? null,
     daaitStatus: review?.daaitStatus ?? null,
   };

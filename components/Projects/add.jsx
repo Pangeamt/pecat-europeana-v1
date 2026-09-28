@@ -3,11 +3,8 @@ import {
   Button,
   Form,
   Input,
-  InputNumber,
   Select,
-  Slider,
   Steps,
-  Switch,
   message,
 } from "antd";
 import { useCallback, useEffect, useState } from "react";
@@ -65,13 +62,13 @@ export default function CreateProjectForm({ user, onBack, onCreated }) {
         content: t("projects.create.creating"),
         key: "add-project",
       });
+      const profileIds = values.profileIds ?? [];
       await createProjectRequest({
         name: values.name,
         description: values.description,
-        profileId: values.profileId,
-        mtqeThreshold: values.mtqeThreshold,
-        llmJudge: values.llmJudge,
-        llmSuggest: values.llmSuggest,
+        // The first one picked becomes the project's default profile.
+        profileId: profileIds[0] ?? null,
+        profileIds,
       });
       await onCreated?.();
       form.resetFields();
@@ -103,15 +100,7 @@ export default function CreateProjectForm({ user, onBack, onCreated }) {
   return (
     <>
       {contextHolder}
-      <Form
-        form={form}
-        layout="vertical"
-        initialValues={{
-          mtqeThreshold: 0.85,
-          llmJudge: true,
-          llmSuggest: true,
-        }}
-      >
+      <Form form={form} layout="vertical">
         <div className="space-y-3">
           <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
             <Steps
@@ -155,12 +144,14 @@ export default function CreateProjectForm({ user, onBack, onCreated }) {
           >
             <Form.Item
               label={t("projects.create.profileLabel")}
-              name="profileId"
+              name="profileIds"
+              tooltip={t("projects.create.profileMultiHint")}
               rules={[
                 { required: true, message: t("projects.create.profileRequired") },
               ]}
             >
               <Select
+                mode="multiple"
                 showSearch
                 loading={loadingProfiles}
                 placeholder={t("projects.create.profilePlaceholder")}
@@ -176,51 +167,6 @@ export default function CreateProjectForm({ user, onBack, onCreated }) {
                 }))}
               />
             </Form.Item>
-            <Form.Item
-              label={t("projects.create.mtqeThresholdLabel")}
-              name="mtqeThreshold"
-              tooltip={t("projects.create.mtqeThresholdHint")}
-            >
-              <div className="flex items-center gap-3">
-                <Slider
-                  className="flex-1"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={Form.useWatch("mtqeThreshold", form)}
-                  onChange={(value) =>
-                    form.setFieldsValue({ mtqeThreshold: value })
-                  }
-                />
-                <InputNumber
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={Form.useWatch("mtqeThreshold", form)}
-                  onChange={(value) =>
-                    form.setFieldsValue({ mtqeThreshold: value })
-                  }
-                />
-              </div>
-            </Form.Item>
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-              <Form.Item
-                label={t("projects.create.llmJudgeLabel")}
-                name="llmJudge"
-                valuePropName="checked"
-                tooltip={t("projects.create.llmJudgeHint")}
-              >
-                <Switch />
-              </Form.Item>
-              <Form.Item
-                label={t("projects.create.llmSuggestLabel")}
-                name="llmSuggest"
-                valuePropName="checked"
-                tooltip={t("projects.create.llmSuggestHint")}
-              >
-                <Switch disabled={Form.useWatch("llmJudge", form) === false} />
-              </Form.Item>
-            </div>
           </section>
 
           <div className="flex justify-end gap-2">

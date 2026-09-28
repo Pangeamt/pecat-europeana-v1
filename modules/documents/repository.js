@@ -17,6 +17,8 @@ export async function findDocuments(where) {
       sourceLanguage: true,
       targetLanguage: true,
       projectId: true,
+      profileId: true,
+      profile: { select: { name: true } },
       inheritProfile: true,
       translatorId: true,
       reviewerId: true,

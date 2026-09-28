@@ -2,11 +2,8 @@
 import {
   Form,
   Input,
-  InputNumber,
   Modal,
   Select,
-  Slider,
-  Switch,
   message,
 } from "antd";
 import { useEffect, useState } from "react";
@@ -23,9 +20,7 @@ export default function EditProjectModal({ open, project, onClose, onSaved }) {
   const [profiles, setProfiles] = useState([]);
   const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [saving, setSaving] = useState(false);
-  const profileIdValue = Form.useWatch("profileId", form);
-  const mtqeThresholdValue = Form.useWatch("mtqeThreshold", form);
-  const llmJudgeValue = Form.useWatch("llmJudge", form);
+  const profileIdsValue = Form.useWatch("profileIds", form);
 
   useEffect(() => {
     if (!open || !user?.workspaceId) return;
@@ -41,10 +36,8 @@ export default function EditProjectModal({ open, project, onClose, onSaved }) {
     form.setFieldsValue({
       name: project.name,
       description: project.description ?? "",
-      profileId: project.profileId ?? undefined,
-      mtqeThreshold: project.pipeline?.mtqeThreshold ?? 0.85,
-      llmJudge: project.pipeline?.llmJudge ?? true,
-      llmSuggest: project.pipeline?.llmSuggest ?? true,
+      profileIds:
+        project.profileIds ?? (project.profileId ? [project.profileId] : []),
     });
   }, [open, project, form]);
 
@@ -52,11 +45,14 @@ export default function EditProjectModal({ open, project, onClose, onSaved }) {
     try {
       const values = await form.validateFields();
       setSaving(true);
-      // Clearing the Select leaves undefined; the API wants an explicit null
-      // to detach the profile (undefined = "leave as is").
+      const profileIds = values.profileIds ?? [];
+      // Clearing the Select leaves an empty array; the API wants an explicit
+      // null to detach the default profile (undefined = "leave as is").
       await updateProjectRequest(project.id, {
         ...values,
-        profileId: values.profileId ?? null,
+        // The first one picked becomes the project's default profile.
+        profileId: profileIds[0] ?? null,
+        profileIds,
       });
       message.success(t("projects.messages.updated"));
       onSaved?.();
@@ -92,11 +88,12 @@ export default function EditProjectModal({ open, project, onClose, onSaved }) {
         </Form.Item>
         <Form.Item
           label={t("projects.create.profileLabel")}
-          name="profileId"
-          // The profile can be unassigned, but then no new document can be
-          // uploaded until one is assigned again.
+          name="profileIds"
+          tooltip={t("projects.create.profileMultiHint")}
+          // The project can be left without profiles, but then no new
+          // document can be uploaded until at least one is assigned again.
           extra={
-            profileIdValue ? undefined : (
+            profileIdsValue?.length ? undefined : (
               <span className="text-amber-600">
                 {t("projects.create.profileEmptyWarning")}
               </span>
@@ -104,6 +101,7 @@ export default function EditProjectModal({ open, project, onClose, onSaved }) {
           }
         >
           <Select
+            mode="multiple"
             showSearch
             allowClear
             loading={loadingProfiles}
@@ -121,49 +119,6 @@ export default function EditProjectModal({ open, project, onClose, onSaved }) {
         >
           <Input.TextArea rows={2} />
         </Form.Item>
-        <Form.Item
-          label={t("projects.create.mtqeThresholdLabel")}
-          name="mtqeThreshold"
-          tooltip={t("projects.create.mtqeThresholdHint")}
-        >
-          <div className="flex items-center gap-3">
-            <Slider
-              className="flex-1"
-              min={0}
-              max={1}
-              step={0.01}
-              value={mtqeThresholdValue}
-              onChange={(value) => form.setFieldsValue({ mtqeThreshold: value })}
-            />
-            <InputNumber
-              min={0}
-              max={1}
-              step={0.01}
-              value={mtqeThresholdValue}
-              onChange={(value) =>
-                form.setFieldsValue({ mtqeThreshold: value ?? 0 })
-              }
-            />
-          </div>
-        </Form.Item>
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-          <Form.Item
-            label={t("projects.create.llmJudgeLabel")}
-            name="llmJudge"
-            valuePropName="checked"
-            tooltip={t("projects.create.llmJudgeHint")}
-          >
-            <Switch />
-          </Form.Item>
-          <Form.Item
-            label={t("projects.create.llmSuggestLabel")}
-            name="llmSuggest"
-            valuePropName="checked"
-            tooltip={t("projects.create.llmSuggestHint")}
-          >
-            <Switch disabled={llmJudgeValue === false} />
-          </Form.Item>
-        </div>
       </Form>
     </Modal>
   );

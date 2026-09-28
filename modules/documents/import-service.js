@@ -15,7 +15,7 @@ import {
 // Direct file import on purpose: the barrels of modules/projects and
 // modules/documents reference each other, so going through them here would
 // close an import cycle before the bindings are initialized.
-import { findProjectWithProfileForActor } from "../projects/repository";
+import { findProjectWithProfilesForActor } from "../projects/repository";
 import { getProfileDaait } from "../profiles/daait-repository";
 import { Prisma } from "@prisma/client";
 import { UnrecoverableError } from "bullmq";
@@ -393,23 +393,23 @@ function parseIdList(formData, field) {
   return normalizeIds(ids);
 }
 
-// A document takes the TMs and glossaries of its project's profile (only the
-// ones DAAIT has ready), materialized at upload time. tm_ids/glossary_ids pick
-// which of them apply: absent = all of them (the default), [] = none. Ids
-// outside the profile are ignored. DAAIT /content/pecat (with a profile)
+// A document takes the TMs and glossaries of ITS profile (chosen below, not
+// necessarily the project's default — see resolveChosenProfileEntry), only
+// the ones DAAIT has ready, materialized at upload time. tm_ids/glossary_ids
+// pick which of them apply: absent = all of them (the default), [] = none.
+// Ids outside the profile are ignored. DAAIT /content/pecat (with a profile)
 // applies exactly the ids it receives — none for an empty list — so the
 // selection travels as is.
-async function resolveDocumentAssets(project, formData) {
-  const profileTmIds =
-    project.profile?.profileTms?.map((link) => link.tmId) ?? [];
+async function resolveDocumentAssets(profile, workspaceId, formData) {
+  const profileTmIds = profile?.profileTms?.map((link) => link.tmId) ?? [];
   const profileGlossaryIds =
-    project.profile?.profileGlossaries?.map((link) => link.glossaryId) ?? [];
+    profile?.profileGlossaries?.map((link) => link.glossaryId) ?? [];
 
   // Profile assets were SUCCESS when attached, but one may be rebuilding
   // (re-import) right now — drop it rather than block the whole upload.
   const [readyTmIds, readyGlossaryIds] = await Promise.all([
-    findValidTmIdsInWorkspace(profileTmIds, project.workspaceId),
-    findValidGlossaryIdsInWorkspace(profileGlossaryIds, project.workspaceId),
+    findValidTmIdsInWorkspace(profileTmIds, workspaceId),
+    findValidGlossaryIdsInWorkspace(profileGlossaryIds, workspaceId),
   ]);
 
   const pick = (ready, requested) =>
@@ -421,16 +421,39 @@ async function resolveDocumentAssets(project, formData) {
   };
 }
 
+// A project can have several assigned profiles (Project.profiles); the
+// upload wizard sends which one this batch uses via `profile_id`, falling
+// back to the project's default (isDefault=true, mirrors Project.profileId)
+// when omitted — every pre-multi-profile caller keeps working unchanged.
+function resolveChosenProfileEntry(project, formData) {
+  const assigned = project.profiles ?? [];
+  const requestedId = formData.get("profile_id") || null;
+
+  if (requestedId) {
+    const entry = assigned.find((link) => link.profileId === requestedId);
+    if (!entry) {
+      throw new HttpError(
+        400,
+        "The selected profile is not assigned to this project",
+      );
+    }
+    return entry;
+  }
+
+  return assigned.find((link) => link.isDefault) ?? assigned[0] ?? null;
+}
+
 const PROFILE_CHECK_TIMEOUT_MS = 10_000;
 
-// Documents are always translated with the project's profile — never without
-// it. Fail the upload with a clear reason instead of translating unprofiled:
-// no profile (or a deleted one), a legacy profile bound to another language
-// pair, or a profile whose DAAIT mirror no longer exists. A DAAIT outage is
-// not a reason to reject: the queued job retries the translation.
-async function resolveTranslationProfile(project, src, tgt) {
+// Documents are always translated with a profile — never without one. Fail
+// the upload with a clear reason instead of translating unprofiled: no
+// profile assigned/chosen (or a deleted one), a profile bound to another
+// language pair, or a profile whose DAAIT mirror no longer exists. A DAAIT
+// outage is not a reason to reject: the queued job retries the translation.
+async function resolveTranslationProfile(project, formData, src, tgt) {
+  const entry = resolveChosenProfileEntry(project, formData);
   const profile =
-    project.profile && !project.profile.deletedAt ? project.profile : null;
+    entry?.profile && !entry.profile.deletedAt ? entry.profile : null;
   if (!profile) {
     throw new HttpError(
       409,
@@ -472,7 +495,7 @@ export async function importDocumentsService({
   // already assigned to, it never creates new ones.
   assertWorkspaceAssetAccess(actorUser);
 
-  const project = await findProjectWithProfileForActor(projectId, actorUser);
+  const project = await findProjectWithProfilesForActor(projectId, actorUser);
   if (!project) {
     throw new HttpError(404, "Project not found");
   }
@@ -481,8 +504,16 @@ export async function importDocumentsService({
   const mt = formData.get("mt") === "true";
   const src = formData.get("src");
   const tgt = formData.get("tgt");
-  const profile = await resolveTranslationProfile(project, src, tgt);
-  const assets = await resolveDocumentAssets(project, formData);
+  // resolveTranslationProfile picks which of the project's assigned
+  // profiles this upload uses (formData "profile_id", defaulting to the
+  // project's default profile) and rejects the upload if it isn't usable —
+  // nothing is ever translated without a matching profile.
+  const profile = await resolveTranslationProfile(project, formData, src, tgt);
+  const assets = await resolveDocumentAssets(
+    profile,
+    project.workspaceId,
+    formData,
+  );
 
   if (files.length === 0) {
     throw new HttpError(400, "No file uploaded");
@@ -508,6 +539,7 @@ export async function importDocumentsService({
         userId: actorUser.id,
         workspaceId: project.workspaceId,
         projectId: project.id,
+        profileId: profile.id,
         filePath,
         mt,
         extension: fileExtension,

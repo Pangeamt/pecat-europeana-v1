@@ -53,9 +53,14 @@ const DocumentAdd = ({ project, refetch }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [src, setSrc] = useState(null);
   const [tgt, setTgt] = useState(null);
-  // Without a profile the project cannot receive documents (the API answers
-  // 409 PROFILE_REQUIRED): the upload stays disabled until one is assigned.
-  const hasProfile = Boolean(project?.profileId);
+  const projectProfiles = project?.profiles ?? [];
+  const defaultProfileId =
+    projectProfiles.find((p) => p.isDefault)?.id ?? project?.profileId ?? null;
+  const [profileId, setProfileId] = useState(defaultProfileId);
+  // Without a resolvable profile the project cannot receive documents (the
+  // API answers 409 PROFILE_REQUIRED): the upload stays disabled until one
+  // is assigned/chosen.
+  const hasProfile = Boolean(profileId);
   const [profileAssets, setProfileAssets] = useState({ tms: [], glossaries: [] });
   const [loadingAssets, setLoadingAssets] = useState(false);
   // null = untouched = every matching resource (the default); an array once
@@ -79,19 +84,13 @@ const DocumentAdd = ({ project, refetch }) => {
   const glossaryIds =
     glossarySelection ?? matchingGlossaries.map((glossary) => glossary.id);
 
-  const resetWizard = () => {
-    form.resetFields();
-    setCurrentStep(0);
-    setSrc(null);
-    setTgt(null);
-    setTmSelection(null);
-    setGlossarySelection(null);
-  };
-
-  const showModal = () => {
-    setIsModalOpen(true);
+  const loadProfileAssets = (id) => {
+    if (!id) {
+      setProfileAssets({ tms: [], glossaries: [] });
+      return;
+    }
     setLoadingAssets(true);
-    fetchProfileByIdRequest(project.profileId)
+    fetchProfileByIdRequest(id)
       .then((response) =>
         setProfileAssets({
           tms: response?.profile?.tms ?? [],
@@ -105,9 +104,33 @@ const DocumentAdd = ({ project, refetch }) => {
       .finally(() => setLoadingAssets(false));
   };
 
+  const resetWizard = () => {
+    form.resetFields();
+    setCurrentStep(0);
+    setSrc(null);
+    setTgt(null);
+    setProfileId(defaultProfileId);
+    setTmSelection(null);
+    setGlossarySelection(null);
+  };
+
+  const showModal = () => {
+    setIsModalOpen(true);
+    loadProfileAssets(defaultProfileId);
+  };
+
   const handleCancel = () => {
     setIsModalOpen(false);
     resetWizard();
+  };
+
+  // Re-fetches the chosen profile's own TMs/glossaries and resets the
+  // narrowed selection (it belonged to the previous profile's resources).
+  const handleProfileChange = (id) => {
+    setProfileId(id);
+    setTmSelection(null);
+    setGlossarySelection(null);
+    loadProfileAssets(id);
   };
 
   const goNext = async () => {
@@ -138,6 +161,7 @@ const DocumentAdd = ({ project, refetch }) => {
       mt: "true",
       src,
       tgt,
+      profile_id: profileId ?? "",
       tm_ids: JSON.stringify(tmIds),
       glossary_ids: JSON.stringify(glossaryIds),
     }),
@@ -171,7 +195,7 @@ const DocumentAdd = ({ project, refetch }) => {
       }
       return true;
     },
-    disabled: !src || !tgt,
+    disabled: !src || !tgt || !hasProfile,
   };
 
   const isLastStep = currentStep === WIZARD_STEPS.length - 1;
@@ -196,7 +220,10 @@ const DocumentAdd = ({ project, refetch }) => {
             type="info"
             showIcon
             message={t("documents.add.profileInfo", {
-              name: project?.profileName ?? "—",
+              name:
+                projectProfiles.find((p) => p.id === profileId)?.name ??
+                project?.profileName ??
+                "—",
             })}
           />
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -252,6 +279,29 @@ const DocumentAdd = ({ project, refetch }) => {
               {t("documents.add.useProjectProfileHint")}
             </p>
           </div>
+          {projectProfiles.length > 1 ? (
+            <Form.Item
+              label={t("documents.add.profileLabel")}
+              required
+              validateStatus={profileId ? "" : "error"}
+              help={
+                profileId ? undefined : t("documents.add.pickProfileRequired")
+              }
+            >
+              <Select
+                size="large"
+                placeholder={t("documents.add.profilePlaceholder")}
+                optionFilterProp="label"
+                value={profileId ?? undefined}
+                onChange={handleProfileChange}
+                options={projectProfiles.map((p) => ({
+                  value: p.id,
+                  label: p.name,
+                }))}
+              />
+            </Form.Item>
+          ) : null}
+
           <Form.Item label={t("documents.add.matchingTms")}>
             <Select
               mode="multiple"
