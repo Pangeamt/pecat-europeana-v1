@@ -129,7 +129,6 @@ export async function getProjectsWithStats(actorUser) {
            cp.name,
            cp.description,
            cp.profileId,
-           cp.tmThreshold,
            cp.settings,
            cp.createdAt,
            cp.updatedAt,
@@ -143,8 +142,8 @@ export async function getProjectsWithStats(actorUser) {
            ON d.clientProjectId = cp.id AND d.deletedAt IS NULL ${documentUserFilter}
     LEFT JOIN tus t ON t.projectId = d.id AND t.visible = 1
     WHERE cp.deletedAt IS NULL ${workspaceFilter} ${assignmentExistsFilter}
-    GROUP BY cp.id, cp.name, cp.description, cp.profileId, cp.tmThreshold,
-             cp.settings, cp.createdAt, cp.updatedAt, pr.name
+    GROUP BY cp.id, cp.name, cp.description, cp.profileId, cp.settings,
+             cp.createdAt, cp.updatedAt, pr.name
     ORDER BY cp.createdAt DESC
   `;
 

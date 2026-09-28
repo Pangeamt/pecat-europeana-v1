@@ -3,6 +3,8 @@ import {
   createProfile,
   deleteProfile,
   detachProfileResources,
+  getProfile,
+  listLlmPresets,
   updateProfile as updateProfileDaaitApi,
 } from "@/lib/daait";
 
@@ -19,7 +21,9 @@ function toDaaitProfilePayload(record) {
     domain: record.domain,
     source_language: record.sourceLanguage || undefined,
     target_language: record.targetLanguage || undefined,
-    task_level: record.taskLevel || undefined,
+    // Always the current value: null on a PATCH removes the preset in DAAIT;
+    // createProfile only sends it when set. task_level is never sent.
+    llm_preset: record.llmPreset ?? null,
     params_autope: record.llmModels
       ? { llm_models: record.llmModels }
       : undefined,
@@ -32,6 +36,14 @@ export async function createProfileDaait(record) {
 
 export async function deleteProfileDaait(id) {
   return deleteProfile(id);
+}
+
+export async function getProfileDaait(id, options) {
+  return getProfile(id, options);
+}
+
+export async function listLlmPresetsDaait() {
+  return listLlmPresets();
 }
 
 // Keep the mirror's attached resources equal to the profile's TMs+glossaries.

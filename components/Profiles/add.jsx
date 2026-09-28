@@ -5,16 +5,13 @@ import { useState } from "react";
 
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { fetchGlossariesRequest } from "@/services/glossary.services";
-import { addProfileRequest } from "@/services/profiles.services";
+import {
+  addProfileRequest,
+  listDaaitPresetsRequest,
+} from "@/services/profiles.services";
 import { fetchTMRequest } from "@/services/tm.services";
 import { userStore } from "@/store";
 import { ArrowLeft, ArrowRight, Plus } from "lucide-react";
-
-const TASK_LEVEL_OPTIONS = [
-  { value: "BASIC", label: "Basic" },
-  { value: "MEDIUM", label: "Medium" },
-  { value: "ADVANCED", label: "Advanced" },
-];
 
 const WIZARD_STEPS = [
   {
@@ -52,6 +49,10 @@ const ProfileAdd = ({ refetch }) => {
   const [loadingAssets, setLoadingAssets] = useState(false);
   const [tms, setTms] = useState([]);
   const [glossaries, setGlossaries] = useState([]);
+  // DAAIT quality presets (GET /api/profiles/presets): the profile only
+  // stores the chosen name; DAAIT applies models, batching and level.
+  const [presets, setPresets] = useState([]);
+  const [loadingPresets, setLoadingPresets] = useState(false);
   const { user } = userStore();
 
   const name = Form.useWatch("name", form);
@@ -80,6 +81,15 @@ const ProfileAdd = ({ refetch }) => {
 
   const showModal = () => {
     setIsModalOpen(true);
+
+    setLoadingPresets(true);
+    listDaaitPresetsRequest()
+      .then((response) => setPresets(response?.presets ?? []))
+      .catch((error) => {
+        console.error(error);
+        setPresets([]);
+      })
+      .finally(() => setLoadingPresets(false));
 
     // The profile is always created in the user's own workspace, so only
     // that workspace's assets are selectable — and only DAAIT-ready ones
@@ -142,7 +152,7 @@ const ProfileAdd = ({ refetch }) => {
         formality: values.formality,
         instructions: values.instructions,
         domain: values.domain,
-        taskLevel: values.taskLevel,
+        llmPreset: values.llmPreset ?? null,
         tmIds: values.tmIds ?? [],
         glossaryIds: values.glossaryIds ?? [],
       });
@@ -319,12 +329,21 @@ const ProfileAdd = ({ refetch }) => {
                 <Select size="large" options={formalityOptions} />
               </Form.Item>
               <Form.Item
-                label={t("profiles.form.taskLevelLabel")}
-                name="taskLevel"
-                initialValue="MEDIUM"
-                tooltip={t("profiles.form.taskLevelHint")}
+                label={t("profiles.form.presetLabel")}
+                name="llmPreset"
+                tooltip={t("profiles.form.presetHint")}
               >
-                <Select size="large" options={TASK_LEVEL_OPTIONS} />
+                <Select
+                  size="large"
+                  allowClear
+                  loading={loadingPresets}
+                  placeholder={t("profiles.form.presetPlaceholder")}
+                  options={presets.map((preset) => ({
+                    value: preset.name,
+                    label: preset.name,
+                    title: preset.description ?? preset.name,
+                  }))}
+                />
               </Form.Item>
             </div>
             <Form.Item

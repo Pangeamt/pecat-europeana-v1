@@ -103,7 +103,6 @@ const TusList = ({ shareToken } = {}) => {
   const projectId = shareToken ? null : routeProjectId;
   const [data, setData] = useState([]);
   const [projectConfig, setProjectConfig] = useState(null);
-  const [showUnderThreshold, setShowUnderThreshold] = useState(false);
 
   // QE score filter: one rule per metric — [QE v1 op+slider] AND/OR
   // [QE v2 op+slider] — applied only when the user confirms it ("Apply").
@@ -268,8 +267,6 @@ const TusList = ({ shareToken } = {}) => {
     return newStats;
   })();
 
-  const tmThreshold = projectConfig?.tmThreshold ?? 0;
-
   // ----- Submission locks -------------------------------------------------
   // The share link IS the translator; in session mode roles come from the
   // document's assignments. PM = ADMIN/SUPER, never locked out.
@@ -391,11 +388,11 @@ const TusList = ({ shareToken } = {}) => {
     return ordered.length ? ordered : tableData;
   }, [tableData, viewOrderIds]);
 
-  const filteredTmInfo = useMemo(() => {
-    const info = selectedRow?.tmInfo ?? [];
-    if (showUnderThreshold) return info;
-    return info.filter((item) => item.tm_score >= tmThreshold);
-  }, [selectedRow?.tmInfo, showUnderThreshold, tmThreshold]);
+  // All TM matches DAAIT returned for the segment, unfiltered.
+  const tmInfo = useMemo(
+    () => (Array.isArray(selectedRow?.tmInfo) ? selectedRow.tmInfo : []),
+    [selectedRow?.tmInfo],
+  );
 
   const glossaryInfo = useMemo(() => {
     const info = selectedRow?.glossaryInfo;
@@ -1247,8 +1244,6 @@ const TusList = ({ shareToken } = {}) => {
           percentage={stats.porcent}
           requesting={requesting}
           totalSegments={data.length}
-          mode={projectConfig?.tmMode}
-          tmThreshold={projectConfig?.tmThreshold}
           projectId={shareToken ? undefined : projectId}
           parentProjectId={shareToken ? undefined : projectConfig?.projectId}
           projectTms={projectConfig?.tms}
@@ -1324,15 +1319,11 @@ const TusList = ({ shareToken } = {}) => {
               key: "2",
               label: (
                 <>
-                  <span>TMs</span> <Badge count={filteredTmInfo.length} />
+                  <span>TMs</span> <Badge count={tmInfo.length} />
                 </>
               ),
               children: (
-                <TmTool
-                  filteredTmInfo={filteredTmInfo}
-                  showUnderThreshold={showUnderThreshold}
-                  onShowUnderThresholdChange={setShowUnderThreshold}
-                />
+                <TmTool tmInfo={tmInfo} />
               ),
             },
             {

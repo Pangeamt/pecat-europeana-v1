@@ -5,6 +5,7 @@ import {
   createProfile,
   findProfileById,
   findProfileByIdBasic,
+  findActiveProjectsUsingProfile,
   findProfiles,
   findGlossaryAssetsInWorkspace,
   findTmAssetsInWorkspace,
@@ -15,6 +16,7 @@ import {
 import {
   createProfileDaait,
   deleteProfileDaait,
+  listLlmPresetsDaait,
   syncProfileDaait,
   syncProfileResourcesDaait,
 } from "./daait-repository";
@@ -38,8 +40,8 @@ function toProfileDoc(record) {
     domain: record.domain,
     sourceLanguage: record.sourceLanguage,
     targetLanguage: record.targetLanguage,
-    taskLevel: record.taskLevel,
     llmModels: record.llmModels,
+    llmPreset: record.llmPreset ?? null,
     workspaceId: record.workspaceId,
     createdByUserId: record.createdByUserId,
     createdBy: record.createdBy,
@@ -109,6 +111,33 @@ async function resolveAssetIds(tmIds, glossaryIds, workspaceId) {
   };
 }
 
+// Presets offered to (and accepted from) the profile form: active in DAAIT
+// and with every model registered. DAAIT ignores an inactive preset, so a
+// profile pointing to one would silently translate without it.
+async function listUsablePresets() {
+  const presets = await listLlmPresetsDaait();
+  return presets.filter((preset) => preset?.active && preset?.available);
+}
+
+// Validated BEFORE the local write: a PATCH rejected by DAAIT afterwards
+// would leave the local record already changed. DAAIT stores names
+// lower-cased, so the comparison ignores case and the canonical name wins.
+async function resolvePresetName(rawName) {
+  const name = optionalText(rawName);
+  if (!name) return null;
+  const match = (await listUsablePresets()).find(
+    (preset) => preset.name.toLowerCase() === name.toLowerCase(),
+  );
+  if (!match) {
+    throw new HttpError(
+      400,
+      `The DAAIT preset "${name}" does not exist or is not available`,
+      "PRESET_NOT_AVAILABLE",
+    );
+  }
+  return match.name;
+}
+
 export async function listProfilesService(query, actorUser) {
   assertWorkspaceAssetAccess(actorUser);
   const where = {};
@@ -154,6 +183,7 @@ export async function createProfileService(payload, actorUser) {
     payload.glossaryIds,
     workspaceId,
   );
+  const llmPreset = await resolvePresetName(payload.llmPreset);
 
   let record;
   try {
@@ -164,8 +194,8 @@ export async function createProfileService(payload, actorUser) {
         formality: payload.formality ?? "FORMAL",
         instructions: optionalText(payload.instructions),
         domain: optionalText(payload.domain),
-        taskLevel: payload.taskLevel ?? "MEDIUM",
         llmModels: payload.llmModels ?? null,
+        llmPreset,
         createdByUserId: actorUser.id,
         workspaceId,
       },
@@ -223,8 +253,9 @@ export async function updateProfileService(id, payload, actorUser) {
   if (payload.domain !== undefined) {
     data.domain = optionalText(payload.domain);
   }
-  if (payload.taskLevel !== undefined && payload.taskLevel !== null) {
-    data.taskLevel = payload.taskLevel;
+  if (payload.llmPreset !== undefined) {
+    // null/"" removes the preset (the mirror PATCH then sends llm_preset: null).
+    data.llmPreset = await resolvePresetName(payload.llmPreset);
   }
   if (payload.llmModels !== undefined) {
     data.llmModels = payload.llmModels;
@@ -294,9 +325,31 @@ export async function updateProfileService(id, payload, actorUser) {
   return toProfileDoc(record);
 }
 
+// DAAIT quality presets for the profile form (see listUsablePresets).
+export async function listPresetsService(actorUser) {
+  assertWorkspaceAssetAccess(actorUser);
+  return (await listUsablePresets()).map((preset) => ({
+    name: preset.name,
+    description: preset.description ?? null,
+  }));
+}
+
 export async function deleteProfileService(id, actorUser) {
   assertWorkspaceAssetAccess(actorUser);
   await assertProfileInWorkspace(id, actorUser);
+
+  // A profile in use is not deleted (it stays in the list): the projects
+  // using it must unassign it or switch to another profile first.
+  const projects = await findActiveProjectsUsingProfile(id);
+  if (projects.length > 0) {
+    const names = projects.slice(0, 5).map((project) => `"${project.name}"`);
+    const more = projects.length > 5 ? ` and ${projects.length - 5} more` : "";
+    throw new HttpError(
+      409,
+      `The profile is used by ${projects.length} project(s): ${names.join(", ")}${more}. Unassign it from them first.`,
+      "PROFILE_IN_USE",
+    );
+  }
   await softDeleteProfileRecord(id);
 
   // A missing mirror (pre-mirror profile) is fine; anything else must

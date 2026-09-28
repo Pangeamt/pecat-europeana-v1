@@ -3,9 +3,7 @@ import {
   Button,
   Form,
   Input,
-  InputNumber,
   Select,
-  Slider,
   Steps,
   message,
 } from "antd";
@@ -71,7 +69,6 @@ export default function CreateProjectForm({ user, onBack, onCreated }) {
         // The first one picked becomes the project's default profile.
         profileId: profileIds[0] ?? null,
         profileIds,
-        threshold: values.threshold,
       });
       await onCreated?.();
       form.resetFields();
@@ -103,13 +100,7 @@ export default function CreateProjectForm({ user, onBack, onCreated }) {
   return (
     <>
       {contextHolder}
-      <Form
-        form={form}
-        layout="vertical"
-        initialValues={{
-          threshold: 0.75,
-        }}
-      >
+      <Form form={form} layout="vertical">
         <div className="space-y-3">
           <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
             <Steps
@@ -155,11 +146,13 @@ export default function CreateProjectForm({ user, onBack, onCreated }) {
               label={t("projects.create.profileLabel")}
               name="profileIds"
               tooltip={t("projects.create.profileMultiHint")}
+              rules={[
+                { required: true, message: t("projects.create.profileRequired") },
+              ]}
             >
               <Select
                 mode="multiple"
                 showSearch
-                allowClear
                 loading={loadingProfiles}
                 placeholder={t("projects.create.profilePlaceholder")}
                 optionFilterProp="label"
@@ -173,28 +166,6 @@ export default function CreateProjectForm({ user, onBack, onCreated }) {
                   label: profile.name,
                 }))}
               />
-            </Form.Item>
-            <Form.Item
-              label={t("projects.create.thresholdLabel")}
-              name="threshold"
-            >
-              <div className="flex items-center gap-3">
-                <Slider
-                  className="flex-1"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={Form.useWatch("threshold", form)}
-                  onChange={(value) => form.setFieldsValue({ threshold: value })}
-                />
-                <InputNumber
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={Form.useWatch("threshold", form)}
-                  onChange={(value) => form.setFieldsValue({ threshold: value })}
-                />
-              </div>
             </Form.Item>
           </section>
 

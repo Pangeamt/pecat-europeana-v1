@@ -2,10 +2,8 @@
 import {
   Form,
   Input,
-  InputNumber,
   Modal,
   Select,
-  Slider,
   message,
 } from "antd";
 import { useEffect, useState } from "react";
@@ -22,7 +20,7 @@ export default function EditProjectModal({ open, project, onClose, onSaved }) {
   const [profiles, setProfiles] = useState([]);
   const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [saving, setSaving] = useState(false);
-  const thresholdValue = Form.useWatch("threshold", form);
+  const profileIdsValue = Form.useWatch("profileIds", form);
 
   useEffect(() => {
     if (!open || !user?.workspaceId) return;
@@ -40,7 +38,6 @@ export default function EditProjectModal({ open, project, onClose, onSaved }) {
       description: project.description ?? "",
       profileIds:
         project.profileIds ?? (project.profileId ? [project.profileId] : []),
-      threshold: project.tmThreshold ?? 0.75,
     });
   }, [open, project, form]);
 
@@ -93,6 +90,15 @@ export default function EditProjectModal({ open, project, onClose, onSaved }) {
           label={t("projects.create.profileLabel")}
           name="profileIds"
           tooltip={t("projects.create.profileMultiHint")}
+          // The project can be left without profiles, but then no new
+          // document can be uploaded until at least one is assigned again.
+          extra={
+            profileIdsValue?.length ? undefined : (
+              <span className="text-amber-600">
+                {t("projects.create.profileEmptyWarning")}
+              </span>
+            )
+          }
         >
           <Select
             mode="multiple"
@@ -112,25 +118,6 @@ export default function EditProjectModal({ open, project, onClose, onSaved }) {
           name="description"
         >
           <Input.TextArea rows={2} />
-        </Form.Item>
-        <Form.Item label={t("projects.create.thresholdLabel")} name="threshold">
-          <div className="flex items-center gap-3">
-            <Slider
-              className="flex-1"
-              min={0}
-              max={1}
-              step={0.01}
-              value={thresholdValue}
-              onChange={(value) => form.setFieldsValue({ threshold: value })}
-            />
-            <InputNumber
-              min={0}
-              max={1}
-              step={0.01}
-              value={thresholdValue}
-              onChange={(value) => form.setFieldsValue({ threshold: value ?? 0 })}
-            />
-          </div>
         </Form.Item>
       </Form>
     </Modal>

@@ -37,7 +37,6 @@ function toProjectDoc(record) {
     // pick one of these at upload time.
     profiles,
     profileIds: profiles.length > 0 ? profiles.map((p) => p.id) : record.profileId ? [record.profileId] : [],
-    tmThreshold: record.tmThreshold,
     // Post-translation pipeline settings with defaults applied.
     pipeline: resolvePipelineSettings(record.settings),
     workspaceId: record.workspaceId,
@@ -129,7 +128,6 @@ export async function listProjectsService(actorUser) {
       description: row.description,
       profileId: row.profileId,
       profileName: row.profileName,
-      tmThreshold: row.tmThreshold,
       pipeline: resolvePipelineSettings(row.settings),
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
@@ -156,17 +154,15 @@ export async function createProjectService(payload, actorUser) {
     throw new HttpError(400, "A workspace is required to create a project");
   }
 
+  // Required by the schema: documents are always translated with a profile.
   const allProfileIds = resolveProfileSet(payload.profileId, payload.profileIds);
-  if (allProfileIds.length > 0) {
-    await assertProfilesUsableInWorkspace(allProfileIds, workspaceId);
-  }
+  await assertProfilesUsableInWorkspace(allProfileIds, workspaceId);
 
   const pipelinePatch = pipelineSettingsPatch(payload);
   const record = await createProject({
     name: payload.name,
     description: optionalText(payload.description),
-    profileId: payload.profileId ?? null,
-    tmThreshold: payload.threshold ?? 0.75,
+    profileId: payload.profileId,
     settings: Object.keys(pipelinePatch).length > 0 ? pipelinePatch : undefined,
     createdByUserId: actorUser.id,
     workspaceId,
@@ -206,8 +202,11 @@ export async function updateProjectService(projectId, payload, actorUser) {
   }
   if (payload.profileId !== undefined || payload.profileIds !== undefined) {
     // Full replacement: the default (profileId, may be explicitly null to
-    // detach) plus whatever extra profileIds were sent — falls back to the
-    // project's current default when only profileIds changed.
+    // detach — the project keeps its documents, but the upload rejects new
+    // ones with 409 PROFILE_REQUIRED until a profile is assigned again;
+    // nothing is ever translated without one) plus whatever extra
+    // profileIds were sent — falls back to the project's current default
+    // when only profileIds changed.
     const nextDefault =
       payload.profileId !== undefined ? payload.profileId : existing.profileId;
     const allProfileIds = resolveProfileSet(nextDefault, payload.profileIds);
@@ -216,9 +215,6 @@ export async function updateProjectService(projectId, payload, actorUser) {
     }
     data.profileId = nextDefault ?? null;
     data.profiles = profilesUpdateWrite(nextDefault ?? null, allProfileIds);
-  }
-  if (payload.threshold !== undefined && payload.threshold !== null) {
-    data.tmThreshold = payload.threshold;
   }
   const pipelinePatch = pipelineSettingsPatch(payload);
   if (Object.keys(pipelinePatch).length > 0) {

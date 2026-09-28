@@ -107,6 +107,16 @@ export async function hardDeleteProfileRecord(id) {
   return prisma.profile.delete({ where: { id } });
 }
 
+// Active projects that point to the profile (a profile in use is never
+// deleted; the projects can unassign it first).
+export async function findActiveProjectsUsingProfile(profileId) {
+  return prisma.project.findMany({
+    where: { profileId, deletedAt: null },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+}
+
 // Rows (id + status) so the service can tell "does not exist in the
 // workspace" apart from "exists but its DAAIT build is not SUCCESS yet".
 export async function findTmAssetsInWorkspace(tmIds, workspaceId) {

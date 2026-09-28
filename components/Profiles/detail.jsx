@@ -22,6 +22,7 @@ import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { fetchGlossariesRequest } from "@/services/glossary.services";
 import {
   fetchProfileByIdRequest,
+  listDaaitPresetsRequest,
   updateProfileRequest,
 } from "@/services/profiles.services";
 import { fetchTMRequest } from "@/services/tm.services";
@@ -101,6 +102,8 @@ const ProfileDetail = ({ profileId }) => {
   const [assets, setAssets] = useState({ tms: [], glossaries: [] });
   const [isAddTmOpen, setIsAddTmOpen] = useState(false);
   const [isAddGlossaryOpen, setIsAddGlossaryOpen] = useState(false);
+  const [presets, setPresets] = useState([]);
+  const [loadingPresets, setLoadingPresets] = useState(true);
 
   const formalityOptions = [
     { value: "FORMAL", label: t("profiles.form.formalityFormal") },
@@ -140,6 +143,27 @@ const ProfileDetail = ({ profileId }) => {
         message.error(t("profiles.form.assetsError"));
       });
   }, [profile?.workspaceId, t]);
+
+  useEffect(() => {
+    listDaaitPresetsRequest()
+      .then((response) => setPresets(response?.presets ?? []))
+      .catch((error) => {
+        console.error(error);
+        setPresets([]);
+      })
+      .finally(() => setLoadingPresets(false));
+  }, []);
+
+  // The stored preset is shown only while DAAIT still lists it: a preset that
+  // was deleted or deactivated there leaves the selector empty. Untouched,
+  // the field is never sent on save, so that stored name is left as is.
+  useEffect(() => {
+    // The <Form> only mounts once the profile has loaded.
+    if (!profile || loadingPresets || form.isFieldTouched("llmPreset")) return;
+    const stored = (profile.llmPreset ?? "").toLowerCase();
+    const match = presets.find((preset) => preset.name.toLowerCase() === stored);
+    form.setFieldsValue({ llmPreset: match?.name });
+  }, [form, loadingPresets, presets, profile]);
 
   const attachedTmIds = profile?.tms?.map((tm) => tm.id) ?? [];
   const attachedGlossaryIds =
@@ -184,6 +208,10 @@ const ProfileDetail = ({ profileId }) => {
       description: values.description,
       formality: values.formality,
       instructions: values.instructions,
+      // Only when the user changed it; clearing it sends null (removes it).
+      ...(form.isFieldTouched("llmPreset")
+        ? { llmPreset: values.llmPreset ?? null }
+        : {}),
     });
     setSaving(false);
   };
@@ -370,6 +398,22 @@ const ProfileDetail = ({ profileId }) => {
               <Input placeholder={t("profiles.form.optional")} />
             </Form.Item>
           </div>
+          <Form.Item
+            label={t("profiles.form.presetLabel")}
+            name="llmPreset"
+            tooltip={t("profiles.form.presetHint")}
+          >
+            <Select
+              allowClear
+              loading={loadingPresets}
+              placeholder={t("profiles.form.presetPlaceholder")}
+              options={presets.map((preset) => ({
+                value: preset.name,
+                label: preset.name,
+                title: preset.description ?? preset.name,
+              }))}
+            />
+          </Form.Item>
           <Form.Item
             label={t("profiles.form.instructionsLabel")}
             name="instructions"
