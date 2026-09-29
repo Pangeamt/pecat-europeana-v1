@@ -19,8 +19,9 @@ export const createProfileSchema = Joi.object({
   // The pipeline level is DAAIT's (MEDIUM by default or the preset's): no
   // longer accepted, stripped so an older client never gets a 400.
   taskLevel: Joi.any().strip(),
-  // Name of a DAAIT quality preset (GET /llm/presets); null/"" = none.
-  llmPreset: Joi.string().trim().max(64).optional().allow(null, ""),
+  // Name of a DAAIT quality preset (GET /llm/presets). Required on create —
+  // the profile must commit to a quality level from the start.
+  llmPreset: Joi.string().trim().max(64).required(),
   llmModels: Joi.object().optional().allow(null),
   workspaceId: Joi.string().optional().allow(null),
   tmIds: Joi.array().items(Joi.string()).optional().default([]),

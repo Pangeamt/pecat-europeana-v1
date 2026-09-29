@@ -120,7 +120,7 @@ const ProfileAdd = ({ refetch }) => {
   const goNext = async () => {
     if (currentStep === 0) {
       try {
-        await form.validateFields(["name"]);
+        await form.validateFields(["name", "llmPreset"]);
       } catch {
         return;
       }
@@ -321,10 +321,12 @@ const ProfileAdd = ({ refetch }) => {
                 label={t("profiles.form.presetLabel")}
                 name="llmPreset"
                 tooltip={t("profiles.form.presetHint")}
+                rules={[
+                  { required: true, message: t("profiles.form.presetRequired") },
+                ]}
               >
                 <Select
                   size="large"
-                  allowClear
                   loading={loadingPresets}
                   placeholder={t("profiles.form.presetPlaceholder")}
                   options={presets.map((preset) => ({
