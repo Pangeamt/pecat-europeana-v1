@@ -106,6 +106,7 @@ const ProfileDetail = ({ profileId }) => {
   const [loadingPresets, setLoadingPresets] = useState(true);
 
   const formalityOptions = [
+    { value: "", label: t("profiles.form.formalityNone") },
     { value: "FORMAL", label: t("profiles.form.formalityFormal") },
     { value: "NEUTRO", label: t("profiles.form.formalityNeutral") },
     { value: "INFORMAL", label: t("profiles.form.formalityInformal") },
@@ -358,7 +359,7 @@ const ProfileDetail = ({ profileId }) => {
             name: profile.name,
             domain: profile.domain ?? "",
             description: profile.description ?? "",
-            formality: profile.formality ?? "FORMAL",
+            formality: profile.formality ?? "",
             instructions: profile.instructions ?? "",
           }}
         >
@@ -385,12 +386,6 @@ const ProfileDetail = ({ profileId }) => {
             <Form.Item
               label={t("profiles.form.formalityLabel")}
               name="formality"
-              rules={[
-                {
-                  required: true,
-                  message: t("profiles.form.formalityRequired"),
-                },
-              ]}
             >
               <Select options={formalityOptions} />
             </Form.Item>

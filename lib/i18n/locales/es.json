@@ -563,6 +563,7 @@
       "settingsSubtitle": "Formalidad e instrucciones aplicadas al traducir.",
       "formalityLabel": "Formalidad",
       "formalityRequired": "Selecciona una formalidad",
+      "formalityNone": "Sin formalidad",
       "formalityFormal": "Formal",
       "formalityNeutral": "Neutro",
       "formalityInformal": "Informal",

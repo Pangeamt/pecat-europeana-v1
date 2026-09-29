@@ -191,7 +191,7 @@ export async function createProfileService(payload, actorUser) {
       {
         name: payload.name,
         description: optionalText(payload.description),
-        formality: payload.formality ?? "FORMAL",
+        formality: payload.formality || null,
         instructions: optionalText(payload.instructions),
         domain: optionalText(payload.domain),
         llmModels: payload.llmModels ?? null,
@@ -244,8 +244,9 @@ export async function updateProfileService(id, payload, actorUser) {
   if (payload.description !== undefined) {
     data.description = optionalText(payload.description);
   }
-  if (payload.formality !== undefined && payload.formality !== null) {
-    data.formality = payload.formality;
+  if (payload.formality !== undefined) {
+    // ""/null clears it explicitly ("Sin formalidad"), same as a fresh create.
+    data.formality = payload.formality || null;
   }
   if (payload.instructions !== undefined) {
     data.instructions = optionalText(payload.instructions);

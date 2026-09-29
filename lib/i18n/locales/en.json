@@ -563,6 +563,7 @@
       "settingsSubtitle": "Formality and free-text instructions applied when translating.",
       "formalityLabel": "Formality",
       "formalityRequired": "Please select a formality",
+      "formalityNone": "No formality",
       "formalityFormal": "Formal",
       "formalityNeutral": "Neutral",
       "formalityInformal": "Informal",

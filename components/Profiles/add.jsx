@@ -61,6 +61,7 @@ const ProfileAdd = ({ refetch }) => {
   const glossaryIds = Form.useWatch("glossaryIds", form) ?? [];
 
   const formalityOptions = [
+    { value: "", label: t("profiles.form.formalityNone") },
     { value: "FORMAL", label: t("profiles.form.formalityFormal") },
     { value: "NEUTRO", label: t("profiles.form.formalityNeutral") },
     { value: "INFORMAL", label: t("profiles.form.formalityInformal") },
@@ -119,7 +120,7 @@ const ProfileAdd = ({ refetch }) => {
   const goNext = async () => {
     if (currentStep === 0) {
       try {
-        await form.validateFields(["name", "formality"]);
+        await form.validateFields(["name"]);
       } catch {
         return;
       }
@@ -264,7 +265,7 @@ const ProfileAdd = ({ refetch }) => {
         <Form
           form={form}
           layout="vertical"
-          initialValues={{ formality: "FORMAL", tmIds: [], glossaryIds: [] }}
+          initialValues={{ formality: "", tmIds: [], glossaryIds: [] }}
           className="max-h-[58vh] overflow-y-auto p-6"
         >
           <section
@@ -303,12 +304,6 @@ const ProfileAdd = ({ refetch }) => {
             <Form.Item
               label={t("profiles.form.descriptionLabel")}
               name="description"
-              rules={[
-                {
-                  required: true,
-                  message: t("profiles.form.descriptionRequired"),
-                },
-              ]}
             >
               <Input.TextArea
                 rows={2}
@@ -319,12 +314,6 @@ const ProfileAdd = ({ refetch }) => {
               <Form.Item
                 label={t("profiles.form.formalityLabel")}
                 name="formality"
-                rules={[
-                  {
-                    required: true,
-                    message: t("profiles.form.formalityRequired"),
-                  },
-                ]}
               >
                 <Select size="large" options={formalityOptions} />
               </Form.Item>

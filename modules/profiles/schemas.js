@@ -4,11 +4,13 @@ export const FORMALITY_VALUES = ["FORMAL", "NEUTRO", "INFORMAL"];
 
 export const createProfileSchema = Joi.object({
   name: Joi.string().trim().min(1).max(191).required(),
-  // Required by the DAAIT mirror (POST /profile rejects an empty description).
-  description: Joi.string().trim().min(1).max(2000).required(),
+  description: Joi.string().trim().max(2000).optional().allow("", null),
+  // ""/null = "Sin formalidad": the DAAIT mirror then omits the field
+  // entirely instead of sending it.
   formality: Joi.string()
     .valid(...FORMALITY_VALUES)
-    .optional(),
+    .optional()
+    .allow("", null),
   instructions: Joi.string().trim().max(5000).optional().allow("", null),
   domain: Joi.string().trim().max(191).optional().allow("", null),
   // Profiles are language-agnostic: the pair always comes from the document
@@ -30,7 +32,8 @@ export const updateProfileSchema = Joi.object({
   description: Joi.string().trim().max(2000).optional().allow("", null),
   formality: Joi.string()
     .valid(...FORMALITY_VALUES)
-    .optional(),
+    .optional()
+    .allow("", null),
   instructions: Joi.string().trim().max(5000).optional().allow("", null),
   domain: Joi.string().trim().max(191).optional().allow("", null),
   // The language pair is immutable after creation (the DAAIT mirror cannot
