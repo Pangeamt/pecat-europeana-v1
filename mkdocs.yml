@@ -1,0 +1,12 @@
+site_name: PECAT-E (pecat-europeana-v1)
+# docs/ también guarda planes de trabajo internos (PLAN-*.md): no se publican ni se indexan.
+exclude_docs: |
+  PLAN-*.md
+nav:
+  - Inicio: index.md
+  - Arquitectura: architecture.md
+  - Desarrollo: development.md
+  - Operación y despliegue: operations.md
+  - Variables de entorno: secrets.md
+plugins:
+  - techdocs-core
