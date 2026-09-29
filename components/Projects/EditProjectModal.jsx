@@ -10,7 +10,10 @@ import { useEffect, useState } from "react";
 
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { listProfilesRequest } from "@/services/profiles.services";
-import { updateProjectRequest } from "@/services/project.services";
+import {
+  fetchProjectByIdRequest,
+  updateProjectRequest,
+} from "@/services/project.services";
 import { userStore } from "@/store";
 
 export default function EditProjectModal({ open, project, onClose, onSaved }) {
@@ -33,12 +36,30 @@ export default function EditProjectModal({ open, project, onClose, onSaved }) {
 
   useEffect(() => {
     if (!open || !project) return;
-    form.setFieldsValue({
-      name: project.name,
-      description: project.description ?? "",
-      profileIds:
-        project.profileIds ?? (project.profileId ? [project.profileId] : []),
-    });
+    // The caller may be the projects list, whose rows only carry the
+    // default profile (profileId/profileName) — not the full assigned set.
+    // Re-fetching the detail here guarantees profileIds is complete
+    // regardless of which page opened this modal, so saving never silently
+    // detaches profiles the list just didn't know about.
+    let cancelled = false;
+    const applyFields = (source) => {
+      if (cancelled) return;
+      form.setFieldsValue({
+        name: source.name,
+        description: source.description ?? "",
+        profileIds:
+          source.profileIds ?? (source.profileId ? [source.profileId] : []),
+      });
+    };
+    applyFields(project);
+    fetchProjectByIdRequest(project.id)
+      .then((response) => {
+        if (response?.project) applyFields(response.project);
+      })
+      .catch((error) => console.error(error));
+    return () => {
+      cancelled = true;
+    };
   }, [open, project, form]);
 
   const handleOk = async () => {
