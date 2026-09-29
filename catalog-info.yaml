@@ -23,3 +23,32 @@ spec:
   type: website
   lifecycle: production
   owner: group:default/developers
+  providesApis: [pecat-europeana-api]
+---
+# Entidad API de PECAT-E. Sin spec endpoint a endpoint a propósito: es la API
+# interna de Next.js (app/api/*, ~38 rutas), consumida solo por el frontend de
+# este mismo proyecto vía services/*.ts (auth por sesión Next-Auth), no pensada
+# para integración externa. Mapa de rutas real: README-architecture.md.
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: pecat-europeana-api
+  title: PECAT-E internal API
+  description: >
+    API interna de Next.js (app/api/*), consumida solo por el frontend de este
+    mismo proyecto. Detalle de rutas en README-architecture.md.
+spec:
+  type: openapi
+  lifecycle: production
+  owner: group:default/developers
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: PECAT-E internal API
+      version: '1.0'
+      description: >-
+        API interna de Next.js (app/api/*), consumida solo por el frontend de
+        este mismo proyecto. Detalle de rutas en README-architecture.md.
+    servers:
+      - url: https://ai4cpecat.pangeanic.com/api
+    paths: {}
