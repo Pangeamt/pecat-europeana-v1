@@ -296,7 +296,7 @@ const DocumentAdd = ({ project, refetch }) => {
                 onChange={handleProfileChange}
                 options={projectProfiles.map((p) => ({
                   value: p.id,
-                  label: p.name,
+                  label: p.llmPreset ? `${p.name} (${p.llmPreset})` : p.name,
                 }))}
               />
             </Form.Item>

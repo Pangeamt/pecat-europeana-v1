@@ -7,10 +7,11 @@ const projectInclude = {
   },
   // Every profile assigned to the project (superset containing `profile`,
   // the default) — lets the UI multi-select and the upload wizard's picker
-  // show the full set.
+  // show the full set. llmPreset travels too, so the picker can label each
+  // option "Name (preset)".
   profiles: {
     include: {
-      profile: { select: { id: true, name: true } },
+      profile: { select: { id: true, name: true, llmPreset: true } },
     },
   },
 };

@@ -367,7 +367,7 @@ model Profile {
   id                String            @id @default(cuid())
   name              String
   description       String?           @db.Text
-  formality         Formality         @default(FORMAL)
+  formality         Formality?
   instructions      String?           @db.Text
   domain            String?
   /// Language pair of the DAAIT mirror (target is required by DAAIT).

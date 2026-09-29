@@ -25,6 +25,7 @@ function toProjectDoc(record) {
   const profiles = (record.profiles ?? []).map((entry) => ({
     id: entry.profileId,
     name: entry.profile?.name ?? null,
+    llmPreset: entry.profile?.llmPreset ?? null,
     isDefault: entry.isDefault,
   }));
   return {
