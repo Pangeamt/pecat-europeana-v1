@@ -1,0 +1,25 @@
+# Entidad de Backstage de PECAT-E. La registra un Location estático en
+# PangeanicAI/ai-devops-platform (catalog-info.yaml), igual que service-golden-path:
+# Backstage no descubre repos de la organización Pangeamt por sí solo.
+# TechDocs se construye desde mkdocs.yml + docs/ de este mismo repo (rama stable).
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: pecat-europeana
+  title: PECAT-E — post-edición asistida (Europeana)
+  description: >
+    Plataforma web de post-edición: sube un documento, lo traduce con DAAIT
+    (/content/pecat, con el perfil del proyecto), lo puntúa con MTQE v1/v2, pasa
+    un juez LLM (/content/post_edit) y deja la revisión humana segmento a segmento
+    antes de descargar el documento reconstruido (Okapi Tikal / SDLXLIFF).
+  tags: [nextjs, prisma, bullmq, daait, mtqe, okapi, post-edition]
+  links:
+    - url: https://ai4cpecat.pangeanic.com
+      title: Producción (según env.example)
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: Pangeamt/pecat-europeana-v1
+spec:
+  type: website
+  lifecycle: production
+  owner: group:default/developers
