@@ -702,25 +702,6 @@ const TusList = ({ shareToken } = {}) => {
         );
       },
     },
-    {
-      title: "Fuzzy",
-      width: 80,
-      dataIndex: "levenshteinDistance",
-      key: "levenshteinDistance",
-      sorter: (a, b) =>
-        (Number(a.levenshteinDistance) || 0) -
-        (Number(b.levenshteinDistance) || 0),
-      render: (value) => (
-        <Tag
-          bordered={false}
-          color={value == 1 ? "green" : value == 0 ? "red" : "yellow"}
-        >
-          {value != null && value !== ""
-            ? Number.parseFloat(String(value)).toFixed(2)
-            : "—"}
-        </Tag>
-      ),
-    },
     // MTQE bands (modules/documents/pipeline-constants.js): >=0.85 reliable,
     // >=0.65 doubtful, below priority. One column per QE version — both 0-1,
     // same bands, so the two scores compare side by side.
