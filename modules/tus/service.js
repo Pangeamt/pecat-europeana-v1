@@ -167,6 +167,17 @@ async function applyTuStatusUpdate(tu, payload, reviewer = null) {
     return { tu: tuUpdated, alsoUpdated: [] };
   }
 
+  // A locked segment (file lock, TM match, LLM judge, manual) keeps its target
+  // and its tags whoever edits: the UI already shows it read-only, and the API
+  // refuses too -- an admin unlocks it first (like Trados' locked segments).
+  if (tu.block) {
+    throw new HttpError(
+      409,
+      "This segment is locked: unlock it before editing",
+      "SEGMENT_LOCKED",
+    );
+  }
+
   // Suggestion lifecycle actions touch only this TU (sibling segments may
   // carry a different suggestion) and never change the review status.
   if (action === "apply_suggestion" || action === "discard_suggestion") {
@@ -290,6 +301,8 @@ async function evaluateTuDraft(tu, documentId, target) {
     score,
     verdict: review?.verdict ?? null,
     suggestion: review?.suggestion ?? null,
+    // Tagged segment: the (plain-text) suggestion is a reference, not applicable.
+    referenceOnly: Boolean(review?.referenceOnly),
     meta: review?.meta ?? null,
     daaitStatus: review?.daaitStatus ?? null,
   };
@@ -335,7 +348,9 @@ const LOCK_ACTIONS = ["lock", "unlock"];
 function assertInlineTagsKept(tu, payload, document) {
   if (payload.action !== "approve" || !payload.reviewLiteral) return;
   const expected = tagSequence(tu.srcLiteral);
-  if (!expected.length) return;
+  // No early return when the source has no tags: a placeholder typed by hand
+  // (e.g. "<x1/>" in the plain Quill editor) would be stored as a real tag and
+  // the export would then skip the segment. It is reported as "extra".
   const got = tagSequence(payload.reviewLiteral);
   const sameSet = [...expected].sort().join("") === [...got].sort().join("");
   const sameOrder = expected.join("") === got.join("");

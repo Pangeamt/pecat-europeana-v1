@@ -1,12 +1,17 @@
 "use client";
 import { Alert, Button, Empty, Space, Spin, Tag } from "antd";
-import { TagText } from "@/components/shared/inline-tags";
+import { TagText, hasInlineTags } from "@/components/shared/inline-tags";
 import { Check, X } from "lucide-react";
 
 // LLM post-edit suggestion panel for the selected segment. The suggestion is
 // applicable: "Apply" copies it into the target editor (the reviewer still
 // confirms the segment); "Discard" hides it for good. Both persist the
 // suggestionStatus so acceptance can be measured.
+// Segments WITH inline tags (2026-09-30): the LLM only ever gets the text
+// (tags stripped), so its suggestion comes back without tags. There it is a
+// REFERENCE only -- no "Apply": applying it would replace a tagged target by
+// an untagged one. The reviewer copies what they want into the editor, which
+// keeps the tags (same rule as revisions-pangeanic-local).
 // The `live` prop carries the ephemeral evaluation of the CURRENT draft
 // (fired when the reviewer pauses typing) and takes precedence over the
 // stored suggestion while present.
@@ -24,6 +29,16 @@ const SuggestionTool = ({
   live,
   onApplyLive,
 }) => {
+  const referenceOnly =
+    Boolean(live?.referenceOnly) || hasInlineTags(segment?.srcLiteral);
+  const referenceNote = (
+    <Alert
+      type="info"
+      showIcon
+      message="Reference only: this segment has formatting tags. Copy what you need into the editor — the tags stay there."
+    />
+  );
+
   if (live?.loading) {
     return (
       <div className="flex items-center gap-2 p-2 text-slate-500">
@@ -56,17 +71,21 @@ const SuggestionTool = ({
               </div>
               <TagText text={live.suggestion} />
             </div>
-            <Space wrap>
-              <Button
-                type="primary"
-                size="small"
-                icon={<Check size={15} />}
-                disabled={disabled}
-                onClick={onApplyLive}
-              >
-                Apply to editor
-              </Button>
-            </Space>
+            {referenceOnly ? (
+              referenceNote
+            ) : (
+              <Space wrap>
+                <Button
+                  type="primary"
+                  size="small"
+                  icon={<Check size={15} />}
+                  disabled={disabled}
+                  onClick={onApplyLive}
+                >
+                  Apply to editor
+                </Button>
+              </Space>
+            )}
           </>
         ) : live.verdict === "OK" ? (
           <Alert
@@ -120,16 +139,19 @@ const SuggestionTool = ({
             </div>
           </div>
 
+          {referenceOnly ? referenceNote : null}
           <Space wrap>
-            <Button
-              type="primary"
-              size="small"
-              icon={<Check size={15} />}
-              disabled={disabled || !pending}
-              onClick={onApply}
-            >
-              Apply to editor
-            </Button>
+            {referenceOnly ? null : (
+              <Button
+                type="primary"
+                size="small"
+                icon={<Check size={15} />}
+                disabled={disabled || !pending}
+                onClick={onApply}
+              >
+                Apply to editor
+              </Button>
+            )}
             <Button
               size="small"
               icon={<X size={15} />}

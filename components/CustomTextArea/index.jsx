@@ -78,7 +78,7 @@ const CustomTextArea = ({ value, setValue, onKeyDown, dir = "ltr" }) => {
             textAlign: dir === "rtl" ? "right" : "left",
           }}
           theme="snow"
-          value={`${value}`}
+          value={value ?? ""}
           onChange={setValue}
           modules={modules}
           onKeyDown={onKeyDown}

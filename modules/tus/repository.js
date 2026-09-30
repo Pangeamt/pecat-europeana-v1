@@ -50,11 +50,16 @@ export async function findDocumentPipelineContext(documentId) {
 
 // Review decisions propagate to identical sources WITHIN the same document
 // only (never across a project's documents).
+// Propagation targets for a review decision. Locked (block) and hidden
+// siblings are left alone: propagating used to overwrite the target and
+// status of locked TM/file-locked segments with the same source.
 export async function findTusWithSameSource(documentId, srcLiteral, excludedTuId) {
   return prisma.tu.findMany({
     where: {
       srcLiteral,
       documentId,
+      block: false,
+      visible: true,
       id: {
         not: excludedTuId,
       },

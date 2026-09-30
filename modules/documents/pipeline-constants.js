@@ -80,7 +80,10 @@ export function profileMatchesLanguagePair(
 // Okapi/SDLXLIFF inline placeholders (<g1>…</g1>, <x2/>, <b1/>, <e1/>) must
 // survive any machine rewrite. A suggestion that loses or invents tags is
 // unusable — validate before storing it.
-const INLINE_TAG_RE = /<\/?[a-z]+\d+\s*\/?>/gi;
+// Same shape as every other placeholder regex (sdlxliff/codes.js TOKEN_RE,
+// inline-tags.jsx, TagEditor/tag-rules.js): letter g/x/b/e + digits only, so
+// real markup-looking text such as "<h1>" or "<p2>" is not taken for a tag.
+const INLINE_TAG_RE = /<\/?[gxbe]\d+\/?>/g;
 
 export function extractInlineTags(text) {
   if (!text) return [];
