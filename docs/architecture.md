@@ -27,16 +27,12 @@
 
 | Cola | Jobs | Concurrencia | Qué hace |
 |---|---|---|---|
-| `project-import` | `import-upload`, `import-sdlxliff`, `pipeline-review` | 2 | Extracción, traducción DAAIT, persistencia de TUs y revisión LLM |
-| `mtqe-v1` | `pipeline-score` | 1 | QE v1: el documento pasa a `READY` aquí |
-| `mtqe-v2` | `score-mtqe-v2` | 1 | QE v2 por segmento (se omite si no hay `MTQE_V2`) |
+| `project-import` | `import-upload`, `import-sdlxliff`, `pipeline-review` | 2 | Extracción, traducción DAAIT y persistencia de TUs: el documento pasa a `READY` aquí (`pipeline-review` está retirado) |
+| `mtqe-v2` | `score-mtqe-v2` | 1 | QE v2 por segmento, único score (sin `MTQE_V2` no se puntúa) |
+| `mtqe-v1` | `pipeline-score` | 1 | **Retirada**: solo drena jobs antiguos (READY + encolar QE v2); se borra en la próxima release |
 
 ```
-import-upload / import-sdlxliff   [project-import]
-        │
-        ▼
-pipeline-score (QE v1 → READY)    [mtqe-v1]
-        ├──► pipeline-review (juez LLM)   [project-import]
+import-upload / import-sdlxliff   [project-import]  → READY
         └──► score-mtqe-v2   (QE v2)      [mtqe-v2]
 ```
 

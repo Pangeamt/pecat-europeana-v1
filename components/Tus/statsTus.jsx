@@ -45,11 +45,6 @@ const METRICS = [
 
 // Visual styles per effort band (band math lives in lib/effort.js).
 const BAND_STYLES = {
-  disagree: {
-    bar: "from-violet-500 to-purple-400",
-    ring: "ring-violet-200",
-    badge: "bg-violet-100 text-violet-700",
-  },
   b0: {
     bar: "from-rose-500 to-rose-400",
     ring: "ring-rose-200",
@@ -78,16 +73,12 @@ const BAND_STYLES = {
 };
 
 const EffortModal = ({ open, onClose, effort, requesting, totalSegments }) => {
-  // Band math (min(v1,v2), disagreement, weighted words, hours) comes
-  // precomputed from lib/effort.js; here we only attach the visuals.
-  // Disagreement first — it is the "look at me" bucket — then worst to best.
+  // Band math (QE v2 bands, weighted words, hours) comes precomputed from
+  // lib/effort.js; here we only attach the visuals, worst to best.
   const effortSummary = useMemo(() => {
-    const buckets = [
-      { ...effort.disagree, ...BAND_STYLES.disagree },
-      ...[...effort.bands]
-        .reverse()
-        .map((band) => ({ ...band, ...BAND_STYLES[band.key] })),
-    ];
+    const buckets = [...effort.bands]
+      .reverse()
+      .map((band) => ({ ...band, ...BAND_STYLES[band.key] }));
     return { ...effort, buckets };
   }, [effort]);
 
@@ -131,8 +122,8 @@ const EffortModal = ({ open, onClose, effort, requesting, totalSegments }) => {
               Translation effort
             </h2>
             <p className="mt-1 max-w-sm text-sm text-slate-300">
-              Word-weighted effort over min(QE v1, QE v2). Disagreeing scores
-              count as full effort — review those first.
+              Word-weighted effort over the QE v2 score. Unscored segments
+              count as full effort.
             </p>
           </div>
 

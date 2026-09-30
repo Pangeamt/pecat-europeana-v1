@@ -9,9 +9,10 @@ metadata:
   title: PECAT-E — post-edición asistida (Europeana)
   description: >
     Plataforma web de post-edición: sube un documento, lo traduce con DAAIT
-    (/content/pecat, con el perfil del proyecto), lo puntúa con MTQE v1/v2, pasa
-    un juez LLM (/content/post_edit) y deja la revisión humana segmento a segmento
-    antes de descargar el documento reconstruido (Okapi Tikal / SDLXLIFF).
+    (/content/pecat, con el perfil del proyecto), lo puntúa con MTQE v2 y deja la
+    revisión humana segmento a segmento (con evaluación en vivo QE v2 + LLM
+    /content/post_edit) antes de descargar el documento reconstruido
+    (Okapi Tikal / SDLXLIFF).
   tags: [nextjs, prisma, bullmq, daait, mtqe, okapi, post-edition]
   links:
     - url: https://ai4cpecat.pangeanic.com
