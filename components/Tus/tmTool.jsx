@@ -6,6 +6,7 @@ import { Resizable } from "re-resizable";
 import { useRef, useState } from "react";
 
 import { useTranslation } from "@/components/i18n/LanguageProvider";
+import { TagText } from "@/components/shared/inline-tags";
 import { MoveVertical } from "lucide-react";
 
 const style = {
@@ -41,6 +42,7 @@ const TmTool = ({ tmInfo }) => {
       dataIndex: "source",
       key: "source",
       width: "45%",
+      render: (value) => <TagText text={value} />,
     },
     {
       title: "Similarity",
@@ -65,6 +67,7 @@ const TmTool = ({ tmInfo }) => {
       dataIndex: "target",
       key: "target",
       width: "45%",
+      render: (value) => <TagText text={value} />,
     },
   ];
 

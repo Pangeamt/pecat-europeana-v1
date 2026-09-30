@@ -130,7 +130,10 @@ export async function enrichSdlxliffSegments(segments, {
       seg.tmInfo = result.tm_info ?? null;
       seg.glossaryInfo = result.glossary_info ?? null;
       seg.machineTranslated = true;
-      seg.tmExactMatch = Boolean(exactTm);
+      // An exact TM match is auto-locked -- unless its tags do not match the
+      // source: locked, nobody could fix it and the export would skip it
+      // (revisions-pangeanic-local does not auto-lock a tagged 100% either).
+      seg.tmExactMatch = Boolean(exactTm) && !seg.tagMismatch;
       seg.levenshteinDistance = bestScore;
     });
   }

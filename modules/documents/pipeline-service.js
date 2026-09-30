@@ -6,12 +6,12 @@ import {
 } from "../../lib/utils";
 import { postEditContent } from "../../lib/daait";
 import { enqueueMtqeV2 } from "../../lib/queue";
+import { hasTags, qePair, stripTags } from "./qe-payload";
 import { DOCUMENT_STATUS } from "../../lib/document-status";
 import {
   BLOCK_REASON,
   LLM_VERDICT,
   SUGGESTION_STATUS,
-  inlineTagsMatch,
   profileMatchesLanguagePair,
   resolvePipelineSettings,
 } from "./pipeline-constants";
@@ -245,7 +245,7 @@ function buildReviewUpdate(tu, result, settings) {
   const comment = buildLlmComment(meta);
 
   const unchanged =
-    normalizeForCompare(suggestion) === normalizeForCompare(tu.translatedLiteral);
+    normalizeForCompare(suggestion) === normalizeForCompare(stripTags(tu.translatedLiteral));
 
   if (unchanged) {
     // The LLM saw nothing to change: auto-approve and lock (the reviewer can
@@ -261,9 +261,9 @@ function buildReviewUpdate(tu, result, settings) {
     };
   }
 
-  // The LLM proposed changes. Only store the suggestion when it preserves the
-  // Okapi inline placeholders — a tag-breaking rewrite is unusable.
-  if (settings.llmSuggest && inlineTagsMatch(tu.srcLiteral, suggestion)) {
+  // The LLM proposed changes (plain text: it never sees the tags). On a
+  // tagged segment the UI shows it as a reference only (no "Apply").
+  if (settings.llmSuggest) {
     return {
       daaitStatus: finalStatus,
       llmVerdict: LLM_VERDICT.REVIEW,
@@ -298,9 +298,11 @@ export async function reviewDraftSegment({
   sourceLanguage,
   targetLanguage,
 }) {
+  // Text only (qe-payload.js): the LLM gets no inline-tag placeholders.
+  const pair = qePair(source, target);
   const response = await postEditContent({
     profile_id: profileId,
-    alignments: [{ source, target }],
+    alignments: [pair],
     memory_ids: tmIds,
     glossary_ids: glossaryIds,
     use_term_score: true,
@@ -335,21 +337,18 @@ export async function reviewDraftSegment({
     detected_terms: result?.detected_terms ?? [],
   };
 
-  if (normalizeForCompare(suggestion) === normalizeForCompare(target)) {
+  if (normalizeForCompare(suggestion) === normalizeForCompare(pair.target)) {
     return { daaitStatus: finalStatus, verdict: LLM_VERDICT.OK, suggestion: null, meta };
   }
-  if (!inlineTagsMatch(source, suggestion)) {
-    return {
-      daaitStatus: "VALIDATION_FAILED",
-      verdict: LLM_VERDICT.REVIEW,
-      suggestion: null,
-      meta,
-    };
-  }
+  // The suggestion comes back as plain text. On a segment WITH inline tags it
+  // can only be a reference: applying it would drop the tags. The reviewer
+  // copies what they want into the editor, which keeps the tags (same rule as
+  // revisions-pangeanic-local: no AI output is merged into a tagged target).
   return {
     daaitStatus: finalStatus,
     verdict: LLM_VERDICT.REVIEW,
     suggestion,
+    referenceOnly: hasTags(source),
     meta,
   };
 }
@@ -443,10 +442,7 @@ export async function handleLlmReviewJob({ projectId: documentId }) {
     try {
       response = await postEditContent({
         profile_id: profileId,
-        alignments: batch.map((tu) => ({
-          source: tu.srcLiteral,
-          target: tu.translatedLiteral,
-        })),
+        alignments: batch.map((tu) => qePair(tu.srcLiteral, tu.translatedLiteral)),
         memory_ids: tmIds,
         glossary_ids: glossaryIds,
         use_term_score: true,
