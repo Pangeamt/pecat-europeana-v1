@@ -1,6 +1,10 @@
 import { HttpError } from "../shared/http-error";
 import { DOCUMENT_STATUS } from "../../lib/document-status";
-import { postMTQE, toQeReferences } from "../../lib/utils";
+import {
+  isMtqeV2Configured,
+  postMTQEv2,
+  toQeReferences,
+} from "../../lib/utils";
 import {
   BLOCK_REASON,
   SUGGESTION_STATUS,
@@ -111,14 +115,15 @@ export async function listTusByShareTokenService(token) {
   return buildTusListResult(document.id);
 }
 
-// Best-effort MTQE re-score of the reviewed pair: the current score follows
-// each edit while mtqeOriginal keeps the pipeline's first score (the UI shows
-// a "recalculated" badge when they differ). Never blocks the save.
+// Best-effort QE v2 re-score of the reviewed pair (same references as the
+// pipeline: the segment's own TM and glossary matches): the stored score
+// follows each edit. Returns 0-1 or null. Never blocks the save.
 const RESCORE_TIMEOUT_MS = 8_000;
 
 async function rescoreReviewedPair(tu, target) {
   const text = typeof target === "string" ? target.trim() : "";
   if (!text || !tu.sourceLanguage || !tu.targetLanguage) return null;
+  if (!isMtqeV2Configured()) return null;
 
   const timeout = new Promise((resolve) => {
     const timer = setTimeout(() => resolve(null), RESCORE_TIMEOUT_MS);
@@ -127,22 +132,19 @@ async function rescoreReviewedPair(tu, target) {
 
   try {
     const response = await Promise.race([
-      postMTQE({
-        pairs: [
-          {
-            source: tu.srcLiteral,
-            target,
-            references: toQeReferences(tu.tmInfo),
-          },
-        ],
+      postMTQEv2({
+        source: tu.srcLiteral,
+        target,
+        tm: toQeReferences(tu.tmInfo),
+        glossary: toQeReferences(tu.glossaryInfo),
         sourceLanguage: tu.sourceLanguage,
         targetLanguage: tu.targetLanguage,
       }),
       timeout,
     ]);
-    const items = Array.isArray(response) ? response : (response?.pairs ?? []);
-    const score = items[0]?.mtqe_score ?? items[0]?.score;
-    return typeof score === "number" ? score : null;
+    // v2 answers 0-100 (null + error on a per-segment upstream failure).
+    const raw = response?.score;
+    return typeof raw === "number" ? raw / 100 : null;
   } catch {
     return null;
   }
@@ -199,7 +201,7 @@ async function applyTuStatusUpdate(tu, payload, reviewer = null) {
       reviewLiteral || tu.translatedLiteral,
     );
     if (rescored !== null) {
-      data.translationScorePercent = rescored;
+      data.mtqeV2Score = rescored;
     }
   } else if (action === "reject") {
     data.Status = "REJECTED";
@@ -233,7 +235,7 @@ async function applyTuStatusUpdate(tu, payload, reviewer = null) {
 }
 
 // Live draft evaluation: the editor calls this when the reviewer pauses
-// typing. Returns a fresh MTQE score and — when the document has a profile
+// typing. Returns a fresh QE v2 score and — when the document has a profile
 // (chosen at upload time) whose language pair matches — a fresh LLM
 // verdict/suggestion for the draft. Always on, on demand, per segment; no
 // project-level switch. NOTHING is persisted: the stored score/suggestion
@@ -247,7 +249,7 @@ async function evaluateTuDraft(tu, documentId, target) {
   const context = await findDocumentPipelineContext(documentId);
   const profileId = context?.profileId;
   // A wrong-direction profile makes DAAIT echo the source back — skip the
-  // LLM part entirely (MTQE still runs).
+  // LLM part entirely (QE v2 still runs).
   const profilePairOk =
     profileId &&
     profileMatchesLanguagePair(

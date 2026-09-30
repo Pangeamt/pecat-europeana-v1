@@ -4,10 +4,12 @@ import { Tooltip } from "antd";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { DOCUMENT_PENDING_STATUSES, DOCUMENT_STATUS } from "@/lib/document-status";
 
-// Per-stage state of the post-translation pipeline (MT / MTQE / LLM) for a
+// Per-stage state of the post-translation pipeline (MT / QE / LLM) for a
 // document row, derived from Document.status plus the pipelineStats telemetry
-// written by modules/documents/pipeline-service.js (stage: SCORING -> SCORED
-// -> REVIEWING -> DONE, plus mtqeError / llmError / llmSkipped).
+// written by modules/documents/pipeline-service.js (stage: SCORING -> DONE
+// while QE v2 runs, plus mtqeV2Error / mtqeV2Scored). Documents imported
+// before QE v1 was retired still carry mtqeError / mtqeScored / SCORED and
+// the retired LLM stage's fields; they keep rendering from those.
 //
 // Rendered as a bare status dot per column — the column header names the
 // stage, the dot color is the state (grey waiting, PULSING AMBER running,
@@ -50,21 +52,28 @@ export function deriveStages(doc) {
   else if (doc?.mt === false && !stage) mt = { state: "off" };
   else mt = { state: "done" };
 
+  const qeError = stats.mtqeV2Error ?? stats.mtqeError;
+  const qeScored = stats.mtqeV2Scored ?? stats.mtqeScored;
   let mtqe;
-  if (stats.mtqeError) {
-    mtqe = { state: "error", detail: stats.mtqeError };
+  if (qeError) {
+    mtqe = { state: "error", detail: qeError };
   } else if (stage === "SCORING") {
     mtqe = { state: "running" };
   } else if (stage || doc?.status === DOCUMENT_STATUS.READY) {
     mtqe = {
       state: stage ? "done" : "off",
-      detail:
-        stats.mtqeScored != null ? `${stats.mtqeScored} scored` : undefined,
+      detail: qeScored != null ? `${qeScored} scored` : undefined,
     };
   } else {
     mtqe = { state: "waiting" };
   }
 
+  // The LLM judge stage is retired: only documents it actually reviewed
+  // (llm* fields present) show a state other than "off".
+  const llmRan =
+    stats.llmSecs != null ||
+    stats.llmAutoApproved != null ||
+    stats.llmSuggested != null;
   let llm;
   if (stats.llmSkipped) {
     llm = { state: "off", detail: stats.llmSkipped };
@@ -72,7 +81,7 @@ export function deriveStages(doc) {
     llm = { state: "error", detail: stats.llmError };
   } else if (stage === "REVIEWING") {
     llm = { state: "running" };
-  } else if (stage === "DONE") {
+  } else if (stage === "DONE" && llmRan) {
     const parts = [];
     if (stats.llmAutoApproved != null) {
       parts.push(`${stats.llmAutoApproved} auto-approved`);
@@ -81,8 +90,6 @@ export function deriveStages(doc) {
       parts.push(`${stats.llmSuggested} suggestions`);
     }
     llm = { state: "done", detail: parts.join(", ") || undefined };
-  } else if (stage === "SCORED" || stage === "SCORING") {
-    llm = { state: "waiting" };
   } else {
     llm = { state: "off" };
   }

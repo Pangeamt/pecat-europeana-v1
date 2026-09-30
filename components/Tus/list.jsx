@@ -104,16 +104,13 @@ const TusList = ({ shareToken } = {}) => {
   const [data, setData] = useState([]);
   const [projectConfig, setProjectConfig] = useState(null);
 
-  // QE score filter: one rule per metric — [QE v1 op+slider] AND/OR
-  // [QE v2 op+slider] — applied only when the user confirms it ("Apply").
-  // Clear resets the controls to the top (<= 1.00) and shows every segment.
-  // The filtered list is the working list: confirm on a segment advances to
-  // the next row within it.
+  // QE score filter: one rule over the QE v2 score [op+slider] — applied
+  // only when the user confirms it ("Apply"). Clear resets the control to the
+  // top (<= 1.00) and shows every segment. The filtered list is the working
+  // list: confirm on a segment advances to the next row within it.
   const NEUTRAL_RULE = { op: "<=", value: 1 };
-  const [v1Rule, setV1Rule] = useState(NEUTRAL_RULE);
   const [v2Rule, setV2Rule] = useState(NEUTRAL_RULE);
-  const [scoreLogic, setScoreLogic] = useState("AND");
-  // Snapshot of the controls at the moment "Apply" was pressed (null = off).
+  // Snapshot of the rule at the moment "Apply" was pressed (null = off).
   const [appliedScoreFilter, setAppliedScoreFilter] = useState(null);
 
   const [selectedRow, setSelectedRow] = useState(null);
@@ -121,7 +118,7 @@ const TusList = ({ shareToken } = {}) => {
   // with the new reviewLiteral (Quill/TagEditor only read the initial value).
   const [editorRefreshKey, setEditorRefreshKey] = useState(0);
   // Live draft evaluation: when the reviewer pauses typing, the draft is
-  // re-scored (MTQE) and re-reviewed (LLM). Ephemeral — nothing persists
+  // re-scored (QE v2) and re-reviewed (LLM). Ephemeral — nothing persists
   // until the segment is confirmed.
   const [liveEval, setLiveEval] = useState(null);
   const liveEvalTimerRef = useRef(null);
@@ -236,7 +233,7 @@ const TusList = ({ shareToken } = {}) => {
         totalStats += 1;
       }
 
-      const mtqe = doc.translationScorePercent;
+      const mtqe = doc.mtqeV2Score;
       const srcWords = doc.srcLiteral
         ? doc.srcLiteral.trim().split(/\s+/).filter(Boolean).length
         : 0;
@@ -300,16 +297,9 @@ const TusList = ({ shareToken } = {}) => {
 
   const tableData = useMemo(() => {
     if (!appliedScoreFilter) return data;
-    const { v1, v2, logic } = appliedScoreFilter;
-    const rules = [
-      v1 ? { ...v1, source: "v1" } : null,
-      v2 ? { ...v2, source: "v2" } : null,
-    ].filter(Boolean);
-    if (rules.length === 0) return data;
 
-    const evalRule = (record, { source, op, value }) => {
-      const score =
-        source === "v2" ? record?.mtqeV2Score : record?.translationScorePercent;
+    const evalRule = (record, { op, value }) => {
+      const score = record?.mtqeV2Score;
       if (typeof score !== "number") return false;
       switch (op) {
         case "=":
@@ -328,16 +318,12 @@ const TusList = ({ shareToken } = {}) => {
       }
     };
 
-    return data.filter((record) =>
-      logic === "AND"
-        ? rules.every((rule) => evalRule(record, rule))
-        : rules.some((rule) => evalRule(record, rule)),
-    );
+    return data.filter((record) => evalRule(record, appliedScoreFilter));
   }, [data, appliedScoreFilter]);
 
-  // Effort model (lib/effort.js): min(QE v1, v2) bands + disagreement,
-  // weighted words and estimated hours. Project.settings.effort can override
-  // weights/threshold/throughput. Also powers the filter-bar counters.
+  // Effort model (lib/effort.js): QE v2 bands, weighted words and estimated
+  // hours. Project.settings.effort can override weights/throughput. Also
+  // powers the filter-bar counters.
   const effortOptions = projectConfig?.settings?.effort;
   const documentEffort = useMemo(
     () => computeEffort(data, effortOptions),
@@ -352,15 +338,11 @@ const TusList = ({ shareToken } = {}) => {
   const filteredWords = filteredEffort.totalWords;
 
   const applyScoreFilter = () => {
-    const v1 = isNeutralRule(v1Rule) ? null : v1Rule;
-    const v2 = isNeutralRule(v2Rule) ? null : v2Rule;
-    setAppliedScoreFilter(v1 || v2 ? { v1, v2, logic: scoreLogic } : null);
+    setAppliedScoreFilter(isNeutralRule(v2Rule) ? null : v2Rule);
   };
 
   const clearScoreFilter = () => {
-    setV1Rule(NEUTRAL_RULE);
     setV2Rule(NEUTRAL_RULE);
-    setScoreLogic("AND");
     setAppliedScoreFilter(null);
   };
 
@@ -703,41 +685,8 @@ const TusList = ({ shareToken } = {}) => {
       },
     },
     // MTQE bands (modules/documents/pipeline-constants.js): >=0.85 reliable,
-    // >=0.65 doubtful, below priority. One column per QE version — both 0-1,
-    // same bands, so the two scores compare side by side.
-    {
-      title: "QE v1",
-      width: 84,
-      dataIndex: "translationScorePercent",
-      key: "translationScorePercent",
-      sorter: (a, b) =>
-        (a.translationScorePercent ?? -1) - (b.translationScorePercent ?? -1),
-      // "↻" = re-scored after an edit (differs from the pipeline's first score).
-      render: (text, record) => {
-        const score =
-          text !== null && text !== undefined && text !== ""
-            ? Number.parseFloat(text)
-            : null;
-        const recalculated =
-          score !== null &&
-          record.mtqeOriginal != null &&
-          Math.abs(score - record.mtqeOriginal) > 1e-6;
-        return (
-          <Tooltip
-            title={
-              recalculated
-                ? `Re-scored (initial: ${Number(record.mtqeOriginal).toFixed(2)})`
-                : undefined
-            }
-          >
-            <Tag bordered={false} color={qeBandColor(score)}>
-              {score !== null ? score.toFixed(2) : "—"}
-              {recalculated ? " ↻" : ""}
-            </Tag>
-          </Tooltip>
-        );
-      },
-    },
+    // >=0.65 doubtful, below priority. QE v2 is the only score (0-1); it is
+    // re-scored when a segment is confirmed.
     {
       title: "QE v2",
       width: 84,
@@ -1123,13 +1072,11 @@ const TusList = ({ shareToken } = {}) => {
         if (typeof score === "number") {
           setData((prev) =>
             prev.map((doc) =>
-              doc.id === tuId ? { ...doc, translationScorePercent: score } : doc,
+              doc.id === tuId ? { ...doc, mtqeV2Score: score } : doc,
             ),
           );
           setSelectedRow((prev) =>
-            prev?.id === tuId
-              ? { ...prev, translationScorePercent: score }
-              : prev,
+            prev?.id === tuId ? { ...prev, mtqeV2Score: score } : prev,
           );
         }
       } catch (error) {
@@ -1343,45 +1290,6 @@ const TusList = ({ shareToken } = {}) => {
           <span className="flex items-center gap-1 text-xs font-medium text-slate-500">
             <Filter size={14} /> QE filter
           </span>
-
-          {/* QE v1 rule */}
-          <div className="flex items-center gap-1">
-            <Tag bordered={false} className="m-0">
-              QE v1
-            </Tag>
-            <Select
-              size="small"
-              value={v1Rule.op}
-              style={{ width: 60 }}
-              options={["<=", "<", ">=", ">", "="].map((op) => ({
-                value: op,
-                label: op,
-              }))}
-              onChange={(op) => setV1Rule((prev) => ({ ...prev, op }))}
-            />
-            <Slider
-              min={0}
-              max={1}
-              step={0.01}
-              value={v1Rule.value}
-              onChange={(value) => setV1Rule((prev) => ({ ...prev, value }))}
-              style={{ width: 140, margin: "0 6px" }}
-            />
-            <span className="w-9 text-xs tabular-nums text-slate-600">
-              {v1Rule.value.toFixed(2)}
-            </span>
-          </div>
-
-          <Select
-            size="small"
-            value={scoreLogic}
-            style={{ width: 72 }}
-            options={[
-              { value: "AND", label: "AND" },
-              { value: "OR", label: "OR" },
-            ]}
-            onChange={setScoreLogic}
-          />
 
           {/* QE v2 rule */}
           <div className="flex items-center gap-1">

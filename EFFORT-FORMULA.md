@@ -1,5 +1,7 @@
 # Translation Effort Formula
 
+> **Outdated.** The effort model in use is `lib/effort.js` over the QE v2 score (`mtqeV2Score`); see README "Cálculo de esfuerzo". QE v1 (`translationScorePercent`) is retired.
+
 ## Overview
 
 The **Effort Index** measures the expected post-editing work for a set of translated segments, expressed as a percentage (0 = no effort, 100 = full translation from scratch).

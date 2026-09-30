@@ -2,7 +2,7 @@
 import { requireAuthUser, toErrorResponse } from "@/modules/shared";
 import { evaluateTuDraftService, evaluateTuSchema } from "@/modules/tus";
 
-// Live draft evaluation for the TU editor: fresh MTQE score + LLM verdict/
+// Live draft evaluation for the TU editor: fresh QE v2 score + LLM verdict/
 // suggestion for the in-progress target. Read-only — persists nothing.
 export const POST = async (req) => {
   try {

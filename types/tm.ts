@@ -143,6 +143,8 @@ export type ProjectTu = {
   Status: string;
   block?: boolean;
   translationScorePercent?: number | null;
+  /** QE v2 score (0-1): the only QE score since QE v1 was retired. */
+  mtqeV2Score?: number | null;
   levenshteinDistance?: number | null;
   tmInfo?: Array<{
     tm_item_id?: string;

@@ -4,7 +4,7 @@ import { uid } from "uid";
 import { promisify } from "util";
 import prisma from "../../lib/prisma";
 import { checkFile } from "../../lib/utils";
-import { enqueueMtqeV1, enqueueProjectImport } from "../../lib/queue";
+import { enqueueProjectImport } from "../../lib/queue";
 import { DOCUMENT_STATUS } from "../../lib/document-status";
 import { HttpError } from "../shared/http-error";
 import { assertWorkspaceAssetAccess } from "../shared/roles";
@@ -29,7 +29,7 @@ import {
   enrichSdlxliffSegments,
   buildTusDataFromSdlxliffSegments,
 } from "./sdlxliff-service";
-import { PIPELINE_SCORE_JOB } from "./pipeline-service";
+import { releaseDocumentAndScore } from "./pipeline-service";
 import { BLOCK_REASON, profileMatchesLanguagePair } from "./pipeline-constants";
 import { resolveHiddenBy } from "./visibility-rules";
 
@@ -248,8 +248,8 @@ async function resetDocumentTus(documentId) {
 //     trans-unit/mrk ids in `externalId` (needed for a lossless export) and
 //     block the segments marked as locked in <sdl:seg-defs>.
 //  2. Machine-translate with DAAIT /content/pecat the unlocked segments
-//     without target, and score with MTQE the unlocked ones that already have
-//     a target (see enrichSdlxliffSegments).
+//     without target (see enrichSdlxliffSegments). QE v2 scores every
+//     unlocked segment afterwards, on its own queue.
 export async function handleSdlxliffImportJob({
   projectId: documentId,
   filePath,
@@ -317,7 +317,7 @@ export async function handleSdlxliffImportJob({
     data: tusData,
   });
 
-  await chainScoreStage(documentId);
+  await releaseDocumentAndScore(documentId);
 }
 
 export async function handleUploadImportJob({
@@ -350,21 +350,7 @@ export async function handleUploadImportJob({
   await prisma.tu.createMany({
     data: toTusData(result, documentId),
   });
-  await chainScoreStage(documentId);
-}
-
-// The document turns READY inside the score stage; if the stage cannot even
-// be enqueued, release the document directly rather than leaving it stuck.
-async function chainScoreStage(documentId) {
-  try {
-    await enqueueMtqeV1(PIPELINE_SCORE_JOB, { projectId: documentId });
-  } catch (error) {
-    console.error(
-      `[import] could not enqueue MTQE scoring for ${documentId}, releasing as READY:`,
-      error.message,
-    );
-    await setDocumentStatus(documentId, DOCUMENT_STATUS.READY);
-  }
+  await releaseDocumentAndScore(documentId);
 }
 
 // If Redis is down the job cannot be scheduled: mark the document as failed
