@@ -1,7 +1,6 @@
 import prisma from "../../lib/prisma";
 import {
   isMtqeV2Configured,
-  postMTQE,
   postMTQEv2,
   toQeReferences,
 } from "../../lib/utils";
@@ -17,14 +16,16 @@ import {
   resolvePipelineSettings,
 } from "./pipeline-constants";
 
-// Post-translation pipeline stages, run as chained BullMQ jobs after the
-// import job persists the TUs:
-//   score-mtqe  -> scores every fresh segment (document turns READY here)
-//   llm-review  -> LLM judge + applicable suggestions, AFTER READY so the
-//                  editor never waits for the LLM; segments update in place.
-const MTQE_BATCH_SIZE = 100;
+// Post-translation pipeline: once the import job persists the TUs the
+// document turns READY straight away (releaseDocumentAndScore) and QE v2
+// scores the segments in the background on its own queue — the editor never
+// waits for scoring. The retired LLM judge stage (llm-review) is kept below
+// unused.
 const POST_EDIT_BATCH_SIZE = 25;
 
+// Retired QE v1 stage. The job name is only kept so pipeline-score jobs still
+// sitting in Redis when this code deploys get drained (handleLegacyScoreJob).
+// TODO: delete together with the mtqe-v1 queue in the next release.
 export const PIPELINE_SCORE_JOB = "pipeline-score";
 export const PIPELINE_REVIEW_JOB = "pipeline-review";
 // Runs on the dedicated MTQE_V2_QUEUE, not the import queue.
@@ -43,8 +44,6 @@ async function mergePipelineStats(documentId, patch) {
   return stats;
 }
 
-const scoreOf = (item) => item?.mtqe_score ?? item?.score ?? null;
-
 const normalizeForCompare = (text) =>
   String(text ?? "")
     .normalize("NFKC")
@@ -52,98 +51,15 @@ const normalizeForCompare = (text) =>
     .trim();
 
 /**
- * Stage 2 — MTQE scoring. Scores every visible, unblocked segment that has a
- * target and no pipeline score yet (mtqeOriginal null covers both fresh MT
- * targets and SDLXLIFF targets whose percent attr is only a fallback).
- * The document becomes READY here; a full MTQE outage throws so BullMQ
- * retries, and the worker's final-failure hook still releases the document.
+ * Called right after the import job persists the TUs: the document turns
+ * READY straight away and QE v2 is scheduled on its own Bull queue
+ * (MTQE_V2_QUEUE), so scoring progresses and retries independently of the
+ * import pipeline and the editor never waits for it. The v2 enqueue is
+ * best-effort: a failure is logged and the document simply stays unscored.
+ * pipelineStats.stage tracks the scoring: SCORING while queued/running,
+ * DONE when finished (no stage at all = QE v2 not configured).
  */
-export async function handleScoreMtqeJob({ projectId: documentId }) {
-  const document = await prisma.document.findUnique({
-    where: { id: documentId },
-    select: { id: true, sourceLanguage: true, targetLanguage: true },
-  });
-  if (!document) return;
-
-  await mergePipelineStats(documentId, { stage: "SCORING" });
-
-  const started = Date.now();
-  const tus = await prisma.tu.findMany({
-    where: {
-      documentId,
-      visible: true,
-      block: false,
-      translatedLiteral: { not: null },
-      mtqeOriginal: null,
-    },
-    select: { id: true, srcLiteral: true, translatedLiteral: true, tmInfo: true },
-    orderBy: { count: "asc" },
-  });
-
-  let scored = 0;
-  let failed = 0;
-  for (let i = 0; i < tus.length; i += MTQE_BATCH_SIZE) {
-    const batch = tus.slice(i, i + MTQE_BATCH_SIZE);
-    const pairs = batch.map((tu) => ({
-      source: tu.srcLiteral,
-      target: tu.translatedLiteral,
-      references: toQeReferences(tu.tmInfo),
-    }));
-
-    let response;
-    try {
-      response = await postMTQE({
-        pairs,
-        sourceLanguage: document.sourceLanguage,
-        targetLanguage: document.targetLanguage,
-      });
-    } catch (error) {
-      failed += batch.length;
-      console.error(
-        `[pipeline] MTQE batch failed for document ${documentId}:`,
-        error.message,
-      );
-      continue;
-    }
-
-    const items = Array.isArray(response)
-      ? response
-      : (response?.pairs ?? response?.segments ?? response?.scores ?? []);
-    const scoreByPair = new Map();
-    for (const item of items) {
-      if (typeof item?.source === "string" && typeof item?.target === "string") {
-        scoreByPair.set(`${item.source}\u0000${item.target}`, scoreOf(item));
-      }
-    }
-
-    for (let j = 0; j < batch.length; j++) {
-      const tu = batch[j];
-      const echoed = scoreByPair.get(`${tu.srcLiteral}\u0000${tu.translatedLiteral}`);
-      const score = echoed ?? scoreOf(items[j]);
-      if (typeof score !== "number") continue;
-      await prisma.tu.update({
-        where: { id: tu.id },
-        data: { translationScorePercent: score, mtqeOriginal: score },
-      });
-      scored += 1;
-    }
-  }
-
-  const totalOutage = tus.length > 0 && scored === 0 && failed === tus.length;
-  await mergePipelineStats(documentId, {
-    // SCORED = waiting for the LLM review stage to pick the document up.
-    stage: "SCORED",
-    mtqeSecs: Math.round((Date.now() - started) / 1000),
-    mtqeScored: scored,
-    mtqeError: failed > 0 ? `${failed} segments could not be scored` : null,
-  });
-
-  if (totalOutage) {
-    // Let BullMQ retry the whole stage; the final-failure hook releases the
-    // document as READY so an MTQE outage never blocks the review.
-    throw new Error("MTQE service unavailable: no segment could be scored");
-  }
-
+export async function releaseDocumentAndScore(documentId) {
   await prisma.document.update({
     where: { id: documentId },
     data: { status: DOCUMENT_STATUS.READY },
@@ -154,22 +70,39 @@ export async function handleScoreMtqeJob({ projectId: documentId }) {
   // enqueues PIPELINE_REVIEW_JOB anymore. handleLlmReviewJob and friends stay
   // in pipeline-service.js unused (no call site) rather than deleted.
 
-  // The second QE score runs on its own Bull queue (MTQE_V2_QUEUE) so it
-  // progresses and retries independently of the import pipeline — the
-  // document is already READY at this point and never waits for it.
-  if (isMtqeV2Configured() && tus.length > 0) {
-    await enqueueMtqeV2(MTQE_V2_JOB, { projectId: documentId }).catch((error) =>
-      console.error(
-        `[pipeline] could not enqueue MTQE v2 for ${documentId}:`,
-        error.message,
-      ),
+  if (!isMtqeV2Configured()) return;
+
+  // Marked BEFORE enqueueing so the job's own DONE can never be overwritten.
+  await mergePipelineStats(documentId, { stage: "SCORING" });
+  try {
+    await enqueueMtqeV2(MTQE_V2_JOB, { projectId: documentId });
+  } catch (error) {
+    console.error(
+      `[pipeline] could not enqueue MTQE v2 for ${documentId}:`,
+      error.message,
     );
+    await mergePipelineStats(documentId, {
+      stage: "DONE",
+      mtqeV2Error: `QE v2 not scheduled: ${error.message}`,
+    }).catch(() => {});
   }
+}
+
+// Drains pipeline-score jobs enqueued by the retired QE v1 stage before this
+// code deployed: no v1 scoring anymore, just release the document the new
+// way. TODO: delete together with PIPELINE_SCORE_JOB in the next release.
+export async function handleLegacyScoreJob({ projectId: documentId }) {
+  const document = await prisma.document.findUnique({
+    where: { id: documentId },
+    select: { id: true },
+  });
+  if (!document) return;
+  await releaseDocumentAndScore(documentId);
 }
 
 /**
  * MTQE v2 job (own queue): scores every visible segment that still lacks a
- * second score, via /score-with-references — ONE segment per request, with
+ * QE score, via /score-with-references — ONE segment per request, with
  * the segment's own TM matches (tmInfo) and glossary hits (glossaryInfo) as
  * references. Scores come back 0-100 and are stored normalized to 0-1.
  * Throws on a total outage so BullMQ retries the job; partial failures are
@@ -200,7 +133,10 @@ export async function handleScoreMtqeV2Job({ projectId: documentId }) {
     },
     orderBy: { count: "asc" },
   });
-  if (tus.length === 0) return;
+  if (tus.length === 0) {
+    await mergePipelineStats(documentId, { stage: "DONE", mtqeV2Scored: 0 });
+    return;
+  }
 
   const started = Date.now();
   let scored = 0;
@@ -238,36 +174,29 @@ export async function handleScoreMtqeV2Job({ projectId: documentId }) {
     scored += 1;
   }
 
+  const totalOutage = scored === 0 && failed === tus.length;
   await mergePipelineStats(documentId, {
+    // A total outage stays SCORING: BullMQ retries, and the final-failure
+    // hook closes the stage if every attempt fails.
+    ...(totalOutage ? {} : { stage: "DONE" }),
     mtqeV2Scored: scored,
     mtqeV2Secs: Math.round((Date.now() - started) / 1000),
     mtqeV2Error:
       failed > 0 ? `${failed} segments could not be v2-scored` : null,
   });
 
-  if (tus.length > 0 && scored === 0 && failed === tus.length) {
+  if (totalOutage) {
     throw new Error("MTQE v2 unavailable: no segment could be scored");
   }
 }
 
-// Final-failure hook for the v2 queue: informational only — the document is
-// long READY, so the outcome lands in pipelineStats and nowhere else.
+// Final-failure hook for the v2 queue: the document is already READY, so the
+// outcome lands in pipelineStats and nowhere else (segments stay unscored).
 export async function recordMtqeV2Failure(documentId, error) {
   await mergePipelineStats(documentId, {
+    stage: "DONE",
     mtqeV2Error: error?.message ?? "MTQE v2 scoring failed",
   }).catch(() => {});
-}
-
-// Called by the worker when the score job exhausts its retries: the document
-// must still become usable (segments simply stay unscored = low band).
-export async function releaseDocumentAfterScoreFailure(documentId, error) {
-  await mergePipelineStats(documentId, {
-    stage: "DONE",
-    mtqeError: error?.message ?? "MTQE scoring failed",
-  }).catch(() => {});
-  await prisma.document
-    .update({ where: { id: documentId }, data: { status: DOCUMENT_STATUS.READY } })
-    .catch(() => {});
 }
 
 function buildLlmComment(meta) {
@@ -427,8 +356,9 @@ export async function reviewDraftSegment({
 
 /**
  * Stage 3+4 — LLM review via DAAIT /content/post_edit (use_term_score on).
- * Routing gate: only segments below the document's mtqeThreshold (or without
- * score) are sent — the LLM is paid only where MTQE doubts. Runs after READY;
+ * Routing gate: only segments whose QE v2 score is below the document's
+ * mtqeThreshold (or without score) are sent — the LLM is paid only where QE
+ * doubts. Runs after READY;
  * failures are recorded in pipelineStats and never touch Document.status.
  */
 export async function handleLlmReviewJob({ projectId: documentId }) {
@@ -482,8 +412,8 @@ export async function handleLlmReviewJob({ projectId: documentId }) {
       translatedLiteral: { not: null },
       Status: { in: ["TRANSLATED_MT", "NOT_REVIEWED"] },
       OR: [
-        { translationScorePercent: null },
-        { translationScorePercent: { lt: settings.mtqeThreshold } },
+        { mtqeV2Score: null },
+        { mtqeV2Score: { lt: settings.mtqeThreshold } },
       ],
     },
     select: { id: true, srcLiteral: true, translatedLiteral: true },

@@ -24,8 +24,7 @@
 | `TIKAL_BIN` | `tikal` | Okapi Tikal |
 | `SOFFICE_BIN` | `soffice` | LibreOffice (solo PDF) |
 | `STORAGE_DIR` | `./storage` | Carpetas de trabajo de los documentos |
-| `MTQE_V1`, `MTQE_V1_API_KEY` | — | Puntuación QE v1 (`MTQE` / `MTQE_API_KEY` se aceptan como nombres antiguos) |
-| `MTQE_V2`, `MTQE_V2_API_KEY` | — | Puntuación QE v2 (sin ellas se omite) |
+| `MTQE_V2`, `MTQE_V2_API_KEY` | — | Puntuación QE v2, único score (sin ellas no se puntúa). `MTQE_V1*` / `MTQE` / `MTQE_API_KEY` ya no se leen (QE v1 retirado) |
 | `DAAIT_CONTENT_TIMEOUT_MS`, `DAAIT_EXPORT_TIMEOUT_MS`, `DAAIT_LIST_TIMEOUT_MS` | 300000 / 55000 / 10000 | Timeouts de las llamadas a DAAIT |
 | `TIKAL_TIMEOUT_MS`, `TIKAL_MAX_CONCURRENCY`, `SOFFICE_TIMEOUT_MS` | — | Límites de Okapi Tikal y LibreOffice |
 

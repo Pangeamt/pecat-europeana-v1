@@ -66,12 +66,13 @@ const ProjectDetail = ({ projectId }) => {
 
   useEffect(() => {
     // Keep polling while an import is pending OR while the post-READY
-    // pipeline stages (MTQE scoring / LLM review) are still running, so the
-    // Pipeline column updates without a manual refresh.
+    // QE v2 scoring is still running, so the Pipeline column updates without
+    // a manual refresh. (SCORED was the retired QE v1 hand-off to the LLM
+    // stage — nothing moves a document out of it anymore, so no polling.)
     const hasPending = (project?.documents ?? []).some(
       (doc) =>
         DOCUMENT_PENDING_STATUSES.includes(doc.status) ||
-        ["SCORING", "SCORED", "REVIEWING"].includes(
+        ["SCORING", "REVIEWING"].includes(
           doc.pipelineStats?.stage,
         ),
     );

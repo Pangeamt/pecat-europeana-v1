@@ -54,40 +54,44 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/deploym
 
 ## Colas BullMQ y pipeline de procesamiento
 
-Al subir un documento la petición responde al instante y el trabajo pesado corre en segundo plano sobre **tres colas BullMQ** (Redis), procesadas por workers dentro del propio proceso Next (arrancan desde `instrumentation.js`):
+Al subir un documento la petición responde al instante y el trabajo pesado corre en segundo plano sobre colas BullMQ (Redis), procesadas por workers dentro del propio proceso Next (arrancan desde `instrumentation.js`):
 
 | Cola | Jobs | Concurrencia | Qué hace |
 |---|---|---|---|
-| `project-import` | `import-upload`, `import-sdlxliff`, `pipeline-review` | 2 | PDF→docx (LibreOffice), extracción y segmentación (Okapi Tikal + SRX), traducción DAAIT, persistencia de TUs; y la revisión LLM (`/content/post_edit`) |
-| `mtqe-v1` | `pipeline-score` | 1 | Puntuación QE v1 (`MTQE_V1` combined-score-with-references, con las referencias de TM de cada segmento) — **el documento pasa a READY aquí** |
-| `mtqe-v2` | `score-mtqe-v2` | 1 | Segunda puntuación (`MTQE_V2` score-with-references: una llamada por segmento con sus referencias de TM y glosario; sin `MTQE_V2`/`MTQE_V2_API_KEY` se omite) |
+| `project-import` | `import-upload`, `import-sdlxliff`, `pipeline-review` | 2 | PDF→docx (LibreOffice), extracción y segmentación (Okapi Tikal + SRX), traducción DAAIT, persistencia de TUs — **el documento pasa a READY al terminar**; y la revisión LLM (`/content/post_edit`, retirada: nada la encola) |
+| `mtqe-v2` | `score-mtqe-v2` | 1 | Puntuación QE (`MTQE_V2` score-with-references: una llamada por segmento con sus referencias de TM y glosario). Es el **único score**. Sin `MTQE_V2`/`MTQE_V2_API_KEY` no se puntúa |
+| `mtqe-v1` | `pipeline-score` | 1 | **Retirada.** Solo drena los jobs que dejó en Redis la versión anterior: liberan el documento (READY) y encolan QE v2. Se borra en la próxima release |
 
-Las colas MTQE van con concurrencia 1 a propósito: el servicio MTQE no tolera bien la puntuación en paralelo, y así el scoring nunca compite con la extracción/traducción de otros documentos.
+La cola MTQE va con concurrencia 1 a propósito: el servicio MTQE no tolera bien la puntuación en paralelo, y así el scoring nunca compite con la extracción/traducción de otros documentos.
+
+QE v1 está retirado: no hay puntuación v1 ni en el pipeline, ni al confirmar un segmento, ni en la evaluación en vivo. Las columnas `Tu.translationScorePercent`/`mtqeOriginal` siguen en la BD (histórico) pero la aplicación ya no las usa.
 
 ### Cadena de jobs
 
 ```
-import-upload / import-sdlxliff      [project-import]
+import-upload / import-sdlxliff      [project-import]   → documento READY
         │
-        ▼
-pipeline-score  (QE v1 → READY)      [mtqe-v1]
-        │
-        ├──────────────► pipeline-review  (juez LLM)   [project-import]
-        └──────────────► score-mtqe-v2   (QE v2)       [mtqe-v2]      (en paralelo)
+        └──────────────► score-mtqe-v2   (QE v2)       [mtqe-v2]      (en segundo plano)
 ```
+
+`pipelineStats.stage` sigue la puntuación: `SCORING` mientras QE v2 está en cola o corriendo, `DONE` al acabar (sin `stage` = QE v2 no configurado).
 
 ### Reintentos (Attempts) y fallos
 
-Todos los jobs comparten la misma política (`lib/queue.js`): **3 intentos con backoff exponencial desde 5s** (~5s, ~10s, ~20s). Un intento solo se consume si el handler lanza: dentro del scoring, un lote fallido se registra y se salta; el job entero solo reintenta ante una caída total del servicio (ningún segmento puntuado).
+Todos los jobs comparten la misma política (`lib/queue.js`): **3 intentos con backoff exponencial desde 5s** (~5s, ~10s, ~20s). Un intento solo se consume si el handler lanza: dentro del scoring, un segmento fallido se registra y se salta; el job entero solo reintenta ante una caída total del servicio (ningún segmento puntuado).
 
 Al agotar los 3 intentos, cada tipo degrada distinto — **solo la fase de import puede dejar un documento en error**; todo lo posterior degrada sin bloquear la revisión humana:
 
 | Job | Al agotar reintentos |
 |---|---|
 | `import-upload` / `import-sdlxliff` | Documento en estado de error (`FILE_ERROR`/`MTQE_ERROR` según causa) |
-| `pipeline-score` | El documento se libera como **READY** igualmente (segmentos sin score = banda baja); el fallo queda en `pipelineStats.mtqeError` |
+| `score-mtqe-v2` | Se anota en `pipelineStats.mtqeV2Error` (`stage` = `DONE`); los segmentos quedan sin score ("—", banda de esfuerzo completo) |
+| `pipeline-score` (legado) | El documento se libera como **READY** igualmente |
 | `pipeline-review` | Solo se anota en `pipelineStats` (el documento ya estaba READY) |
-| `score-mtqe-v2` | Solo informativo: `pipelineStats.mtqeV2Error`; la columna QE v2 muestra "—" |
+
+### Re-puntuación al confirmar y evaluación en vivo
+
+Al confirmar un segmento (approve) se re-puntúa con QE v2 (mismas referencias de TM/glosario que el pipeline, timeout 8 s, best-effort: si no responde a tiempo se guarda sin tocar el score). El nuevo score se escribe en `mtqeV2Score` y se propaga a los segmentos con la misma fuente. La evaluación en vivo del editor usa la misma llamada y no persiste nada.
 
 ### Monitor de colas
 
@@ -100,11 +104,10 @@ Implementado en `lib/effort.js` (una sola fuente de verdad; el modal de la franj
 **Por segmento:**
 
 ```
-effortScore = min(QE v1, QE v2)        # si falta una métrica, se usa la que haya
-discrepante = (ambas presentes) y |v1 − v2| ≥ 0.25
+effortScore = QE v2 (mtqeV2Score, 0-1)
 ```
 
-Se usa el **mínimo** (no la media) porque para estimar trabajo importa el riesgo: un segmento solo es "bueno" si ambos evaluadores coinciden. Un segmento **discrepante** cuenta como esfuerzo completo aunque una de las dos métricas sea alta — es el bucket "revisar primero". Un segmento **sin ninguna puntuación** cuenta como esfuerzo completo (peor caso hasta que llegue el score).
+Un segmento **sin puntuación** cuenta como esfuerzo completo (peor caso hasta que llegue el score).
 
 **Bandas y pesos** (α, sobre las palabras del texto origen):
 
@@ -114,7 +117,7 @@ Se usa el **mínimo** (no la media) porque para estimar trabajo importa el riesg
 | 0.85 – 0.94 | 0.3 | revisión ligera |
 | 0.75 – 0.84 | 0.5 | revisión moderada |
 | 0.50 – 0.74 | 0.8 | post-edición seria |
-| < 0.50, sin score o discrepante | 1.0 | como traducir de cero |
+| < 0.50 o sin score | 1.0 | como traducir de cero |
 
 **Por documento (o por corte filtrado):**
 
@@ -127,8 +130,7 @@ horasEstimadas     = palabrasPonderadas / throughput      # 800 palabras pondera
 Las palabras son los tokens separados por espacios del literal origen (mismo criterio que la franja de stats). **Configurable por proyecto** vía `Project.settings.effort` (sin UI de momento):
 
 ```json
-{ "weights": { "b95": 0.1, "b85": 0.3, "b75": 0.5, "b50": 0.8, "b0": 1, "disagree": 1 },
-  "disagreement": 0.25,
+{ "weights": { "b95": 0.1, "b85": 0.3, "b75": 0.5, "b50": 0.8, "b0": 1 },
   "throughputWph": 800 }
 ```
 

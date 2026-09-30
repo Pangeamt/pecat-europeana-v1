@@ -76,7 +76,7 @@ export async function exportDocumentAsJsonService(documentId, actorUser) {
       source: tu.srcLiteral,
       target: tu.translatedLiteral,
       status: tu.Status,
-      score: tu.translationScorePercent,
+      score: tu.mtqeV2Score,
       review: tu.reviewLiteral,
       tmInfo: tu.tmInfo,
       glossaryInfo: tu.glossaryInfo,
