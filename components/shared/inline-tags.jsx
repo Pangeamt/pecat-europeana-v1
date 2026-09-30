@@ -13,6 +13,14 @@ export const inlineTagRe = () => new RegExp(TAG_PATTERN.source, "g");
 
 export const hasInlineTags = (text) => TAG_PATTERN.test(String(text ?? ""));
 
+/** Text without its placeholders: for search, word counts and anything sent
+ *  to a TM/QE/LLM (they get the text only; see modules/documents/qe-payload.js). */
+export const stripInlineTags = (text) =>
+  String(text ?? "")
+    .replace(inlineTagRe(), "")
+    .replace(/ {2,}/g, " ")
+    .trim();
+
 /** The tags of a text, concatenated in order: the editor invariant compares
  *  this against the original to detect deleted/duplicated/reordered tags. */
 export const tagSequence = (text) =>

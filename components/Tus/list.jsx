@@ -53,7 +53,11 @@ import { userStore } from "@/store";
 import { getTextDirection } from "@/lib/locale-direction";
 import CustomTextArea from "../../components/CustomTextArea";
 import TagEditor from "@/components/TagEditor";
-import { TagText, hasInlineTags } from "@/components/shared/inline-tags";
+import {
+  TagText,
+  hasInlineTags,
+  stripInlineTags,
+} from "@/components/shared/inline-tags";
 import { computeEffort } from "@/lib/effort";
 
 const stripHTML = (html) => {
@@ -234,8 +238,9 @@ const TusList = ({ shareToken } = {}) => {
       }
 
       const mtqe = doc.mtqeV2Score;
+      // Placeholders (<x1/>) are not words.
       const srcWords = doc.srcLiteral
-        ? doc.srcLiteral.trim().split(/\s+/).filter(Boolean).length
+        ? stripInlineTags(doc.srcLiteral).split(/\s+/).filter(Boolean).length
         : 0;
       if (mtqe == null || mtqe < 0.5) {
         newStats.notMatch += 1;
@@ -457,8 +462,8 @@ const TusList = ({ shareToken } = {}) => {
           ? record.reviewLiteral || record.translatedLiteral
           : record[dataIndex];
       if (!fieldValue) return false;
-      return fieldValue
-        .toString()
+      // Tags are chips, not text: "Hello world" must match "Hello <g1>world</g1>".
+      return stripInlineTags(fieldValue.toString())
         .toLowerCase()
         .includes(value.toString().toLowerCase());
     },
@@ -598,13 +603,16 @@ const TusList = ({ shareToken } = {}) => {
               key={`${record.id}-${editorRefreshKey}`}
               dir={targetDir}
               value={initialValue}
+              source={selectedRow.srcLiteral}
               setValue={
                 Editor === TagEditor
                   ? changeTextInTagEditor
                   : changeTextInTextarea
               }
               onKeyDown={async (e) => {
-                if (e.key === "Enter" && e.ctrlKey) {
+                // Ctrl+Enter saves; Ctrl+Shift+Enter rejects (below). Without
+                // the !shiftKey both ran: the segment was saved AND rejected.
+                if (e.key === "Enter" && e.ctrlKey && !e.shiftKey) {
                   e.preventDefault();
                   e.stopPropagation();
                   save(selectedRow.reviewLiteral);
@@ -859,6 +867,9 @@ const TusList = ({ shareToken } = {}) => {
   // suggestionStatus so acceptance can be measured.
   const applySuggestion = async () => {
     if (!selectedRow?.suggestionLiteral) return;
+    // Suggestions come without tags: on a tagged segment they are a
+    // reference only (the panel hides "Apply"; this is the guard).
+    if (hasInlineTags(selectedRow.srcLiteral)) return;
     const text = selectedRow.suggestionLiteral;
     try {
       await confirm({ tuId: selectedRow.id, action: "apply_suggestion" });
@@ -975,10 +986,12 @@ const TusList = ({ shareToken } = {}) => {
             (tmId) => projectConfig.tms.find((tm) => tm.id === tmId)?.updateTm,
           );
           if (tmIds.length > 0) {
+            // The TM gets the text only: placeholders stored in DAAIT came
+            // back as <x1/> in the TM panel and in the QE references.
             const appendPayload = {
               tmIds,
-              source: currentRow.srcLiteral,
-              target: reviewLiteral,
+              source: stripInlineTags(currentRow.srcLiteral),
+              target: stripInlineTags(reviewLiteral),
             };
             const appendPromise = shareToken
               ? appendTuByShareToken(shareToken, appendPayload)
@@ -1000,7 +1013,12 @@ const TusList = ({ shareToken } = {}) => {
         duration: 2,
       });
     } catch (error) {
-      messageApi.error("Error saving TU");
+      const data = error?.response?.data;
+      const reason =
+        data?.message ||
+        data?.error?.message ||
+        (typeof data?.error === "string" ? data.error : null);
+      messageApi.error(reason ? `Not saved: ${reason}` : "Error saving TU");
       console.error(error);
     }
   };
@@ -1234,6 +1252,7 @@ const TusList = ({ shareToken } = {}) => {
                   live={liveEval?.tuId === selectedRow?.id ? liveEval : null}
                   onApplyLive={() => {
                     if (!liveEval?.suggestion) return;
+                    if (liveEval.referenceOnly || hasInlineTags(selectedRow?.srcLiteral)) return;
                     const text = liveEval.suggestion;
                     setSelectedRow((prev) =>
                       prev ? { ...prev, reviewLiteral: text } : prev,

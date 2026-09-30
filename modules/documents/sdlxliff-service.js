@@ -1,214 +1,29 @@
-import xml2js from 'xml2js';
 import { UnrecoverableError } from 'bullmq';
 import { HttpError } from '../shared/http-error';
 import { pecatTranslate } from '../../lib/daait';
-import { BLOCK_REASON } from './pipeline-constants';
+import { BLOCK_REASON, inlineTagsMatch } from './pipeline-constants';
+import { readSdlxliffSegments } from './sdlxliff/reader';
+import { writeSdlxliff } from './sdlxliff/writer';
 
-// Parser used ONLY to read text in document order. xml2js' default config merges
-// all character data of a node into `_` and exposes children separately, which
-// loses the position of inline tags (e.g. "efecto <g>waterbed</g>, ya es..."
-// would drop "waterbed" to the end). With preserveChildrenOrder + charsAsChildren
-// the ordered children live in `$$`, so we can rebuild the exact text.
-function createOrderedParser() {
-  return new xml2js.Parser({
-    explicitArray: true,
-    explicitChildren: true,
-    preserveChildrenOrder: true,
-    charsAsChildren: true,
-    includeWhiteChars: true,
-    trim: false,
-  });
-}
-
-// Parser used to mutate + rebuild the file on export. Builder round-trips this
-// shape reliably (unlike the `$$` shape produced by the ordered parser).
-function createSimpleParser() {
-  return new xml2js.Parser({ explicitArray: false });
-}
-
-// Collapse any run of whitespace (newlines/tabs/indentation) into a single space
-// and trim the ends. SDLXLIFF segment whitespace is not semantic, so this makes a
-// pretty-printed file behave exactly like a minified one and keeps the text we
-// send to translation (and store as srcLiteral) clean. Applied identically on
-// import and export, so source<->TU matching stays consistent.
-function normalizeSegmentText(text) {
-  if (typeof text !== 'string') return '';
-  return text.replace(/\s+/g, ' ').trim();
-}
-
-// Walk an ordered-parser node and reconstruct its text, respecting the original
-// order of character data and nested <g>/<mrk> inline tags.
-function collectText(node) {
-  if (node === null || node === undefined) return '';
-  if (typeof node === 'string') return node;
-
-  if (Array.isArray(node.$$)) {
-    let out = '';
-    for (const child of node.$$) {
-      if (child['#name'] === '__text__') {
-        out += child._ || '';
-      } else {
-        out += collectText(child);
-      }
-    }
-    return out;
-  }
-
-  return node._ || '';
-}
-
-// Recursively collect the <trans-unit> elements of a <body>/<group> container:
-// Trados places them directly under <body>, inside <group>, or in nested
-// groups. `toArray` adapts to the parser shape (ordered: always arrays;
-// simple: scalar when there is a single child).
-function collectContainerTransUnits(container, toArray, out) {
-  for (const tu of toArray(container['trans-unit'])) out.push(tu);
-  for (const group of toArray(container.group)) {
-    collectContainerTransUnits(group, toArray, out);
-  }
-}
-
-// Flatten all <trans-unit> elements from an ordered parse. A SDLXLIFF can hold
-// SEVERAL <file> elements for the same document (e.g. pptx slides/notes split
-// by Trados), so every one of them is traversed. Both flatteners visit
-// files/groups in the same order, so their indexes stay aligned for export.
-function getOrderedTransUnits(orderedXml) {
-  const files = orderedXml?.xliff?.file || [];
-  const toArray = (value) => value || [];
-  const list = [];
-  for (const file of files) {
-    const body = file?.body?.[0];
-    if (body) collectContainerTransUnits(body, toArray, list);
-  }
-  return { file: files[0], list };
-}
-
-// Flatten all <trans-unit> elements from a simple parse (same traversal order
-// as getOrderedTransUnits).
-function getSimpleTransUnits(simpleXml) {
-  const rawFiles = simpleXml?.xliff?.file;
-  const files = Array.isArray(rawFiles) ? rawFiles : rawFiles ? [rawFiles] : [];
-  const toArray = (value) => (Array.isArray(value) ? value : value ? [value] : []);
-  const list = [];
-  for (const file of files) {
-    if (file?.body) collectContainerTransUnits(file.body, toArray, list);
-  }
-  return list;
-}
-
-// Collect every <mrk mtype="seg"> descendant of an ordered-parser node, in
-// document order. Trados files place them either directly under <seg-source>/
-// <target> or wrapped in one or more <g> tags, so we walk the whole subtree.
-function collectSegMrks(node, out = []) {
-  if (!node || typeof node === 'string') return out;
-  if (Array.isArray(node.$$)) {
-    for (const child of node.$$) {
-      if (child['#name'] === 'mrk' && child.$?.mtype === 'seg') {
-        out.push(child);
-      } else if (child['#name'] !== '__text__') {
-        collectSegMrks(child, out);
-      }
-    }
-  }
-  return out;
-}
-
-// Compute the source segments for a single ordered <trans-unit>.
-// Preference: <seg-source> (respects original segmentation). Fallback: <source>.
-function getTransUnitSegments(orderedTransUnit) {
-  const segSource = orderedTransUnit['seg-source']?.[0];
-
-  if (segSource) {
-    const mrks = collectSegMrks(segSource);
-    const segments = [];
-    for (const mrk of mrks) {
-      const text = normalizeSegmentText(collectText(mrk));
-      if (text) {
-        segments.push({ mid: mrk.$?.mid ?? null, text });
-      }
-    }
-    if (segments.length > 0) {
-      return { segmented: true, segments, gAttrs: segSource.g?.[0]?.$ };
-    }
-    // <seg-source> present but not sentence-segmented (no <mrk mtype="seg">):
-    // a pre-segmentation Trados file keeps text directly in <g> or as <x/>
-    // placeholders. Fall back to the whole seg-source text as one segment.
-    const whole = normalizeSegmentText(collectText(segSource));
-    if (whole) {
-      return { segmented: false, segments: [{ mid: null, text: whole }], gAttrs: segSource.g?.[0]?.$ };
-    }
-    return { segmented: false, segments: [], gAttrs: null };
-  }
-
-  const source = orderedTransUnit.source?.[0];
-  if (source) {
-    const text = normalizeSegmentText(collectText(source));
-    if (text) {
-      return { segmented: false, segments: [{ mid: null, text }], gAttrs: source.g?.[0]?.$ };
-    }
-  }
-
-  return { segmented: false, segments: [], gAttrs: null };
-}
-
-// Extract the existing translations of a <trans-unit>: a map mid -> text for
-// segmented targets, plus the whole-target text for unsegmented ones.
-function getTransUnitTargetTexts(orderedTransUnit) {
-  const target = orderedTransUnit.target?.[0];
-  if (!target) return { byMid: new Map(), whole: '' };
-
-  const byMid = new Map();
-  for (const mrk of collectSegMrks(target)) {
-    byMid.set(mrk.$?.mid ?? null, normalizeSegmentText(collectText(mrk)));
-  }
-  return { byMid, whole: normalizeSegmentText(collectText(target)) };
-}
-
-// <mrk mid> encodes special characters OOXML-style ("140_x0020_a") while the
-// matching <sdl:seg id> keeps them literal ("140 a"). Decode _xHHHH_ escapes
-// so seg-defs lookups work for both shapes.
-function decodeMid(mid) {
-  if (typeof mid !== 'string') return mid;
-  return mid.replace(/_x([0-9A-Fa-f]{4})_/g, (_, hex) =>
-    String.fromCharCode(parseInt(hex, 16)),
-  );
-}
-
-// Extract per-segment state from <sdl:seg-defs>. Each <sdl:seg id="X"> matches
-// the <mrk mid="X"> of the same trans-unit and carries locked/origin/conf.
-function getTransUnitSegDefs(orderedTransUnit) {
-  const segs = orderedTransUnit['sdl:seg-defs']?.[0]?.['sdl:seg'] || [];
-  const byId = new Map();
-  for (const seg of segs) {
-    const attrs = seg.$ || {};
-    byId.set(attrs.id, {
-      locked: attrs.locked === 'true',
-      origin: attrs.origin ?? null,
-      conf: attrs.conf ?? null,
-      percent: attrs.percent !== undefined ? Number(attrs.percent) : null,
-    });
-  }
-  return byId;
-}
+// SDLXLIFF import/export (2026-09-30): the model of module-file-translate
+// (app/xliff/sdl_merge.py), see modules/documents/sdlxliff/*. Before this the
+// import flattened every inline tag and the export rebuilt the WHOLE file
+// with xml2js -- which reordered mixed content in every source/seg-source,
+// exported the MT instead of the review (H-1) and matched segments by source
+// text. Audit: documentacion/pecat-e/COMPARATIVA-SDLXLIFF-PECATE-VS-MFT.md.
 
 export async function parseSdlxliffFile(filePath) {
   const fs = await import('fs');
+  // "utf8" keeps the BOM (the reader skips it as a text node).
   const fileContent = fs.readFileSync(filePath, 'utf8');
 
-  let xmlData;
+  let parsed;
   try {
-    xmlData = await createOrderedParser().parseStringPromise(fileContent);
+    parsed = readSdlxliffSegments(fileContent);
   } catch (error) {
-    throw new HttpError(400, 'Invalid SDLXLIFF file format. Please ensure the file is a valid XML document.');
+    throw new HttpError(400, `Invalid SDLXLIFF file format: ${error?.message ?? error}`);
   }
-
-  const file = xmlData?.xliff?.file?.[0];
-  if (!file) {
-    throw new HttpError(400, 'Invalid SDLXLIFF structure. Missing xliff or file element.');
-  }
-
-  const sourceLanguage = file.$ ? file.$['source-language'] : null;
-  const targetLanguage = file.$ ? file.$['target-language'] : null;
+  const { sourceLanguage, targetLanguage, segments } = parsed;
 
   // Only source-language is required in the file. target-language is optional:
   // source-only SDLXLIFF (no target language assigned yet in Trados) is valid;
@@ -216,47 +31,6 @@ export async function parseSdlxliffFile(filePath) {
   if (!sourceLanguage) {
     throw new HttpError(400, 'SDLXLIFF file must specify a source-language attribute.');
   }
-
-  const { list } = getOrderedTransUnits(xmlData);
-  const segments = [];
-
-  for (const tu of list) {
-    // Structural units (translate="no", e.g. slide metadata) have no
-    // seg-source/target and must not become editable TUs; they are preserved
-    // on export because the export rebuilds from the original file.
-    if (tu.$?.translate === 'no') continue;
-
-    const transUnitId = tu.$?.id;
-    const info = getTransUnitSegments(tu);
-    if (info.segments.length === 0) continue;
-
-    const targets = getTransUnitTargetTexts(tu);
-    const segDefs = getTransUnitSegDefs(tu);
-
-    info.segments.forEach((seg, idx) => {
-      const def =
-        seg.mid != null
-          ? segDefs.get(seg.mid) ?? segDefs.get(decodeMid(seg.mid))
-          : undefined;
-      const target = seg.mid != null
-        ? targets.byMid.get(seg.mid) ?? null
-        : targets.whole || null;
-
-      segments.push({
-        transUnitId,
-        mid: seg.mid,
-        segmentIndex: idx,
-        isSegmented: info.segmented,
-        source: seg.text,
-        target: target || null,
-        locked: def?.locked ?? false,
-        origin: def?.origin ?? null,
-        conf: def?.conf ?? null,
-        percent: def?.percent ?? null,
-      });
-    });
-  }
-
   if (segments.length === 0) {
     throw new HttpError(400, 'No translation units found in SDLXLIFF file.');
   }
@@ -348,10 +122,18 @@ export async function enrichSdlxliffSegments(segments, {
       );
 
       seg.target = result.target ?? null;
+      // The source travels with its inline codes as placeholders (<g1>, <x2/>).
+      // DAAIT is not guaranteed to keep them: a translation that drops or
+      // invents one is still stored (the reviewer can fix the text), but it is
+      // flagged, and the export will not write it until the tags match.
+      seg.tagMismatch = Boolean(seg.target) && !inlineTagsMatch(seg.source, seg.target);
       seg.tmInfo = result.tm_info ?? null;
       seg.glossaryInfo = result.glossary_info ?? null;
       seg.machineTranslated = true;
-      seg.tmExactMatch = Boolean(exactTm);
+      // An exact TM match is auto-locked -- unless its tags do not match the
+      // source: locked, nobody could fix it and the export would skip it
+      // (revisions-pangeanic-local does not auto-lock a tagged 100% either).
+      seg.tmExactMatch = Boolean(exactTm) && !seg.tagMismatch;
       seg.levenshteinDistance = bestScore;
     });
   }
@@ -389,6 +171,7 @@ export function buildTusDataFromSdlxliffSegments(segments, documentId, sourceLan
         : null,
     sourceLanguage: sourceLanguage || '',
     targetLanguage: targetLanguage || '',
+    ...(seg.tagMismatch ? { daaitStatus: 'VALIDATION_FAILED' } : {}),
     Status: seg.locked || seg.tmExactMatch === true
       ? 'ACCEPTED'
       : seg.machineTranslated || seg.origin === 'mt'
@@ -398,77 +181,39 @@ export function buildTusDataFromSdlxliffSegments(segments, documentId, sourceLan
   }));
 }
 
-export async function generateSdlxliffWithTranslations(originalFilePath, tus) {
+/**
+ * Builds the deliverable: our translations written INTO the client's original
+ * file (see sdlxliff/writer.js for the rules). Returns { text, report };
+ * `report` counts what was written and what was deliberately NOT written
+ * (tags that do not match the source, legacy rows imported without tags,
+ * keys without place in the original, locked segments).
+ */
+export async function exportSdlxliffWithReport(originalFilePath, tus) {
   const fs = await import('fs');
-  const fileContent = fs.readFileSync(originalFilePath, 'utf8');
-
-  let orderedXml;
-  let simpleXml;
+  let raw;
   try {
-    [orderedXml, simpleXml] = await Promise.all([
-      createOrderedParser().parseStringPromise(fileContent),
-      createSimpleParser().parseStringPromise(fileContent),
-    ]);
+    raw = fs.readFileSync(originalFilePath, 'utf8');
+  } catch {
+    throw new HttpError(404, 'Original SDLXLIFF file not found for export');
+  }
+  try {
+    const { text, report } = writeSdlxliff(raw, tus);
+    const skipped = skippedSegments(report);
+    if (skipped) {
+      console.warn(`[sdlxliff] export of ${originalFilePath}: ${skipped} segment(s) not written`, report);
+    }
+    return { text, report };
   } catch (error) {
-    throw new HttpError(400, 'Could not parse original SDLXLIFF file for export');
+    if (error instanceof HttpError) throw error;
+    throw new HttpError(500, `Error generating SDLXLIFF export: ${error.message}`);
   }
+}
 
-  if (!simpleXml?.xliff?.file) {
-    throw new HttpError(400, 'Invalid SDLXLIFF structure in original file');
-  }
-
-  // Map translations by trimmed source text. The keys match the source text we
-  // sent to translation (and stored as srcLiteral), since both are produced by the
-  // same order-preserving extraction.
-  const tusMap = new Map();
-  tus.forEach((tu) => {
-    if (typeof tu.srcLiteral === 'string') {
-      tusMap.set(tu.srcLiteral.trim(), tu);
-    }
-  });
-
-  // Both lists are traversed in identical document order, so index i refers to
-  // the same trans-unit in each tree.
-  const orderedList = getOrderedTransUnits(orderedXml).list;
-  const simpleList = getSimpleTransUnits(simpleXml);
-
-  const count = Math.min(orderedList.length, simpleList.length);
-  for (let i = 0; i < count; i++) {
-    const info = getTransUnitSegments(orderedList[i]);
-    const simpleTransUnit = simpleList[i];
-    if (info.segments.length === 0) continue;
-
-    if (info.segmented) {
-      const mrkNodes = info.segments.map((seg) => ({
-        $: { mtype: 'seg', mid: seg.mid },
-        _: tusMap.get(seg.text)?.translatedLiteral || seg.text,
-      }));
-
-      simpleTransUnit.target = {
-        g: {
-          $: info.gAttrs || simpleTransUnit['seg-source']?.g?.$ || {},
-          mrk: mrkNodes,
-        },
-      };
-    } else {
-      const matchingTu = tusMap.get(info.segments[0].text);
-      if (matchingTu && matchingTu.translatedLiteral) {
-        simpleTransUnit.target = matchingTu.translatedLiteral;
-      }
-    }
-  }
-
-  const builder = new xml2js.Builder();
-  return builder.buildObject(simpleXml);
+/** Segments we had a translation for but did not write (the reviewer should know). */
+export function skippedSegments(report) {
+  return report.skippedTags + report.skippedLegacy + report.skippedLockTu + report.noPlace;
 }
 
 export async function exportSdlxliffForDownload(originalFilePath, tus) {
-  try {
-    return await generateSdlxliffWithTranslations(originalFilePath, tus);
-  } catch (error) {
-    if (error instanceof HttpError) {
-      throw error;
-    }
-    throw new HttpError(500, `Error generating SDLXLIFF export: ${error.message}`);
-  }
+  return (await exportSdlxliffWithReport(originalFilePath, tus)).text;
 }

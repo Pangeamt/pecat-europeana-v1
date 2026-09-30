@@ -18,6 +18,7 @@ import {
   searchTMTusRequest,
 } from "@/services/tm.services";
 import { useMemoryDetailView } from "@/components/shared/useMemoryDetailView";
+import { TagText } from "@/components/shared/inline-tags";
 import { getTextDirection } from "@/lib/locale-direction";
 import { ArrowRight, CircleX, Database, FileText, Search } from "lucide-react";
 
@@ -80,7 +81,7 @@ export default function TMView({ tmId }) {
               textAlign: sourceDir === "rtl" ? "right" : "left",
             }}
           >
-            {text}
+            <TagText text={text} />
           </Text>
         </div>
       ),
@@ -99,7 +100,7 @@ export default function TMView({ tmId }) {
               textAlign: targetDir === "rtl" ? "right" : "left",
             }}
           >
-            {text || "-"}
+            {text ? <TagText text={text} /> : "-"}
           </Text>
         </div>
       ),

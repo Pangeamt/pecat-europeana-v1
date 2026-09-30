@@ -290,6 +290,32 @@
     font-size: 12px;
 }
 
+/* Bar under the tag editor: source tags missing from the target (click to
+   insert at the cursor) and "Copy source" -- the Trados way to fix a target
+   whose MT lost tags, instead of a stuck segment. */
+.tag-editor-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    margin-top: 6px;
+    font-size: 12px;
+}
+
+.tag-editor-bar-label {
+    color: #b45309;
+}
+
+.tag-editor-insert {
+    cursor: pointer;
+    border: none;
+    user-select: none;
+}
+
+.tag-editor-insert:hover {
+    filter: brightness(0.92);
+}
+
 /* lucide icons: behave like font icons when used inline with text */
 svg.lucide {
     vertical-align: -0.125em;

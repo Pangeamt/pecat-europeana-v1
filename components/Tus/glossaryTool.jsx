@@ -6,6 +6,7 @@ import { Resizable } from "re-resizable";
 import { useRef, useState } from "react";
 
 import { useTranslation } from "@/components/i18n/LanguageProvider";
+import { TagText } from "@/components/shared/inline-tags";
 import { MoveVertical } from "lucide-react";
 
 const style = { padding: "10px 5px" };
@@ -15,8 +16,8 @@ const DEFAULT_HEIGHT = 150;
 const CHROME_HEIGHT = 48;
 
 const columns = [
-  { title: "Source", dataIndex: "source", key: "source", width: "50%" },
-  { title: "Target", dataIndex: "target", key: "target", width: "50%" },
+  { title: "Source", dataIndex: "source", key: "source", width: "50%", render: (v) => <TagText text={v} /> },
+  { title: "Target", dataIndex: "target", key: "target", width: "50%", render: (v) => <TagText text={v} /> },
 ];
 
 const GlossaryTool = ({ glossaryInfo }) => {

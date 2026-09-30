@@ -78,6 +78,7 @@
     "build": "next build",
     "dev": "next dev --turbopack",
     "lint": "eslint .",
+    "test": "node --test \"tests/**/*.test.mjs\"",
     "release": "semantic-release",
     "start": "next start",
     "doctor": "npx react-doctor@latest"
