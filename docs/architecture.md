@@ -46,6 +46,33 @@ Cada documento tiene una carpeta de trabajo `storage/{documentId}/` con el origi
 que es la **plantilla estructural del export y no cambia nunca** tras la extracción. Cada descarga se
 reconstruye en una copia desechable (`.merge/`). Si se pierde esa carpeta, el documento no se puede exportar.
 
+### SDLXLIFF (Trados) — `modules/documents/sdlxliff/`
+
+Desde el 2026-09-30 sigue el modelo de module-file-translate (`app/xliff/sdl_merge.py`). La comparación que lo
+motivó está en `documentacion/pecat-e/COMPARATIVA-SDLXLIFF-PECATE-VS-MFT.md`.
+
+- **Importar** (`reader.js`):
+  - los segmentos son los `<mrk mtype="seg">` del `seg-source`, también los que van dentro de `<g>`;
+  - `externalId` = `tu::mid`;
+  - las etiquetas en línea se convierten en los **mismos marcadores que la ruta de Okapi** (`<gN>…</gN>`,
+    `<xN/>`, `<bN/>`, `<eN/>`), así que el `TagEditor` las protege. Nada se aplana: un `mrk` que no es de
+    segmento viaja como `<xN/>`;
+  - el texto se guarda tal cual: el NBSP se conserva y solo se recortan los bordes;
+  - los `locked` y `translate="no"` no se editan.
+- **Exportar** (`writer.js`, con `xmltree.js`): **empalma** nuestras traducciones sobre el texto original, así
+  que todo lo demás queda byte a byte (medido: 2037/2037 ficheros reales idénticos sin cambios). Reglas:
+  - solo se escribe en `<mrk>` que ya existen; las etiquetas se copian del `seg-source`;
+  - la firma de etiquetas tiene que coincidir en orden con la del origen; si no, el segmento se salta y se cuenta;
+  - cada destino lleva su **propia** copia de `lockTU`;
+  - `sdl:seg`: revisado → `ApprovedTranslation`/`interactive`; match exacto de TM → `Translated`/`tm`; MT →
+    `Draft`/`mt`;
+  - lo que el cliente ya traía y nadie tocó no se reconfirma;
+  - la salida se valida (bien formada + invariantes de `lockTU`) antes de entregarse.
+- **Descarga** (`GET /api/file`): la cabecera `X-Pecat-Skipped-Segments` dice cuántos segmentos con traducción
+  no se escribieron. Un documento importado antes de esta versión no tiene marcadores, así que sus segmentos
+  con etiquetas se saltan: hay que volver a subirlo.
+- **Tests**: `npm test` (`node --test`, `tests/sdlxliff/`).
+
 ## Modelo de datos (MySQL)
 
 `User`, `Workspace`, `Project`, `Tu`, `Tm` / `Glossary` (solo metadatos locales: el contenido vive en DAAIT)

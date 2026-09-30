@@ -11,6 +11,7 @@ import {
   profileMatchesLanguagePair,
 } from "../documents/pipeline-constants";
 import { reviewDraftSegment } from "../documents/pipeline-service";
+import { tagSequence } from "../documents/sdlxliff/codes";
 import {
   findDocumentByTusShareToken,
   findDocumentForTus,
@@ -324,6 +325,37 @@ export async function evaluateTuDraftByShareTokenService(token, payload) {
 
 const LOCK_ACTIONS = ["lock", "unlock"];
 
+// Inline tags (<g1>...</g1>, <x2/>) must survive an edit: a target that
+// loses, invents or duplicates one cannot be written back into the file
+// (the export skips it and the reviewer's work never reaches the client).
+// The TagEditor already prevents it in the UI; this covers the API. For
+// SDLXLIFF the ORDER must be the source's too -- the export only writes a
+// segment whose tag signature matches the seg-source in order (the same rule
+// module-file-translate enforces with FT-111).
+function assertInlineTagsKept(tu, payload, document) {
+  if (payload.action !== "approve" || !payload.reviewLiteral) return;
+  const expected = tagSequence(tu.srcLiteral);
+  if (!expected.length) return;
+  const got = tagSequence(payload.reviewLiteral);
+  const sameSet = [...expected].sort().join("") === [...got].sort().join("");
+  const sameOrder = expected.join("") === got.join("");
+  if (document?.extension === "sdlxliff" ? sameOrder : sameSet) return;
+  const count = (list) => list.reduce((m, t) => m.set(t, (m.get(t) ?? 0) + 1), new Map());
+  const want = count(expected);
+  const have = count(got);
+  const missing = [...want].filter(([t, n]) => (have.get(t) ?? 0) < n).map(([t]) => t);
+  const extra = [...have].filter(([t, n]) => (want.get(t) ?? 0) < n).map(([t]) => t);
+  const parts = [];
+  if (missing.length) parts.push(`missing ${missing.join(" ")}`);
+  if (extra.length) parts.push(`extra ${extra.join(" ")}`);
+  if (!parts.length) parts.push(`wrong order: expected ${expected.join(" ")}, got ${got.join(" ")}`);
+  throw new HttpError(
+    422,
+    `The target's inline tags don't match the source's (${parts.join("; ")})`,
+    "INLINE_TAGS_MISMATCH",
+  );
+}
+
 export async function updateTuStatusService(payload, actorUser) {
   const { tuId } = payload;
 
@@ -341,6 +373,8 @@ export async function updateTuStatusService(payload, actorUser) {
 
   const document = await assertTuAccessibleByActor(tu, actorUser);
   assertActorMayEditDocument(document, actorUser);
+
+  assertInlineTagsKept(tu, payload, document);
 
   return applyTuStatusUpdate(tu, payload, {
     id: actorUser?.id ?? null,
@@ -380,6 +414,7 @@ export async function updateTuStatusByShareTokenService(token, payload) {
   }
 
   // Anonymous link: no user identity — attribute the action to the link.
+  assertInlineTagsKept(tu, payload, document);
   return applyTuStatusUpdate(tu, payload, {
     id: null,
     name: "Translator link",
