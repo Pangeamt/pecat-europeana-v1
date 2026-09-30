@@ -610,7 +610,9 @@ const TusList = ({ shareToken } = {}) => {
                   : changeTextInTextarea
               }
               onKeyDown={async (e) => {
-                if (e.key === "Enter" && e.ctrlKey) {
+                // Ctrl+Enter saves; Ctrl+Shift+Enter rejects (below). Without
+                // the !shiftKey both ran: the segment was saved AND rejected.
+                if (e.key === "Enter" && e.ctrlKey && !e.shiftKey) {
                   e.preventDefault();
                   e.stopPropagation();
                   save(selectedRow.reviewLiteral);

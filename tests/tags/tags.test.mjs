@@ -60,3 +60,10 @@ test("guardado: conjunto completo (y orden para SDLXLIFF)", () => {
   assert.equal(tagsComplete(reordered, SRC, { ordered: true }), false);
   assert.equal(tagsComplete("Pulse aquí", SRC), false);
 });
+
+test("inlineTagsMatch usa la misma forma de marcador que el resto (<h1> no es etiqueta)", async () => {
+  const { inlineTagsMatch, extractInlineTags } = await import("../../modules/documents/pipeline-constants.js");
+  assert.deepEqual(extractInlineTags("Título <h1> y <p2> con <x1/>"), ["<x1/>"]);
+  assert.equal(inlineTagsMatch("A <g1>b</g1>", "B <g1>c</g1>"), true);
+  assert.equal(inlineTagsMatch("A <g1>b</g1>", "B c"), false);
+});

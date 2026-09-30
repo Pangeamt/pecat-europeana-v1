@@ -348,7 +348,9 @@ const LOCK_ACTIONS = ["lock", "unlock"];
 function assertInlineTagsKept(tu, payload, document) {
   if (payload.action !== "approve" || !payload.reviewLiteral) return;
   const expected = tagSequence(tu.srcLiteral);
-  if (!expected.length) return;
+  // No early return when the source has no tags: a placeholder typed by hand
+  // (e.g. "<x1/>" in the plain Quill editor) would be stored as a real tag and
+  // the export would then skip the segment. It is reported as "extra".
   const got = tagSequence(payload.reviewLiteral);
   const sameSet = [...expected].sort().join("") === [...got].sort().join("");
   const sameOrder = expected.join("") === got.join("");
