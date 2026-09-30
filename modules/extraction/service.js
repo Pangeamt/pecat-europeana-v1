@@ -6,7 +6,10 @@ import contentDisposition from "content-disposition";
 import { HttpError } from "@/modules/shared";
 // Direct file import on purpose: going through @/modules/projects would close
 // an import cycle (projects barrel -> import-service -> this module).
-import { exportSdlxliffForDownload } from "@/modules/documents/sdlxliff-service";
+import {
+  exportSdlxliffWithReport,
+  skippedSegments,
+} from "@/modules/documents/sdlxliff-service";
 import { detectDocumentFormat } from "./format-detection";
 import {
   listXliffSegments,
@@ -294,15 +297,19 @@ export async function buildProjectDownloadService({ uuid, projectId }) {
 
   const tus = await findTusByProjectId(project.id);
 
-  // SDLXLIFF: fill the original file's <target> segments locally. Uses raw tus
-  // matched by source text.
+  // SDLXLIFF: our translations are written INTO the original file (by
+  // externalId, review over MT, inline tags restored), everything else
+  // byte-identical -- see modules/documents/sdlxliff/writer.js.
   if (project.extension === "sdlxliff") {
-    const xml = await exportSdlxliffForDownload(project.filePath, tus);
+    const { text, report } = await exportSdlxliffWithReport(project.filePath, tus);
     return {
-      body: Buffer.from(xml, "utf8"),
+      body: Buffer.from(text, "utf8"),
       headers: {
         "Content-Type": "application/xml; charset=utf-8",
         "Content-Disposition": contentDisposition(project.filename),
+        // Segments with a translation that were NOT written (tags that do
+        // not match the source, rows imported before inline tags existed...).
+        "X-Pecat-Skipped-Segments": String(skippedSegments(report)),
       },
     };
   }
