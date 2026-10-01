@@ -17,6 +17,13 @@ const CODE_LETTER = {
   bx: "b",
   ept: "e",
   ex: "e",
+  // XLIFF 2.x: <pc> wraps text like <g>; <sc>/<ec> and <sm>/<em> are the
+  // start/end of a code or marker that do not nest (like bpt/ept); <ph> as above.
+  pc: "g",
+  sc: "b",
+  ec: "e",
+  sm: "b",
+  em: "e",
 };
 
 export const TOKEN_RE = /<(\/?)([gxbe])(\d+)(\/?)>/g;
@@ -31,7 +38,19 @@ function uniqueKey(codes, letter, id) {
 }
 
 function letterOf(node) {
+  // A 2.x <mrk> (annotation: id, type, translate) wraps translatable text, so it
+  // is a container like <pc>. A 1.2 <mrk> always has mtype (x-term, x-sdl-location
+  // ...) and stays opaque: copied verbatim, never flattened.
+  if (localName(node) === "mrk" && !node.attrs.has("mtype")) return "g";
   return CODE_LETTER[localName(node)] ?? "x";
+}
+
+/** The id that ties a code to its partner: <ec>/<em> point to their start with startRef. */
+function idOf(node) {
+  const name = localName(node);
+  const own = node.attrs.get("id");
+  if (own !== undefined) return own;
+  return name === "ec" || name === "em" ? (node.attrs.get("startRef") ?? null) : null;
 }
 
 /**
@@ -49,12 +68,12 @@ export function toCoded(container, codes, byId = null, ownIds = null) {
       continue;
     }
     const letter = letterOf(node);
-    const id = node.attrs.get("id") ?? null;
+    const id = idOf(node);
     let key = byId && id !== null ? byId.get(letter + ":" + id) : undefined;
     if (!key || codes.has(key)) key = uniqueKey(codes, letter, id);
     codes.set(key, node);
     if (ownIds && id !== null) ownIds.set(letter + ":" + id, key);
-    if (letter === "g" && localName(node) === "g") {
+    if (letter === "g") {
       out += node.selfClosing ? `<${key}></${key}>` : `<${key}>${toCoded(node, codes, byId, ownIds)}</${key}>`;
     } else {
       out += `<${key}/>`;

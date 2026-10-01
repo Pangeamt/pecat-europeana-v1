@@ -3,7 +3,7 @@ import { pipeline } from "stream";
 import { uid } from "uid";
 import { promisify } from "util";
 import prisma from "../../lib/prisma";
-import { checkFile } from "../../lib/utils";
+import { checkFile, isSpliceFormat, translatesEmptiesOnImport } from "../../lib/utils";
 import { enqueueProjectImport } from "../../lib/queue";
 import { DOCUMENT_STATUS } from "../../lib/document-status";
 import { HttpError } from "../shared/http-error";
@@ -135,10 +135,13 @@ async function processDocumentFile({
     target: segment.target || null,
     locked: !segment.translatable,
     hiddenBy: resolveHiddenBy(segment.source),
+    tagInfo: segment.tagInfo ?? null,
   }));
 
   if (mt) {
     await enrichSdlxliffSegments(working, {
+      documentId,
+      filestoreId: storageId,
       sourceLanguage: src,
       targetLanguage: tgt,
       tmIds,
@@ -156,6 +159,9 @@ async function processDocumentFile({
     translationScorePercent: segment.mtqeScore ?? null,
     tmInfo: segment.tmInfo ?? null,
     glossaryInfo: segment.glossaryInfo ?? null,
+    tagInfo: segment.tagInfo ?? null,
+    // MT that lost or invented a tag: kept for the reviewer, flagged.
+    daaitStatus: segment.tagMismatch ? "VALIDATION_FAILED" : null,
     visible: !segment.hiddenBy,
     hiddenBy: segment.hiddenBy ?? null,
     block: segment.locked || segment.tmExactMatch === true,
@@ -217,6 +223,9 @@ function toTusData(result, documentId) {
     if (glossaryInfo !== null && glossaryInfo !== undefined) {
       data.glossaryInfo = glossaryInfo;
     }
+
+    if (item.tagInfo) data.tagInfo = item.tagInfo;
+    if (item.daaitStatus) data.daaitStatus = item.daaitStatus;
 
     return data;
   });
@@ -293,12 +302,19 @@ export async function handleSdlxliffImportJob({
   });
 
   const { translated } = await enrichSdlxliffSegments(segments, {
+    documentId,
     sourceLanguage: normalizedSrc,
     targetLanguage: normalizedTgt,
     tmIds,
     glossaryIds,
     profileId,
     workspaceId,
+    // SDLXLIFF / XLIFF: the tags must come back in the source's ORDER (the
+    // export writes nothing else); other formats keep the set rule.
+    orderedTags: true,
+    // .xlf/.xliff send NOTHING to DAAIT: the empty segments stay empty for a
+    // human (the extension is the file's own: filePath ends with its name).
+    machineTranslate: translatesEmptiesOnImport(filePath.split(".").pop()),
   });
 
   console.log("[SDLXLIFF] enriched", {
@@ -540,7 +556,9 @@ export async function importDocumentsService({
 
     createdDocumentIds.push(createdDocument.id);
 
-    if (fileExtension === "sdlxliff") {
+    // .sdlxliff, .xlf and .xliff share one pipeline: parse the file itself,
+    // translate the empty targets, write back by splicing (no Tikal).
+    if (isSpliceFormat(fileExtension)) {
       await enqueueImportJobOrFail("import-sdlxliff", {
         projectId: createdDocument.id,
         filePath,

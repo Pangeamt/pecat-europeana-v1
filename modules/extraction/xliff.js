@@ -1,6 +1,7 @@
 import { DOMParser, XMLSerializer } from "@xmldom/xmldom";
 import { readFile, rename, writeFile } from "fs/promises";
 import { HttpError } from "@/modules/shared";
+import { tagInfoFromCodes } from "./tag-info";
 
 export const XLIFF_12_NS = "urn:oasis:names:tc:xliff:document:1.2";
 
@@ -54,6 +55,7 @@ export async function listXliffSegments(xlfPath) {
         target,
         translatable: tu.translatable,
         state: targetEl?.getAttribute("state") || null,
+        tagInfo: tagInfoFromCodes(segment.codes),
       });
     }
   }

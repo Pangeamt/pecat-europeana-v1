@@ -12,6 +12,12 @@
 //     "Copy source"); the save check (server) then demands the full set, and
 //     for SDLXLIFF the source's order.
 
+import { describeTagIssue, tagIssue } from "../../modules/documents/tag-check.js";
+
+// The one tag check (same as the server's): the editor banner and the 422 of
+// the save agree because they run the same code.
+export { describeTagIssue, tagIssue };
+
 const TOKEN = /<\/?[gxbe]\d+\/?>/g;
 
 /** Tag tokens of a text, in order: ["<g1>", "</g1>", "<x2/>"]. */
@@ -81,4 +87,81 @@ export function tagsComplete(text, source, { ordered = false } = {}) {
   const b = tagList(source);
   if (ordered) return a.join("") === b.join("");
   return [...a].sort().join("") === [...b].sort().join("");
+}
+
+// ---- "Fix tags" ----------------------------------------------------------
+//
+// A target whose tags are wrong (missing, extra or in another order) cannot be
+// repaired by hand: source tags are atomic chips that cannot be moved, and the
+// only way out used to be "Copy source" (retype the translation). `fixTags`
+// proposes the target with the SOURCE's tags put back, in the source's order:
+// the tags are stripped from the target and re-inserted at the word where they
+// sit in the source, scaled to the target's length (proportional position). The
+// sequence is the source's by construction, so it passes the tag gate; WHERE
+// each tag lands is a heuristic, so the editor applies it as an ordinary edit
+// (with Undo) and the reviewer checks it. It never runs by itself.
+
+const wordsOf = (text) => (text === "" ? [] : text.split(" ").filter(Boolean));
+
+/** Where each source tag sits (in words of the visible text) and how it is attached. */
+function sourceTagSlots(source) {
+  const text = String(source ?? "");
+  const visible = text.replace(new RegExp(TOKEN.source, "g"), "");
+  const re = new RegExp(TOKEN.source, "g");
+  const slots = [];
+  let prefix = "";
+  let last = 0;
+  let match;
+  while ((match = re.exec(text))) {
+    prefix += text.slice(last, match.index);
+    last = match.index + match[0].length;
+    const next = visible[prefix.length];
+    const prevSpace = prefix === "" || prefix.endsWith(" ");
+    const nextSpace = next === undefined || next === " ";
+    // alone: own word · front: glued to the next word · back: glued to the
+    // previous word · mid: inside a word (glued to its start).
+    const type = prevSpace && nextSpace ? "alone" : prevSpace ? "front" : nextSpace ? "back" : "mid";
+    const count = wordsOf(prefix).length;
+    slots.push({ token: match[0], type, slot: type === "mid" ? Math.max(0, count - 1) : count });
+  }
+  return { slots, words: wordsOf(visible).length };
+}
+
+/** `target` with the source's tags re-inserted, in the source's order. */
+export function fixTags(source, target) {
+  const plain = String(target ?? "")
+    .replace(new RegExp(TOKEN.source, "g"), "")
+    .replace(/ {2,}/g, " ")
+    .trim();
+  const words = wordsOf(plain);
+  const { slots, words: sourceWords } = sourceTagSlots(source);
+  if (!slots.length) return plain;
+
+  // Source word position -> target word position, never going backwards: the
+  // monotonic rule is what keeps the source's order.
+  const bySlot = Array.from({ length: words.length + 1 }, () => []);
+  let floor = 0;
+  for (const tag of slots) {
+    const scaled = sourceWords === 0 ? 0 : Math.round((tag.slot * words.length) / sourceWords);
+    floor = Math.max(floor, Math.min(words.length, scaled));
+    bySlot[floor].push(tag);
+  }
+
+  let out = "";
+  let space = false; // a space is due before the next item
+  for (let k = 0; k <= words.length; k++) {
+    const tags = bySlot[k];
+    if (tags.length) {
+      if (space && tags[0].type !== "back") out += " ";
+      out += tags.map((tag) => tag.token).join("");
+      const tail = tags[tags.length - 1].type;
+      space = tail === "alone" || tail === "back";
+    }
+    if (k < words.length) {
+      if (space) out += " ";
+      out += words[k];
+      space = true;
+    }
+  }
+  return out;
 }

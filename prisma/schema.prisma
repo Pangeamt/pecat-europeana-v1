@@ -241,6 +241,11 @@ model Tu {
   translationScorePercent Float?
   tmInfo                  Json?
   glossaryInfo            Json?
+  /// Type of each inline tag of the segment, for the editor chips (Trados
+  /// style): { "<placeholder key>": { name, detail?, close?, equiv?, locked?,
+  /// lockedText? } }. Display only; null for documents imported before it
+  /// existed (their chips show the bare placeholder).
+  tagInfo                 Json?
   createdAt               DateTime  @default(now())
   exampleXml              String?   @db.VarChar(500)
   updatedAt               DateTime  @updatedAt
