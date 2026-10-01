@@ -4,6 +4,7 @@ import { basename, extname, join } from "path";
 import { uid } from "uid";
 import contentDisposition from "content-disposition";
 import { HttpError } from "@/modules/shared";
+import { isSpliceFormat } from "@/lib/utils";
 // Direct file import on purpose: going through @/modules/projects would close
 // an import cycle (projects barrel -> import-service -> this module).
 import {
@@ -297,10 +298,10 @@ export async function buildProjectDownloadService({ uuid, projectId }) {
 
   const tus = await findTusByProjectId(project.id);
 
-  // SDLXLIFF: our translations are written INTO the original file (by
+  // SDLXLIFF / XLIFF: our translations are written INTO the original file (by
   // externalId, review over MT, inline tags restored), everything else
   // byte-identical -- see modules/documents/sdlxliff/writer.js.
-  if (project.extension === "sdlxliff") {
+  if (isSpliceFormat(project.extension)) {
     const { text, report } = await exportSdlxliffWithReport(project.filePath, tus);
     return {
       body: Buffer.from(text, "utf8"),

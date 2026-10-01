@@ -1,7 +1,8 @@
 import { UnrecoverableError } from 'bullmq';
 import { HttpError } from '../shared/http-error';
 import { pecatTranslate } from '../../lib/daait';
-import { BLOCK_REASON, inlineTagsMatch } from './pipeline-constants';
+import { BLOCK_REASON } from './pipeline-constants';
+import { tagIssue } from './tag-check';
 import { readSdlxliffSegments } from './sdlxliff/reader';
 import { writeSdlxliff } from './sdlxliff/writer';
 
@@ -15,7 +16,19 @@ import { writeSdlxliff } from './sdlxliff/writer';
 export async function parseSdlxliffFile(filePath) {
   const fs = await import('fs');
   // "utf8" keeps the BOM (the reader skips it as a text node).
-  const fileContent = fs.readFileSync(filePath, 'utf8');
+  const buffer = fs.readFileSync(filePath);
+  const fileContent = buffer.toString('utf8');
+  // The file is spliced back as UTF-8 text: any other encoding would be read
+  // as garbage and written back corrupted, so it is refused up front.
+  const utf16 = (buffer[0] === 0xff && buffer[1] === 0xfe) || (buffer[0] === 0xfe && buffer[1] === 0xff);
+  const head = fileContent.slice(0, 300).replace(/^[^<]+/, ""); // drops the BOM
+  const declared = /^<\?xml[^>]*\bencoding\s*=\s*["']([^"']+)["']/i.exec(head)?.[1];
+  if (utf16 || (declared && !/^(utf-?8|us-ascii)$/i.test(declared))) {
+    throw new HttpError(
+      400,
+      `Unsupported encoding (${utf16 ? 'UTF-16' : declared}): the XLIFF file must be UTF-8.`,
+    );
+  }
 
   let parsed;
   try {
@@ -42,12 +55,27 @@ export async function parseSdlxliffFile(filePath) {
   };
 }
 
+// DAAIT /content/pecat gets the texts in BATCHES of 50, one after the other (the
+// next batch goes out when the previous one has answered), not in one request.
+// Measured on vstest02: ~1 s per segment (62 segments = 62 s, 42 tag-heavy ones
+// = 197 s), so a single request carrying a big document ran into the 300 s
+// timeout of the call. Each batch is its own request with its own timeout
+// (DAAIT_CONTENT_TIMEOUT_MS) and is applied as soon as it comes back. Every
+// request carries the document id (and the filestore id when there is one) and
+// the last batch says so (last_batch), so DAAIT's volatile memory -- what the
+// first 50 segments produced, feeding the next 50 -- can work per document.
+const PECAT_BATCH_SIZE = (() => {
+  const parsed = Math.floor(Number(process.env.DAAIT_PECAT_BATCH_SIZE));
+  return Number.isFinite(parsed) && parsed >= 1 ? parsed : 50;
+})();
+
 // Machine-translate parsed segments in place through DAAIT /content/pecat
 // (the NexRelay replacement); locked segments are never touched. A translation
 // failure aborts the import (the document would miss targets). MTQE scoring is
 // no longer inline — /content/pecat returns no score, so the score-mtqe
 // pipeline job (pipeline-service.js) scores every segment once the TUs are
 // persisted, including SDLXLIFF segments that already carried a target.
+// `machineTranslate: false` sends NOTHING to DAAIT: the empty targets stay empty.
 export async function enrichSdlxliffSegments(segments, {
   sourceLanguage,
   targetLanguage,
@@ -55,25 +83,65 @@ export async function enrichSdlxliffSegments(segments, {
   glossaryIds = [],
   profileId = null,
   workspaceId = null,
+  orderedTags = false,
+  machineTranslate = true,
+  documentId = null,
+  filestoreId = null,
 } = {}) {
   // Hidden segments (visibility rules, e.g. URL-only footnotes) are never
   // machine-translated: their target stays empty and the export fills them
   // back from the source.
-  const toTranslate = segments.filter(
-    (seg) => !seg.locked && !seg.hiddenBy && !seg.target,
-  );
+  const toTranslate = machineTranslate
+    ? segments.filter((seg) => !seg.locked && !seg.hiddenBy && !seg.target)
+    : [];
 
-  async function translateMissingTargets() {
-    if (toTranslate.length === 0) return;
+  function applyResult(seg, result) {
+    const tmInfoArray = Array.isArray(result.tm_info) ? result.tm_info : [];
+    const exactTm = tmInfoArray.find(
+      (tm) => tm.tm_match === true && tm.tm_score === 1,
+    );
+    // "Fuzzy" = the segment's best TM similarity (tm_score, 0-1), exact or
+    // not — storing it only for 100% matches left the Fuzzy column empty
+    // for every fuzzy match, which is exactly where it matters.
+    const bestScore = tmInfoArray.reduce(
+      (max, tm) =>
+        typeof tm?.tm_score === "number" && tm.tm_score > max
+          ? tm.tm_score
+          : max,
+      null,
+    );
 
+    seg.target = result.target ?? null;
+    // The source travels with its inline codes as placeholders (<g1>, <x2/>).
+    // DAAIT is not guaranteed to keep them: a translation that drops or
+    // invents one -- or REORDERS them -- is still stored (the reviewer can fix
+    // the text), but it is flagged VALIDATION_FAILED, and the export will not
+    // write it until the tags match in the same order (writer.js gate; same
+    // criterion, so nothing is skipped without having been flagged first).
+    seg.tagMismatch =
+      Boolean(seg.target) && !tagIssue(seg.source, seg.target, { ordered: orderedTags }).ok;
+    seg.tmInfo = result.tm_info ?? null;
+    seg.glossaryInfo = result.glossary_info ?? null;
+    seg.machineTranslated = true;
+    // An exact TM match is auto-locked -- unless its tags do not match the
+    // source: locked, nobody could fix it and the export would skip it
+    // (revisions-pangeanic-local does not auto-lock a tagged 100% either).
+    seg.tmExactMatch = Boolean(exactTm) && !seg.tagMismatch;
+    seg.levenshteinDistance = bestScore;
+  }
+
+  async function translateBatch(batch, isLast) {
     const payload = {
       profile_id: profileId,
       source_language: sourceLanguage,
       target_language: targetLanguage,
-      texts: toTranslate.map((seg) => seg.source),
+      texts: batch.map((seg) => seg.source),
       tm_ids: tmIds,
       glossary_ids: glossaryIds,
       workspace: workspaceId,
+      document_id: documentId,
+      last_batch: isLast,
+      filestore_id: filestoreId,
     };
 
     let response;
@@ -102,43 +170,19 @@ export async function enrichSdlxliffSegments(segments, {
     }
 
     // DAAIT returns one entry per input text, in the same order.
-    toTranslate.forEach((seg, index) => {
-      const result = results[index];
-      if (!result) return;
-
-      const tmInfoArray = Array.isArray(result.tm_info) ? result.tm_info : [];
-      const exactTm = tmInfoArray.find(
-        (tm) => tm.tm_match === true && tm.tm_score === 1,
-      );
-      // "Fuzzy" = the segment's best TM similarity (tm_score, 0-1), exact or
-      // not — storing it only for 100% matches left the Fuzzy column empty
-      // for every fuzzy match, which is exactly where it matters.
-      const bestScore = tmInfoArray.reduce(
-        (max, tm) =>
-          typeof tm?.tm_score === "number" && tm.tm_score > max
-            ? tm.tm_score
-            : max,
-        null,
-      );
-
-      seg.target = result.target ?? null;
-      // The source travels with its inline codes as placeholders (<g1>, <x2/>).
-      // DAAIT is not guaranteed to keep them: a translation that drops or
-      // invents one is still stored (the reviewer can fix the text), but it is
-      // flagged, and the export will not write it until the tags match.
-      seg.tagMismatch = Boolean(seg.target) && !inlineTagsMatch(seg.source, seg.target);
-      seg.tmInfo = result.tm_info ?? null;
-      seg.glossaryInfo = result.glossary_info ?? null;
-      seg.machineTranslated = true;
-      // An exact TM match is auto-locked -- unless its tags do not match the
-      // source: locked, nobody could fix it and the export would skip it
-      // (revisions-pangeanic-local does not auto-lock a tagged 100% either).
-      seg.tmExactMatch = Boolean(exactTm) && !seg.tagMismatch;
-      seg.levenshteinDistance = bestScore;
+    batch.forEach((seg, index) => {
+      if (results[index]) applyResult(seg, results[index]);
     });
   }
 
-  await translateMissingTargets();
+  const batches = Math.ceil(toTranslate.length / PECAT_BATCH_SIZE);
+  for (let i = 0; i < batches; i++) {
+    await translateBatch(
+      toTranslate.slice(i * PECAT_BATCH_SIZE, (i + 1) * PECAT_BATCH_SIZE),
+      i === batches - 1,
+    );
+    console.log(`[SDLXLIFF] translated batch ${i + 1}/${batches} (document ${documentId ?? "-"}, filestore ${filestoreId ?? "-"})`);
+  }
 
   return { translated: toTranslate.length };
 }
@@ -160,6 +204,8 @@ export function buildTusDataFromSdlxliffSegments(segments, documentId, sourceLan
       seg.mtqeScore ?? (seg.percent != null ? seg.percent / 100 : null),
     tmInfo: seg.tmInfo ?? null,
     glossaryInfo: seg.glossaryInfo ?? null,
+    // Tag types for the chips (glossary, unit, &deg;...), from <tag-defs>.
+    tagInfo: seg.tagInfo ?? null,
     levenshteinDistance: seg.levenshteinDistance ?? null,
     visible: !seg.hiddenBy,
     hiddenBy: seg.hiddenBy ?? null,

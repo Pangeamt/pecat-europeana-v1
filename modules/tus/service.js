@@ -11,7 +11,8 @@ import {
   profileMatchesLanguagePair,
 } from "../documents/pipeline-constants";
 import { reviewDraftSegment } from "../documents/pipeline-service";
-import { tagSequence } from "../documents/sdlxliff/codes";
+import { describeTagIssue, tagIssue } from "../documents/tag-check";
+import { isSpliceFormat } from "../../lib/utils";
 import {
   findDocumentByTusShareToken,
   findDocumentForTus,
@@ -347,26 +348,16 @@ const LOCK_ACTIONS = ["lock", "unlock"];
 // module-file-translate enforces with FT-111).
 function assertInlineTagsKept(tu, payload, document) {
   if (payload.action !== "approve" || !payload.reviewLiteral) return;
-  const expected = tagSequence(tu.srcLiteral);
   // No early return when the source has no tags: a placeholder typed by hand
   // (e.g. "<x1/>" in the plain Quill editor) would be stored as a real tag and
   // the export would then skip the segment. It is reported as "extra".
-  const got = tagSequence(payload.reviewLiteral);
-  const sameSet = [...expected].sort().join("") === [...got].sort().join("");
-  const sameOrder = expected.join("") === got.join("");
-  if (document?.extension === "sdlxliff" ? sameOrder : sameSet) return;
-  const count = (list) => list.reduce((m, t) => m.set(t, (m.get(t) ?? 0) + 1), new Map());
-  const want = count(expected);
-  const have = count(got);
-  const missing = [...want].filter(([t, n]) => (have.get(t) ?? 0) < n).map(([t]) => t);
-  const extra = [...have].filter(([t, n]) => (want.get(t) ?? 0) < n).map(([t]) => t);
-  const parts = [];
-  if (missing.length) parts.push(`missing ${missing.join(" ")}`);
-  if (extra.length) parts.push(`extra ${extra.join(" ")}`);
-  if (!parts.length) parts.push(`wrong order: expected ${expected.join(" ")}, got ${got.join(" ")}`);
+  const issue = tagIssue(tu.srcLiteral, payload.reviewLiteral, {
+    ordered: isSpliceFormat(document?.extension),
+  });
+  if (issue.ok) return;
   throw new HttpError(
     422,
-    `The target's inline tags don't match the source's (${parts.join("; ")})`,
+    `The target's inline tags don't match the source's (${describeTagIssue(issue)})`,
     "INLINE_TAGS_MISMATCH",
   );
 }

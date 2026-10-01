@@ -16,12 +16,15 @@ export const GET = async (req, { params }) => {
     }
 
     if (format === 'sdlxliff') {
-      const sdlxliffContent = await exportDocumentAsSdlxliffService(id, actorUser);
+      const { text, skipped } = await exportDocumentAsSdlxliffService(id, actorUser);
 
-      return new Response(sdlxliffContent, {
+      return new Response(text, {
         headers: {
           'Content-Type': 'application/xml',
           'Content-Disposition': `attachment; filename="export-${id}.sdlxliff"`,
+          // Segments with a translation that were not written (tags that do not
+          // match the source): the UI warns the reviewer.
+          'X-Pecat-Skipped-Segments': String(skipped),
         },
       });
     }

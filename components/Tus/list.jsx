@@ -59,6 +59,8 @@ import {
   stripInlineTags,
 } from "@/components/shared/inline-tags";
 import { computeEffort } from "@/lib/effort";
+import { tagIssue } from "@/modules/documents/tag-check";
+import { isSpliceFormat } from "@/lib/utils";
 
 const stripHTML = (html) => {
   let temporalDiv = document.createElement("div");
@@ -274,6 +276,26 @@ const TusList = ({ shareToken } = {}) => {
   // document's assignments. PM = ADMIN/SUPER, never locked out.
   const translatorSubmitted = Boolean(projectConfig?.translatorSubmittedAt);
   const reviewerSubmitted = Boolean(projectConfig?.reviewerSubmittedAt);
+
+  // SDLXLIFF targets must carry the source's tags in the SOURCE'S ORDER (the
+  // export writes nothing else); other formats only need the same set.
+  const orderedTags = isSpliceFormat(projectConfig?.extension);
+  // Translated segments whose tags do not match: they cannot be approved and
+  // the export will not write them, so the reviewer is told up front.
+  const tagIssueCount = useMemo(
+    () =>
+      data.filter((row) => {
+        const target = row.reviewLiteral || row.translatedLiteral;
+        return (
+          row.visible !== false &&
+          !row.block &&
+          target &&
+          hasInlineTags(row.srcLiteral) &&
+          !tagIssue(row.srcLiteral, target, { ordered: orderedTags }).ok
+        );
+      }).length,
+    [data, orderedTags],
+  );
   const isPm = !shareToken && ["ADMIN", "SUPER"].includes(user?.role);
   const isTranslator = shareToken
     ? true
@@ -476,9 +498,10 @@ const TusList = ({ shareToken } = {}) => {
     },
     // Inline-code placeholders (<g1>, <x2/>…) render as chips, never as raw
     // text; the search highlight applies only to the text between them.
-    render: (text) => (
+    render: (text, record) => (
       <div style={{ wordWrap: "break-word", wordBreak: "break-word" }}>
         <TagText
+          info={record?.tagInfo}
           text={text ? text.toString() : ""}
           renderText={
             searchedColumn === dataIndex
@@ -529,7 +552,7 @@ const TusList = ({ shareToken } = {}) => {
       minWidth: 400,
       textWrap: "word-break",
       ...getColumnSearchProps("srcLiteral"),
-      render: (text) => {
+      render: (text, record) => {
         const srcLiteral = getColumnSearchProps("srcLiteral");
         return (
           <div
@@ -540,7 +563,7 @@ const TusList = ({ shareToken } = {}) => {
               textAlign: sourceDir === "rtl" ? "right" : "left",
             }}
           >
-            {srcLiteral.render(text)}
+            {srcLiteral.render(text, record)}
           </div>
         );
       },
@@ -566,7 +589,7 @@ const TusList = ({ shareToken } = {}) => {
                 textAlign: targetDir === "rtl" ? "right" : "left",
               }}
             >
-              {reviewLiteral.render(aux)}
+              {reviewLiteral.render(aux, record)}
             </div>
           );
         }
@@ -587,7 +610,7 @@ const TusList = ({ shareToken } = {}) => {
                   textAlign: targetDir === "rtl" ? "right" : "left",
                 }}
               >
-                {hasInlineTags(aux) ? <TagText text={aux} /> : stripHTML(aux)}
+                {hasInlineTags(aux) ? <TagText text={aux} info={selectedRow.tagInfo} /> : stripHTML(aux)}
               </div>
             );
           }
@@ -604,6 +627,9 @@ const TusList = ({ shareToken } = {}) => {
               dir={targetDir}
               value={initialValue}
               source={selectedRow.srcLiteral}
+              {...(Editor === TagEditor
+                ? { tagInfo: selectedRow.tagInfo, ordered: orderedTags }
+                : {})}
               setValue={
                 Editor === TagEditor
                   ? changeTextInTagEditor
@@ -642,7 +668,7 @@ const TusList = ({ shareToken } = {}) => {
               dir={targetDir}
               style={{ textAlign: targetDir === "rtl" ? "right" : "left" }}
             >
-              {reviewLiteral.render(aux)}
+              {reviewLiteral.render(aux, record)}
             </div>
           );
         }
@@ -1213,6 +1239,15 @@ const TusList = ({ shareToken } = {}) => {
           type="warning"
           showIcon
           message="Editing is closed — this work was submitted. A project manager can reopen it."
+        />
+      ) : null}
+
+      {tagIssueCount > 0 ? (
+        <Alert
+          className="mb-2"
+          type="error"
+          showIcon
+          message={`${tagIssueCount} segment${tagIssueCount === 1 ? "" : "s"} with tags that do not match the source (missing, extra${orderedTags ? " or in another order" : ""}). They cannot be approved and the export will not write them: open each one and use "Fix tags".`}
         />
       ) : null}
 

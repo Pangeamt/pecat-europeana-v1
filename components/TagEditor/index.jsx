@@ -3,13 +3,15 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Button, Tooltip, message } from "antd";
 import {
-  TAG_TITLE,
+  TagText,
+  chipAttrs,
   inlineTagRe,
+  tagKey,
   tagKind,
   tagLabel,
   tagSequence,
 } from "../shared/inline-tags";
-import { checkTagEdit, missingTags } from "./tag-rules";
+import { checkTagEdit, describeTagIssue, fixTags, missingTags, tagIssue } from "./tag-rules";
 
 // Target editor for segments with inline-code placeholders (<g1>…</g1>,
 // <x2/>…), ported from revisions-pangeanic-local (static/js/editor.js): a
@@ -33,21 +35,23 @@ const esc = (value) =>
       ],
   );
 
-function chipHtml(raw) {
+// `info` = the segment's tagInfo (type and code of each tag, see chipAttrs).
+function chipHtml(raw, info) {
+  const { className, label, title } = chipAttrs(raw, info?.[tagKey(raw)]);
   return (
-    `<span class="inline-tag ${tagKind(raw)}" contenteditable="false" draggable="false"` +
-    ` data-raw="${esc(raw)}" title="${esc(TAG_TITLE(raw))}">${esc(tagLabel(raw))}</span>`
+    `<span class="${className}" contenteditable="false" draggable="false"` +
+    ` data-raw="${esc(raw)}" title="${esc(title)}">${esc(label)}</span>`
   );
 }
 
 /** Plain text with placeholders -> editor HTML with chips. */
-function toHtml(text) {
+function toHtml(text, info) {
   const value = String(text ?? "");
   let html = "";
   let cursor = 0;
   for (const match of value.matchAll(inlineTagRe())) {
     html += esc(value.slice(cursor, match.index));
-    html += chipHtml(match[0]);
+    html += chipHtml(match[0], info);
     cursor = match.index + match[0].length;
   }
   return html + esc(value.slice(cursor));
@@ -65,6 +69,16 @@ function toText(node) {
   return out;
 }
 
+const tagSequenceList = (text) => String(text ?? "").match(inlineTagRe()) ?? [];
+
+// Label of a "missing tag" button: the tag's type when known (Trados), else
+// the placeholder as before.
+function chipLabel(item, info) {
+  const name = info?.[item.key]?.name;
+  if (name) return item.close ? `${name}…/` : name;
+  return item.close ? `${tagLabel(item.open)}…/${item.key}` : tagLabel(item.open);
+}
+
 function placeCaretAtEnd(box) {
   const range = document.createRange();
   range.selectNodeContents(box);
@@ -74,8 +88,25 @@ function placeCaretAtEnd(box) {
   selection.addRange(range);
 }
 
-const TagEditor = ({ value, setValue, onKeyDown, dir = "ltr", source = "" }) => {
+const TagEditor = ({
+  value,
+  setValue,
+  onKeyDown,
+  dir = "ltr",
+  source = "",
+  tagInfo = null,
+  // SDLXLIFF: the target must carry the source's tags in the SOURCE'S ORDER
+  // (the export writes nothing else); other formats only need the same set.
+  ordered = false,
+}) => {
   const boxRef = useRef(null);
+  // Latest tagInfo for the DOM helpers below (they live in closures).
+  const infoRef = useRef(tagInfo);
+  useEffect(() => {
+    infoRef.current = tagInfo;
+  }, [tagInfo]);
+  // State before a "Fix tags", for Undo.
+  const [undoState, setUndoState] = useState(null);
   // Last valid state: a rejected edit goes back to it.
   const snapshotRef = useRef({ html: "", text: String(value ?? "") });
   // Caret/selection inside the editor, kept so a click on the tag bar (which
@@ -86,7 +117,7 @@ const TagEditor = ({ value, setValue, onKeyDown, dir = "ltr", source = "" }) => 
   useEffect(() => {
     const box = boxRef.current;
     if (!box) return;
-    box.innerHTML = toHtml(snapshotRef.current.text);
+    box.innerHTML = toHtml(snapshotRef.current.text, infoRef.current);
     snapshotRef.current.html = box.innerHTML;
     box.focus();
     placeCaretAtEnd(box);
@@ -136,11 +167,11 @@ const TagEditor = ({ value, setValue, onKeyDown, dir = "ltr", source = "" }) => 
     }
     const scratch = document.createElement("div");
     const fragment = document.createDocumentFragment();
-    scratch.innerHTML = chipHtml(item.open);
+    scratch.innerHTML = chipHtml(item.open, infoRef.current);
     fragment.appendChild(scratch.firstChild);
     if (item.close) {
       fragment.appendChild(range.extractContents());
-      scratch.innerHTML = chipHtml(item.close);
+      scratch.innerHTML = chipHtml(item.close, infoRef.current);
       fragment.appendChild(scratch.firstChild);
     } else {
       range.deleteContents();
@@ -161,12 +192,38 @@ const TagEditor = ({ value, setValue, onKeyDown, dir = "ltr", source = "" }) => 
   const copySource = () => {
     const box = boxRef.current;
     if (!box) return;
-    box.innerHTML = toHtml(source);
+    box.innerHTML = toHtml(source, infoRef.current);
     placeCaretAtEnd(box);
     commit();
   };
 
+  // "Fix tags": the target with the SOURCE's tags put back in the source's
+  // order (see fixTags). An ordinary edit -- the reviewer checks it -- with Undo.
+  const applyFix = () => {
+    const box = boxRef.current;
+    if (!box) return;
+    const before = { html: snapshotRef.current.html, text: snapshotRef.current.text };
+    box.innerHTML = toHtml(fixTags(source, toText(box)), infoRef.current);
+    placeCaretAtEnd(box);
+    commit();
+    setUndoState(before);
+  };
+
+  const undoFix = () => {
+    const box = boxRef.current;
+    if (!box || !undoState) return;
+    box.innerHTML = undoState.html;
+    snapshotRef.current = { ...undoState };
+    setText(undoState.text);
+    setValue?.(undoState.text);
+    placeCaretAtEnd(box);
+    setUndoState(null);
+  };
+
   const missing = missingTags(text, source);
+  // What the save (server) and the export will demand: same tags, and for
+  // SDLXLIFF the same order. Shown as soon as it is not met, not at save time.
+  const issue = source ? tagIssue(source, text, { ordered }) : { ok: true };
 
   // Paste as plain text: HTML would bring duplicated chips (or foreign markup).
   const handlePaste = (event) => {
@@ -214,8 +271,31 @@ const TagEditor = ({ value, setValue, onKeyDown, dir = "ltr", source = "" }) => 
         onDragStart={(e) => e.preventDefault()}
         onDrop={(e) => e.preventDefault()}
       />
-      {source && (missing.length > 0 || tagSequence(text) !== tagSequence(source)) && (
+      {source && !issue.ok && (
+        <div className="tag-editor-issue" role="alert">
+          <strong>Tags do not match the source:</strong> {describeTagIssue(issue)}.{" "}
+          {issue.order ? "Expected order: " : "Source tags: "}
+          <TagText text={(issue.order?.expected ?? tagSequenceList(source)).join("")} info={tagInfo} />
+          <span className="tag-editor-issue-note">
+            {" "}
+            The segment cannot be approved, and the export will not write it, until they match.
+          </span>
+        </div>
+      )}
+      {source && (missing.length > 0 || tagSequence(text) !== tagSequence(source) || undoState) && (
         <div className="tag-editor-bar">
+          {!issue.ok && (
+            <Tooltip title="Puts the source's tags back in the source's order, placed by position in the sentence. Check where they landed.">
+              <Button size="small" type="primary" onMouseDown={(e) => e.preventDefault()} onClick={applyFix}>
+                Fix tags
+              </Button>
+            </Tooltip>
+          )}
+          {undoState && (
+            <Button size="small" type="link" onMouseDown={(e) => e.preventDefault()} onClick={undoFix}>
+              Undo fix
+            </Button>
+          )}
           {missing.length > 0 && (
             <>
               <span className="tag-editor-bar-label">Missing tags:</span>
@@ -227,7 +307,7 @@ const TagEditor = ({ value, setValue, onKeyDown, dir = "ltr", source = "" }) => 
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => insertTag(item)}
                   >
-                    {item.close ? `${tagLabel(item.open)}…/${item.key}` : tagLabel(item.open)}
+                    {chipLabel(item, tagInfo)}
                   </button>
                 </Tooltip>
               ))}
