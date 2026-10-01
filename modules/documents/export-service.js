@@ -1,8 +1,13 @@
 import { HttpError } from '../shared/http-error';
 import { DOCUMENT_STATUS } from '../../lib/document-status';
 import { findDocumentForActor, findTusByDocumentId } from './repository';
-import { exportSdlxliffForDownload } from './sdlxliff-service';
+import { isSpliceFormat } from '../../lib/utils';
+import { exportSdlxliffWithReport, skippedSegments } from './sdlxliff-service';
 
+// Returns { text, skipped }: `skipped` = segments with a translation that were
+// NOT written (tags that do not match the source, rows imported before inline
+// tags existed...). The route sends it as X-Pecat-Skipped-Segments so the UI
+// can tell the reviewer; the gate itself (writer.js) is unchanged.
 export async function exportDocumentAsSdlxliffService(documentId, actorUser) {
   if (!documentId) {
     throw new HttpError(400, 'documentId is required');
@@ -13,10 +18,10 @@ export async function exportDocumentAsSdlxliffService(documentId, actorUser) {
     throw new HttpError(404, 'Document not found');
   }
 
-  if (document.extension !== 'sdlxliff') {
+  if (!isSpliceFormat(document.extension)) {
     throw new HttpError(
       400,
-      `Document is not an SDLXLIFF document. Current format: ${document.extension}`
+      `Document is not an SDLXLIFF/XLIFF document. Current format: ${document.extension}`
     );
   }
 
@@ -33,8 +38,8 @@ export async function exportDocumentAsSdlxliffService(documentId, actorUser) {
   }
 
   try {
-    const sdlxliffContent = await exportSdlxliffForDownload(document.filePath, tus);
-    return sdlxliffContent;
+    const { text, report } = await exportSdlxliffWithReport(document.filePath, tus);
+    return { text, skipped: skippedSegments(report) };
   } catch (error) {
     if (error instanceof HttpError) {
       throw error;

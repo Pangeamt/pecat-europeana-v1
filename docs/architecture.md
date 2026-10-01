@@ -68,10 +68,40 @@ motivó está en `documentacion/pecat-e/COMPARATIVA-SDLXLIFF-PECATE-VS-MFT.md`.
     `Draft`/`mt`;
   - lo que el cliente ya traía y nadie tocó no se reconfirma;
   - la salida se valida (bien formada + invariantes de `lockTU`) antes de entregarse.
-- **Descarga** (`GET /api/file`): la cabecera `X-Pecat-Skipped-Segments` dice cuántos segmentos con traducción
-  no se escribieron. Un documento importado antes de esta versión no tiene marcadores, así que sus segmentos
-  con etiquetas se saltan: hay que volver a subirlo.
-- **Tests**: `npm test` (`node --test`, `tests/sdlxliff/`).
+- **Descarga** (`GET /api/file` y `GET /api/documents/<id>/export`): la cabecera `X-Pecat-Skipped-Segments` dice
+  cuántos segmentos con traducción no se escribieron. Un documento importado antes de esta versión no tiene
+  marcadores, así que sus segmentos con etiquetas se saltan: hay que volver a subirlo.
+- **Tipo de las etiquetas** (`Tu.tagInfo`, JSON, desde 2026-10-01): las fichas enseñan el **tipo** como Trados
+  (`glossary`, `unit`, `&deg;`…) y, al pasar el ratón, el código original. Mismo formato para todos los
+  orígenes, `{ "<marcador>": { name, detail?, close?, equiv?, locked?, lockedText? } }`:
+  - **SDLXLIFF**: `sdlxliff/tagdefs.js` lee `<tag-defs>` de la cabecera (tipo + código por `id`) y, para las
+    referencias a contenido bloqueado (`<x xid="lockTU_…">`), el texto del `lockTU`. Se construye desde el mismo
+    mapa de claves que los marcadores;
+  - **Tikal/XLIFF** (`.xlf`, `.docx`…): `extraction/tag-info.js` usa `ctype`, `equiv-text` y el código del
+    `<ph>/<bpt>/<ept>`;
+  - sin información (tipo desconocido, o documento importado antes): la ficha se ve como siempre.
+  Solo se muestra: ni las reglas de etiquetas ni el escritor lo leen.
+- **Etiquetas en el orden del origen** (`modules/documents/tag-check.js`, `tagIssue`): una sola comprobación para el
+  servidor y el editor. En SDLXLIFF exige el mismo conjunto **y el mismo orden**; en los demás formatos, el conjunto.
+  - al importar, una MT con etiquetas que faltan, sobran o están **reordenadas** queda en `VALIDATION_FAILED`
+    (no se autobloquea con TM ni pasa por el juez LLM) y el editor lo avisa;
+  - guardar da 422 `INLINE_TAGS_MISMATCH` con el motivo;
+  - el export no escribe un segmento cuyas etiquetas no coinciden (la puerta de `writer.js`, igual que el MFT);
+  - **«Fix tags»** (`TagEditor/tag-rules.js`, `fixTags`): propone el destino con las etiquetas del origen, en su
+    orden y colocadas por posición relativa; no se aplica solo y tiene «Undo fix».
+- **XLIFF plano (`.xlf`, `.xliff`, desde 2026-10-01)**: misma cadena y mismo lector/escritor que SDLXLIFF
+  (`isSpliceFormat`, `lib/splice-formats.js`), **sin Tikal**: medido en ficheros reales que una ida y vuelta por Tikal
+  rellena los targets vacíos con el origen, reformatea y corrompe los no-ASCII (no pasa `-ie/-oe UTF-8`). Solo XLIFF 1.2 y UTF-8.
+  - un `trans-unit` sin `<mrk mtype="seg">` es el segmento; su `<target>` se crea tras `<source>` si falta y lleva `state`
+    (`signed-off` revisado, `needs-review-translation` MT, `translated` TM);
+  - del cliente (no se pisa ni se edita): `approved="yes"` o `state` `signed-off`/`final`; un target con `state`
+    `new`/`needs-translation` cuenta como vacío; un target con texto no se sobrescribe;
+  - varios `<file>` repiten los `id`: con más de uno la clave del segmento lleva la posición del `<file>` (`2:7`);
+  - detalle y mediciones: `documentacion/pecat-e/XLIFF-XLF-PROCESADO.md`.
+  - **XLIFF 2.0** también: el `<segment>` es la unidad, el `state` va en el `<segment>`, y `pc/ph/sc/ec/sm/em/mrk` se tratan como los inline de 1.2;
+  - **los vacíos de `.xlf`/`.xliff` no se mandan a DAAIT** (`translatesEmptiesOnImport`): quedan vacíos para traducirlos a mano. `.sdlxliff` y Tikal sí traducen, en **tandas de 50 en secuencia**
+    (`DAAIT_PECAT_BATCH_SIZE`) con `document_id`, `last_batch` y `filestore_id` en cada petición (DAAIT 2.3.50 aún no los usa en `/pecat`: sin memoria volátil por documento).
+- **Tests**: `npm test` (`node --test`, `tests/sdlxliff/`, `tests/tags/`).
 
 ## Modelo de datos (MySQL)
 

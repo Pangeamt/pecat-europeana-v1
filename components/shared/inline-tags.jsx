@@ -41,16 +41,47 @@ export function tagKind(raw) {
 export const TAG_TITLE = (raw) =>
   `Formatting tag ${raw} · cannot be deleted or moved`;
 
-export function TagChip({ raw }) {
+/** "<g1>", "</g1>" and "<g1 />" all share the key "g1" (the key of tagInfo). */
+export const tagKey = (raw) => raw.replace(/[<>/\s]/g, "");
+
+/**
+ * What a chip shows. `info` is the tag's entry of the segment's `tagInfo`
+ * ({ name, detail?, close?, equiv?, locked?, lockedText? }, see
+ * modules/documents/sdlxliff/tagdefs.js): the TYPE of the tag (glossary, unit,
+ * &deg;...) as Trados shows it, and everything we know about it on hover. A
+ * tag without info (unknown type, or a document imported before tagInfo
+ * existed) looks as it always did. One place for the grid, the editor and the
+ * tag bar, so the three always agree.
+ */
+export function chipAttrs(raw, info) {
+  const kind = tagKind(raw);
+  if (!info?.name) {
+    return { className: `inline-tag ${kind}`, label: tagLabel(raw), title: TAG_TITLE(raw) };
+  }
+  const code = kind === "close" ? (info.close ?? info.detail) : info.detail;
+  const lines = [`${info.name}${info.locked ? " (locked)" : ""} · ${raw}`];
+  if (code) lines.push(code);
+  if (info.equiv) lines.push(`equiv-text: ${info.equiv}`);
+  if (info.lockedText) lines.push(`Locked text: ${info.lockedText}`);
+  lines.push("Protected tag · cannot be deleted or moved");
+  return {
+    className: `inline-tag ${kind} typed${info.locked ? " locked" : ""}`,
+    label: info.name,
+    title: lines.join("\n"),
+  };
+}
+
+export function TagChip({ raw, info }) {
+  const { className, label, title } = chipAttrs(raw, info);
   return (
     <span
-      className={`inline-tag ${tagKind(raw)}`}
+      className={className}
       contentEditable={false}
       draggable={false}
       data-raw={raw}
-      title={TAG_TITLE(raw)}
+      title={title}
     >
-      {tagLabel(raw)}
+      {label}
     </span>
   );
 }
@@ -60,7 +91,7 @@ export function TagChip({ raw }) {
  * `renderText` customizes the text parts (e.g. the search Highlighter);
  * chips are never part of the highlight, they are not searchable text.
  */
-export function TagText({ text, renderText }) {
+export function TagText({ text, renderText, info }) {
   const value = String(text ?? "");
   const parts = [];
   let cursor = 0;
@@ -73,7 +104,7 @@ export function TagText({ text, renderText }) {
         </React.Fragment>,
       );
     }
-    parts.push(<TagChip key={parts.length} raw={match[0]} />);
+    parts.push(<TagChip key={parts.length} raw={match[0]} info={info?.[tagKey(match[0])]} />);
     cursor = match.index + match[0].length;
   }
   const rest = value.slice(cursor);

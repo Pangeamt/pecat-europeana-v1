@@ -15,7 +15,7 @@ import { useMemo, useState } from "react";
 
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import locales from "@/lib/locales.json";
-import { checkFile } from "@/lib/utils";
+import { checkFile, isSpliceFormat } from "@/lib/utils";
 import { fetchProfileByIdRequest } from "@/services/profiles.services";
 import { ArrowLeft, ArrowRight, Plus, Upload as UploadIcon } from "lucide-react";
 
@@ -188,7 +188,7 @@ const DocumentAdd = ({ project, refetch }) => {
         message.error(t("documents.add.invalidType"));
         return false;
       }
-      const maxMb = extension === "sdlxliff" ? 500 : 100;
+      const maxMb = isSpliceFormat(extension) ? 500 : 100;
       if (file.size / 1024 / 1024 >= maxMb) {
         message.error(t("documents.add.tooLarge", { max: maxMb }));
         return false;

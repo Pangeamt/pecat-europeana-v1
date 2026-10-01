@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { DOMParser } from "@xmldom/xmldom";
 import { codeSource, codeTarget, tagSequence, TOKEN_RE } from "./codes.js";
-import { indexSdlxliff } from "./reader.js";
+import { indexSdlxliff, isPlainLocked } from "./reader.js";
 import { findAll } from "./xmltree.js";
 
 // Writes our translations INTO the client's original SDLXLIFF by splicing the
@@ -22,6 +22,13 @@ import { findAll } from "./xmltree.js";
 //      reference different lockTU_* trans-units. Sharing one = corrupt file.
 //   6. Never write empty content; never lose a lockTU reference.
 //   7. The target's outer whitespace mirrors the seg-source's.
+// Plain XLIFF 1.2 (.xlf/.xliff) goes through the SAME writer: a unit with no
+// <mrk mtype="seg"> is its own segment, its <target> is created right after
+// <source> when the client's file has none, and the segment state goes on the
+// <target state="..."> (there is no <sdl:seg>). Measured on 5 real client files
+// that a Tikal round trip does NOT give the file back (it fills empty targets
+// with the source, mangles non-ASCII without -ie/-oe UTF-8 and reformats);
+// this one changes only our targets.
 // Not copied from MFT: its two known gaps (overwriting client translations,
 // losing human edits of tagged segments) -- see the comparison doc.
 
@@ -64,6 +71,40 @@ export function setAttributes(tag, attrs) {
   return out;
 }
 
+// XLIFF 1.2 target states for plain files (the counterpart of CONF above).
+const STATE = {
+  approved: "signed-off",
+  rejected: "needs-review-translation",
+  tm: "translated",
+  mt: "needs-review-translation",
+};
+
+// XLIFF 2.x has four states, on <segment> (initial | translated | reviewed | final).
+const STATE_V2 = {
+  approved: "reviewed",
+  rejected: "initial",
+  tm: "translated",
+  mt: "translated",
+};
+
+function stateFor(tu, v2 = false) {
+  const S = v2 ? STATE_V2 : STATE;
+  if (tu.Status === "REJECTED") return S.rejected;
+  if (isReviewed(tu)) return S.approved;
+  if (tu.blockReason === "TM_MATCH") return S.tm;
+  return S.mt;
+}
+
+/** A <target> for a plain unit that has none, right after its <source>, with the source's indentation. */
+function newTarget(raw, source, inner, state, eol) {
+  const nl = raw.lastIndexOf("\n", source.start);
+  const before = raw.slice(nl + 1, source.start);
+  const indent = nl !== -1 && /^[ \t]*$/.test(before) ? before : "";
+  // `state` is null for XLIFF 2.x: there it goes on <segment>, not on <target>.
+  const attr = state ? ` state="${state}"` : "";
+  return `${indent ? eol + indent : ""}<target${attr}>${inner}</target>`;
+}
+
 function isReviewed(tu) {
   return tu.reviewLiteral != null && (tu.Status === "ACCEPTED" || tu.Status === "EDITED");
 }
@@ -87,7 +128,7 @@ function buildInner(coded, codes, raw, eol) {
     const key = letter + num;
     const node = codes.get(key);
     if (!node) throw new Error(`unknown inline code <${key}>`);
-    if (letter === "g" && node.name.endsWith("g")) {
+    if (letter === "g") {
       if (closing) {
         if (selfClosedG.has(key)) continue;
         out += `</${node.name}>`;
@@ -171,6 +212,7 @@ export function writeSdlxliff(raw, tus) {
     skippedLockTu: 0,
     noPlace: 0,
     lockTuCloned: 0,
+    targetCreated: 0,
   };
   const splices = [];
 
@@ -178,35 +220,43 @@ export function writeSdlxliff(raw, tus) {
     const text = (tu.reviewLiteral || tu.translatedLiteral || "").trim();
     if (!text || !tu.externalId) continue;
     const sep = tu.externalId.indexOf("::");
-    const unit = index.unitById.get(sep === -1 ? tu.externalId : tu.externalId.slice(0, sep));
+    const unitKey = sep === -1 ? tu.externalId : tu.externalId.slice(0, sep);
+    // unitById as a fallback: documents imported before multi-<file> keys.
+    const unit = index.unitByKey.get(unitKey) ?? index.unitById.get(unitKey);
     const mid = sep === -1 ? null : tu.externalId.slice(sep + 2);
-    const srcMrk = unit && mid !== null ? unit.sourceMrks.get(mid) : null;
-    const tgtMrk = unit && mid !== null ? unit.targetMrks.get(mid) : null;
-    if (!srcMrk || !tgtMrk) {
+    // Plain XLIFF unit (no <mrk mtype="seg">): the unit IS the segment and its
+    // <target> may not exist yet (created below, right after <source>).
+    const plain = Boolean(unit) && mid === null && unit.sourceMrks.size === 0;
+    const srcMrk = plain ? unit.source : unit && mid !== null ? unit.sourceMrks.get(mid) : null;
+    const tgtMrk = plain ? unit.target : unit && mid !== null ? unit.targetMrks.get(mid) : null;
+    if (!srcMrk || (!tgtMrk && !plain)) {
       report.noPlace++;
       continue;
     }
-    const seg = unit.sdlSegs.get(mid);
-    const locked = /^(true|yes|1|y)$/i.test(seg?.attrs.get("locked") ?? "");
+    const seg = plain ? undefined : unit.sdlSegs.get(mid);
+    const locked = plain
+      ? isPlainLocked(unit)
+      : /^(true|yes|1|y)$/i.test(seg?.attrs.get("locked") ?? "");
     if (!unit.translatable || locked || tu.blockReason === "INTERNAL") {
       report.skippedLocked++;
       continue;
     }
 
     const { coded: srcCoded, codes, byId } = codeSource(srcMrk);
+    const changed = !tgtMrk || text !== codeTarget(tgtMrk, byId).trim();
+    const reviewed = isReviewed(tu) || tu.Status === "REJECTED";
+    if (!changed && !reviewed) {
+      // The client's own target, untouched: not ours, not reconfirmed -- and
+      // not "skipped" either, whatever its tags are (we write nothing).
+      report.unchanged++;
+      continue;
+    }
+
     const want = tagSequence(srcCoded).join("");
     const got = tagSequence(text).join("");
     if (want !== got) {
       if (!got && codes.size) report.skippedLegacy++;
       else report.skippedTags++;
-      continue;
-    }
-
-    const changed = text !== codeTarget(tgtMrk, byId).trim();
-    const reviewed = isReviewed(tu) || tu.Status === "REJECTED";
-    if (!changed && !reviewed) {
-      // The client's own target, untouched: not ours, not reconfirmed.
-      report.unchanged++;
       continue;
     }
 
@@ -217,7 +267,7 @@ export function writeSdlxliff(raw, tus) {
       // Rule 5: the copied tags carry the SEG-SOURCE's lockTU xids. Give the
       // target back its own previous xids first; clone a definition for any
       // extra one.
-      const previous = lockTuXids(raw.slice(tgtMrk.openEnd, tgtMrk.closeStart));
+      const previous = tgtMrk ? lockTuXids(raw.slice(tgtMrk.openEnd, tgtMrk.closeStart)) : [];
       const incoming = lockTuXids(inner);
       if (incoming.length < previous.length) {
         report.skippedLockTu++;
@@ -249,10 +299,25 @@ export function writeSdlxliff(raw, tus) {
       report.lockTuCloned += clones.length;
       for (const c of clones) splices.push({ start: c.at, end: c.at, text: c.text });
 
-      if (tgtMrk.selfClosing) {
-        const open = raw.slice(tgtMrk.start, tgtMrk.end).replace(/\s*\/>$/, ">");
+      if (!tgtMrk) {
+        splices.push({
+          start: srcMrk.end,
+          end: srcMrk.end,
+          text: newTarget(raw, srcMrk, inner, unit.v2 ? null : stateFor(tu), eol),
+        });
+        report.targetCreated++;
+      } else if (tgtMrk.selfClosing) {
+        let open = raw.slice(tgtMrk.start, tgtMrk.end).replace(/\s*\/>$/, ">");
+        if (plain && !unit.v2) open = setAttributes(open, { state: stateFor(tu) });
         splices.push({ start: tgtMrk.start, end: tgtMrk.end, text: `${open}${inner}</${tgtMrk.name}>` });
       } else {
+        if (plain && !unit.v2) {
+          splices.push({
+            start: tgtMrk.start,
+            end: tgtMrk.openEnd,
+            text: setAttributes(raw.slice(tgtMrk.start, tgtMrk.openEnd), { state: stateFor(tu) }),
+          });
+        }
         splices.push({ start: tgtMrk.openEnd, end: tgtMrk.closeStart, text: inner });
       }
       report.written++;
@@ -266,6 +331,26 @@ export function writeSdlxliff(raw, tus) {
         end: seg.openEnd,
         text: setAttributes(raw.slice(seg.start, seg.openEnd), confFor(tu)),
       });
+      report.confirmed++;
+    } else if (plain && unit.v2) {
+      // XLIFF 2.x: the state is an attribute of <segment>, for what we wrote
+      // and for what a reviewer confirmed (a client translation nobody
+      // touched never gets here: `unchanged`, above).
+      splices.push({
+        start: unit.node.start,
+        end: unit.node.openEnd,
+        text: setAttributes(raw.slice(unit.node.start, unit.node.openEnd), { state: stateFor(tu, true) }),
+      });
+      report.confirmed++;
+    } else if (plain && tgtMrk && !changed && !tgtMrk.selfClosing) {
+      // The client's own target, confirmed by a reviewer: only its state moves.
+      splices.push({
+        start: tgtMrk.start,
+        end: tgtMrk.openEnd,
+        text: setAttributes(raw.slice(tgtMrk.start, tgtMrk.openEnd), { state: stateFor(tu) }),
+      });
+      report.confirmed++;
+    } else if (plain && changed) {
       report.confirmed++;
     }
   }

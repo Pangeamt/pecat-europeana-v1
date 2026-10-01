@@ -414,6 +414,11 @@ export async function handleLlmReviewJob({ projectId: documentId }) {
         { mtqeV2Score: null },
         { mtqeV2Score: { lt: settings.mtqeThreshold } },
       ],
+      // A segment whose tags do not match the source (flagged at import) goes
+      // to a human as is: the judge could auto-approve AND lock it, and a
+      // locked segment with broken tags can neither be fixed nor exported.
+      // (`not` alone would also drop the NULLs.)
+      AND: [{ OR: [{ daaitStatus: null }, { daaitStatus: { not: "VALIDATION_FAILED" } }] }],
     },
     select: { id: true, srcLiteral: true, translatedLiteral: true },
     orderBy: { count: "asc" },
