@@ -88,6 +88,12 @@ export async function enrichSdlxliffSegments(segments, {
   documentId = null,
   filestoreId = null,
 } = {}) {
+  // The file store's id IS the document's identity for DAAIT: it goes as
+  // `document_id` (the key of its volatile memory and of the Langfuse
+  // session), so every batch of the same file shares it. Formats that never
+  // go through the file store (.sdlxliff/.xlf) fall back to the document id.
+  const daaitDocumentId = filestoreId ?? documentId;
+
   // Hidden segments (visibility rules, e.g. URL-only footnotes) are never
   // machine-translated: their target stays empty and the export fills them
   // back from the source.
@@ -139,9 +145,8 @@ export async function enrichSdlxliffSegments(segments, {
       tm_ids: tmIds,
       glossary_ids: glossaryIds,
       workspace: workspaceId,
-      document_id: documentId,
+      document_id: daaitDocumentId,
       last_batch: isLast,
-      filestore_id: filestoreId,
     };
 
     let response;
@@ -181,7 +186,7 @@ export async function enrichSdlxliffSegments(segments, {
       toTranslate.slice(i * PECAT_BATCH_SIZE, (i + 1) * PECAT_BATCH_SIZE),
       i === batches - 1,
     );
-    console.log(`[SDLXLIFF] translated batch ${i + 1}/${batches} (document ${documentId ?? "-"}, filestore ${filestoreId ?? "-"})`);
+    console.log(`[SDLXLIFF] translated batch ${i + 1}/${batches} (document ${daaitDocumentId ?? "-"})`);
   }
 
   return { translated: toTranslate.length };
