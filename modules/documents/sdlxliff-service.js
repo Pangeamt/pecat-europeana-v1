@@ -48,9 +48,12 @@ export async function parseSdlxliffFile(filePath) {
     throw new HttpError(400, 'No translation units found in SDLXLIFF file.');
   }
 
+  // The header tags as written ("en-US"): the importer turns them into DAAIT
+  // catalog codes (`resolveDaaitLanguageTag`). Cutting them to the primary
+  // subtag here sent "en" for an "en-GB" file, a different language for DAAIT.
   return {
-    sourceLanguage: sourceLanguage.split('-')[0].toLowerCase(),
-    targetLanguage: targetLanguage ? targetLanguage.split('-')[0].toLowerCase() : null,
+    sourceLanguage: sourceLanguage.trim(),
+    targetLanguage: targetLanguage ? targetLanguage.trim() : null,
     segments,
   };
 }
