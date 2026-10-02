@@ -99,7 +99,7 @@ motivó está en `documentacion/pecat-e/COMPARATIVA-SDLXLIFF-PECATE-VS-MFT.md`.
   - varios `<file>` repiten los `id`: con más de uno la clave del segmento lleva la posición del `<file>` (`2:7`);
   - detalle y mediciones: `documentacion/pecat-e/XLIFF-XLF-PROCESADO.md`.
   - **XLIFF 2.0** también: el `<segment>` es la unidad, el `state` va en el `<segment>`, y `pc/ph/sc/ec/sm/em/mrk` se tratan como los inline de 1.2;
-  - **los vacíos de `.xlf`/`.xliff` no se mandan a DAAIT** (`translatesEmptiesOnImport`): quedan vacíos para traducirlos a mano. `.sdlxliff` y Tikal sí traducen, en **tandas de 50 en secuencia**
+  - **los vacíos de `.xlf`/`.xliff` también se traducen con DAAIT** (`translatesEmptiesOnImport`, decisión 2026-10-02; antes se dejaban vacíos). `.sdlxliff`, `.xlf`/`.xliff` y Tikal traducen, en **tandas de 50 en secuencia**
     (`DAAIT_PECAT_BATCH_SIZE`) con `document_id` y `last_batch` en cada petición. `document_id` lleva el id del filestore cuando el fichero lo tiene (Okapi/Tikal) y el id del documento si no (.sdlxliff/.xlf); DAAIT ≥ 2.3.52 lo usa como clave de la memoria volátil y de la sesión de Langfuse, y borra el borrador al llegar `last_batch`.
 - **Tests**: `npm test` (`node --test`, `tests/sdlxliff/`, `tests/tags/`).
 
