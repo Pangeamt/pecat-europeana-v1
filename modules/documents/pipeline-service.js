@@ -1,12 +1,13 @@
 import prisma from "../../lib/prisma";
 import {
   isMtqeV2Configured,
+  isSpliceFormat,
   postMTQEv2,
   toQeReferences,
 } from "../../lib/utils";
 import { postEditContent } from "../../lib/daait";
 import { enqueueMtqeV2 } from "../../lib/queue";
-import { hasTags, qePair, stripTags } from "./qe-payload";
+import { suggestionKeepsTags } from "./qe-payload";
 import { DOCUMENT_STATUS } from "../../lib/document-status";
 import {
   BLOCK_REASON,
@@ -23,10 +24,6 @@ import {
 // unused.
 const POST_EDIT_BATCH_SIZE = 25;
 
-// Retired QE v1 stage. The job name is only kept so pipeline-score jobs still
-// sitting in Redis when this code deploys get drained (handleLegacyScoreJob).
-// TODO: delete together with the mtqe-v1 queue in the next release.
-export const PIPELINE_SCORE_JOB = "pipeline-score";
 export const PIPELINE_REVIEW_JOB = "pipeline-review";
 // Runs on the dedicated MTQE_V2_QUEUE, not the import queue.
 export const MTQE_V2_JOB = "score-mtqe-v2";
@@ -86,18 +83,6 @@ export async function releaseDocumentAndScore(documentId) {
       mtqeV2Error: `QE v2 not scheduled: ${error.message}`,
     }).catch(() => {});
   }
-}
-
-// Drains pipeline-score jobs enqueued by the retired QE v1 stage before this
-// code deployed: no v1 scoring anymore, just release the document the new
-// way. TODO: delete together with PIPELINE_SCORE_JOB in the next release.
-export async function handleLegacyScoreJob({ projectId: documentId }) {
-  const document = await prisma.document.findUnique({
-    where: { id: documentId },
-    select: { id: true },
-  });
-  if (!document) return;
-  await releaseDocumentAndScore(documentId);
 }
 
 /**
@@ -216,7 +201,7 @@ function buildLlmComment(meta) {
   return `Glosario no aplicado: ${parts.join("; ")}`.slice(0, 400);
 }
 
-function buildReviewUpdate(tu, result, settings) {
+function buildReviewUpdate(tu, result, settings, { ordered = false } = {}) {
   const finalStatus = result?.final_status ?? null;
   const suggestion =
     typeof result?.target === "string" && result.target.trim() !== ""
@@ -227,7 +212,9 @@ function buildReviewUpdate(tu, result, settings) {
     !suggestion ||
     finalStatus === "FAILED" ||
     finalStatus === "VALIDATION_FAILED" ||
-    finalStatus === "UNPROCESSED"
+    finalStatus === "UNPROCESSED" ||
+    // A suggestion that loses, invents or reorders tags is dropped.
+    !suggestionKeepsTags(tu.srcLiteral, suggestion, { ordered })
   ) {
     // Fail-safe to human: record what DAAIT said, change nothing else.
     return finalStatus ? { daaitStatus: finalStatus } : null;
@@ -245,7 +232,7 @@ function buildReviewUpdate(tu, result, settings) {
   const comment = buildLlmComment(meta);
 
   const unchanged =
-    normalizeForCompare(suggestion) === normalizeForCompare(stripTags(tu.translatedLiteral));
+    normalizeForCompare(suggestion) === normalizeForCompare(tu.translatedLiteral);
 
   if (unchanged) {
     // The LLM saw nothing to change: auto-approve and lock (the reviewer can
@@ -261,8 +248,8 @@ function buildReviewUpdate(tu, result, settings) {
     };
   }
 
-  // The LLM proposed changes (plain text: it never sees the tags). On a
-  // tagged segment the UI shows it as a reference only (no "Apply").
+  // The LLM proposed changes; its tags already passed the gate above, so it
+  // is applicable even on a tagged segment.
   if (settings.llmSuggest) {
     return {
       daaitStatus: finalStatus,
@@ -297,9 +284,10 @@ export async function reviewDraftSegment({
   workspaceId,
   sourceLanguage,
   targetLanguage,
+  ordered = false,
 }) {
-  // Text only (qe-payload.js): the LLM gets no inline-tag placeholders.
-  const pair = qePair(source, target);
+  // Source and target WITH their inline-tag placeholders (qe-payload.js).
+  const pair = { source, target };
   const response = await postEditContent({
     profile_id: profileId,
     alignments: [pair],
@@ -340,15 +328,14 @@ export async function reviewDraftSegment({
   if (normalizeForCompare(suggestion) === normalizeForCompare(pair.target)) {
     return { daaitStatus: finalStatus, verdict: LLM_VERDICT.OK, suggestion: null, meta };
   }
-  // The suggestion comes back as plain text. On a segment WITH inline tags it
-  // can only be a reference: applying it would drop the tags. The reviewer
-  // copies what they want into the editor, which keeps the tags (same rule as
-  // revisions-pangeanic-local: no AI output is merged into a tagged target).
+  // A suggestion that loses, invents or reorders the source's tags is not shown.
+  if (!suggestionKeepsTags(source, suggestion, { ordered })) {
+    return { daaitStatus: finalStatus, verdict: null, suggestion: null, meta: null };
+  }
   return {
     daaitStatus: finalStatus,
     verdict: LLM_VERDICT.REVIEW,
     suggestion,
-    referenceOnly: hasTags(source),
     meta,
   };
 }
@@ -368,6 +355,7 @@ export async function handleLlmReviewJob({ projectId: documentId }) {
       workspaceId: true,
       sourceLanguage: true,
       targetLanguage: true,
+      extension: true,
       project: {
         select: {
           profileId: true,
@@ -447,7 +435,10 @@ export async function handleLlmReviewJob({ projectId: documentId }) {
     try {
       response = await postEditContent({
         profile_id: profileId,
-        alignments: batch.map((tu) => qePair(tu.srcLiteral, tu.translatedLiteral)),
+        alignments: batch.map((tu) => ({
+          source: tu.srcLiteral,
+          target: tu.translatedLiteral,
+        })),
         memory_ids: tmIds,
         glossary_ids: glossaryIds,
         use_term_score: true,
@@ -474,7 +465,9 @@ export async function handleLlmReviewJob({ projectId: documentId }) {
 
     for (let j = 0; j < batch.length; j++) {
       const tu = batch[j];
-      const data = buildReviewUpdate(tu, alignments[j], settings);
+      const data = buildReviewUpdate(tu, alignments[j], settings, {
+        ordered: isSpliceFormat(document.extension),
+      });
       if (!data) continue;
       await prisma.tu
         .update({ where: { id: tu.id }, data })

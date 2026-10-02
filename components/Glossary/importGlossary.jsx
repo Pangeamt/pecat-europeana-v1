@@ -1,18 +1,13 @@
 "use client";
 
 import { Button, Form, Input, Modal, Upload, message, Select } from "antd";
-import locales from "@/lib/locales.json";
+import { useLanguageOptions } from "@/components/shared/useLanguageOptions";
 import { useCallback, useState } from "react";
 
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { Book, Plus, Upload as UploadIcon } from "lucide-react";
 
 const { Dragger } = Upload;
-
-const languageOptions = Object.keys(locales).map((code) => ({
-  value: code,
-  label: locales[code][0],
-}));
 
 const ALLOWED_IMPORT_EXTENSIONS = ["txt", "csv", "tsv", "tbx"];
 
@@ -22,7 +17,7 @@ const checkFile = (file) => {
   return ALLOWED_IMPORT_EXTENSIONS.includes(fileExtension);
 };
 
-const getTargetOptions = (source) => {
+const getTargetOptions = (languageOptions, source) => {
   if (!source) return languageOptions;
   return languageOptions.filter((option) => option.value !== source);
 };
@@ -32,6 +27,7 @@ const isUploadReady = ({ name, source, target }) =>
 
 const ImportGlossaryButton = ({ refetch }) => {
   const { t } = useTranslation();
+  const languageOptions = useLanguageOptions();
   const [form] = Form.useForm();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -245,7 +241,7 @@ const ImportGlossaryButton = ({ refetch }) => {
                           showSearch
                           placeholder={t("glossaries.import.targetPlaceholder")}
                           optionFilterProp="label"
-                          options={getTargetOptions(source)}
+                          options={getTargetOptions(languageOptions, source)}
                           disabled={!source}
                         />
                       </Form.Item>

@@ -138,8 +138,8 @@ test("UTF-8: CJK, acentos y entidades llegan sin tocar; CRLF y BOM se conservan"
   assert.equal(wellFormed(text.replace(/^﻿/, "")), true);
 });
 
-test("politica: solo .sdlxliff traduce los vacios con DAAIT; .xlf/.xliff no mandan nada", async () => {
+test("politica: .sdlxliff, .xlf y .xliff traducen los vacios con DAAIT (decision 2026-10-02)", async () => {
   const { translatesEmptiesOnImport } = await import("../../lib/splice-formats.js");
-  assert.equal(translatesEmptiesOnImport("sdlxliff"), true);
-  for (const ext of ["xlf", "xliff", ".XLF", "Xliff"]) assert.equal(translatesEmptiesOnImport(ext), false, ext);
+  for (const ext of ["sdlxliff", "xlf", "xliff", ".XLF", "Xliff"]) assert.equal(translatesEmptiesOnImport(ext), true, ext);
+  for (const ext of ["docx", "txt", "po", "", null]) assert.equal(translatesEmptiesOnImport(ext), false, String(ext));
 });

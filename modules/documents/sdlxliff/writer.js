@@ -3,6 +3,7 @@ import { DOMParser } from "@xmldom/xmldom";
 import { codeSource, codeTarget, tagSequence, TOKEN_RE } from "./codes.js";
 import { indexSdlxliff, isPlainLocked } from "./reader.js";
 import { findAll } from "./xmltree.js";
+import { exportTarget, isApproved } from "../export-target.js";
 
 // Writes our translations INTO the client's original SDLXLIFF by splicing the
 // raw text at the offsets of our target <mrk>s and their <sdl:seg> tags.
@@ -106,7 +107,7 @@ function newTarget(raw, source, inner, state, eol) {
 }
 
 function isReviewed(tu) {
-  return tu.reviewLiteral != null && (tu.Status === "ACCEPTED" || tu.Status === "EDITED");
+  return tu.reviewLiteral != null && isApproved(tu);
 }
 
 function confFor(tu) {
@@ -217,7 +218,7 @@ export function writeSdlxliff(raw, tus) {
   const splices = [];
 
   for (const tu of tus) {
-    const text = (tu.reviewLiteral || tu.translatedLiteral || "").trim();
+    const text = exportTarget(tu).trim();
     if (!text || !tu.externalId) continue;
     const sep = tu.externalId.indexOf("::");
     const unitKey = sep === -1 ? tu.externalId : tu.externalId.slice(0, sep);

@@ -146,6 +146,8 @@ export type ProjectTu = {
   /** QE v2 score (0-1): the only QE score since QE v1 was retired. */
   mtqeV2Score?: number | null;
   levenshteinDistance?: number | null;
+  /** When a reviewer last saved the segment (draft, confirm, reject...). */
+  reviewedAt?: string | null;
   tmInfo?: Array<{
     tm_item_id?: string;
     tm_score: number;
@@ -157,7 +159,14 @@ export type ProjectTu = {
 export type UpdateProjectTuPayload = {
   tuId: string;
   reviewLiteral?: string | null;
-  action: "approve" | "reject";
+  action:
+    | "approve"
+    | "save_draft"
+    | "reject"
+    | "apply_suggestion"
+    | "discard_suggestion"
+    | "lock"
+    | "unlock";
   levenshteinDistance?: number;
   block?: boolean;
 };

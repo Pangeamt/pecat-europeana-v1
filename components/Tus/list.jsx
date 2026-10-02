@@ -17,7 +17,7 @@ import {
   Tooltip,
 } from "antd";
 import axios from "axios";
-import { Ban, CircleCheck, CircleX, Filter, Hourglass, LockIcon, Pencil, Search, UnlockIcon } from "lucide-react";
+import { Ban, ChevronDown, ChevronRight, CircleCheck, CircleX, Filter, Hourglass, LockIcon, Pencil, Save, Search, UnlockIcon } from "lucide-react";
 import { useParams } from "next/navigation";
 
 import React, {
@@ -120,6 +120,35 @@ const TusList = ({ shareToken } = {}) => {
   const [appliedScoreFilter, setAppliedScoreFilter] = useState(null);
 
   const [selectedRow, setSelectedRow] = useState(null);
+  // Text typed in the editor and NOT saved yet: { [tuId]: text }. There is no
+  // autosave; the Save button (or Ctrl+S) persists every draft. Kept per
+  // segment, so moving to another row never loses what was typed, and mirrored
+  // in a ref for the callbacks (hotkeys, beforeunload) that outlive a render.
+  const [drafts, setDrafts] = useState({});
+  const draftsRef = useRef({});
+  const [savingDrafts, setSavingDrafts] = useState(false);
+  // Suggestion / TMs / Glossaries panel above the grid: COLLAPSED by default
+  // (it took a third of the screen even when empty); the choice is remembered.
+  const TOP_PANEL_KEY = "pecat.tus.topPanelOpen";
+  const [topPanelOpen, setTopPanelOpen] = useState(false);
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(TOP_PANEL_KEY) === "1") setTopPanelOpen(true);
+    } catch {
+      // storage blocked: stay collapsed
+    }
+  }, []);
+  const toggleTopPanel = () => {
+    setTopPanelOpen((open) => {
+      try {
+        window.localStorage.setItem(TOP_PANEL_KEY, open ? "0" : "1");
+      } catch {
+        // storage blocked: the toggle still works for this visit
+      }
+      return !open;
+    });
+  };
+  const [saveFailed, setSaveFailed] = useState(false);
   // Bumped when an LLM suggestion is applied so the target editor remounts
   // with the new reviewLiteral (Quill/TagEditor only read the initial value).
   const [editorRefreshKey, setEditorRefreshKey] = useState(0);
@@ -218,6 +247,51 @@ const TusList = ({ shareToken } = {}) => {
     };
     run();
   }, [getProjectConfig]);
+
+  // While QE v2 is still scoring the document in the background
+  // (pipelineStats.stage === "SCORING"), pull the scores every 5 s and merge
+  // ONLY mtqeV2Score into the grid: selection, unsaved drafts, page and sort
+  // order are never touched. The project config is read FIRST and the
+  // segments after it, so the tick that sees "DONE" already carries the last
+  // scores. Rows with an unsaved draft keep their live score.
+  const scoring = projectConfig?.pipelineStats?.stage === "SCORING";
+  useEffect(() => {
+    if (!scoring) return undefined;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const configResponse = shareToken
+          ? await getDocumentConfigByShareToken(shareToken)
+          : await getProject(projectId);
+        const tusResponse = shareToken
+          ? await getTusByShareToken(shareToken)
+          : await getTus(projectId);
+        if (cancelled) return;
+        const scores = new Map(
+          (tusResponse.data.docs || []).map((doc) => [doc.id, doc.mtqeV2Score]),
+        );
+        const fresh = (row) => {
+          const score = scores.get(row.id);
+          return typeof score === "number" &&
+            score !== row.mtqeV2Score &&
+            draftsRef.current[row.id] == null
+            ? { ...row, mtqeV2Score: score }
+            : row;
+        };
+        setData((prev) => prev.map(fresh));
+        setSelectedRow((prev) => (prev ? fresh(prev) : prev));
+        setProjectConfig(configResponse.data);
+      } catch (error) {
+        // Quiet: the next tick retries; the grid keeps what it has.
+        console.warn("QE v2 refresh failed", error?.message);
+      }
+    };
+    const timer = setInterval(tick, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [scoring, shareToken, projectId]);
 
   const stats = (() => {
     if (requesting || data.length === 0) return EMPTY_STATS;
@@ -575,7 +649,7 @@ const TusList = ({ shareToken } = {}) => {
       width: "40%",
       ...getColumnSearchProps("reviewLiteral"),
       render: (text, record) => {
-        const aux = text || record.translatedLiteral || "";
+        const aux = drafts[record.id] ?? (text || record.translatedLiteral || "");
 
         if (record.block) {
           const reviewLiteral = getColumnSearchProps("reviewLiteral");
@@ -651,12 +725,17 @@ const TusList = ({ shareToken } = {}) => {
                 if (e.key === "ArrowDown" && e.ctrlKey && e.shiftKey) {
                   e.preventDefault();
                   e.stopPropagation();
-                  moveNext();
+                  navigate(1);
                 }
                 if (e.key === "ArrowUp" && e.ctrlKey && e.shiftKey) {
                   e.preventDefault();
                   e.stopPropagation();
-                  movePrevious();
+                  navigate(-1);
+                }
+                if ((e.key === "s" || e.key === "S") && e.ctrlKey && !e.shiftKey) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  saveDrafts();
                 }
               }}
             />
@@ -893,15 +972,16 @@ const TusList = ({ shareToken } = {}) => {
   // suggestionStatus so acceptance can be measured.
   const applySuggestion = async () => {
     if (!selectedRow?.suggestionLiteral) return;
-    // Suggestions come without tags: on a tagged segment they are a
-    // reference only (the panel hides "Apply"; this is the guard).
-    if (hasInlineTags(selectedRow.srcLiteral)) return;
+    // Guard: a suggestion that does not keep the source's tags (e.g. one
+    // stored before tags went to the LLM) is never applied.
+    if (!tagIssue(selectedRow.srcLiteral, selectedRow.suggestionLiteral).ok) return;
     const text = selectedRow.suggestionLiteral;
     try {
       await confirm({ tuId: selectedRow.id, action: "apply_suggestion" });
       setSelectedRow((prev) => (prev ? { ...prev, reviewLiteral: text } : prev));
+      markDraft(selectedRow.id, text);
       setEditorRefreshKey((prev) => prev + 1);
-      messageApi.success("Suggestion applied — review it and confirm");
+      messageApi.success("Suggestion applied — save it or confirm");
     } catch (error) {
       console.error(error);
       messageApi.error("Could not apply the suggestion");
@@ -930,13 +1010,20 @@ const TusList = ({ shareToken } = {}) => {
     }
   };
 
+  // Selecting a row restores its unsaved text, if any (the grid record only
+  // knows the persisted value).
+  const selectRow = (record) => {
+    const draft = draftsRef.current[record.id];
+    setSelectedRow(draft != null ? { ...record, reviewLiteral: draft } : record);
+  };
+
   const goToRowIndex = (index) => {
     if (index < 0 || index >= orderedData.length) return;
 
     const targetPage = Math.floor(index / pageSize) + 1;
     const indexOnPage = index % pageSize;
 
-    setSelectedRow(orderedData[index]);
+    selectRow(orderedData[index]);
 
     if (targetPage === page) {
       tblRef.current?.scrollTo({ index: indexOnPage });
@@ -947,37 +1034,25 @@ const TusList = ({ shareToken } = {}) => {
     setPage(targetPage);
   };
 
-  const movePrevious = () => {
+  // Manual navigation only (Ctrl+Shift+Down / Up): confirming, rejecting or
+  // saving NEVER moves the selection. Locked segments are skipped in both
+  // directions; no wrap-around.
+  const navigate = (step) => {
     if (!selectedRow) return;
     const currentIndex = orderedData.findIndex(
       (doc) => doc.id === selectedRow.id,
     );
-    if (currentIndex <= 0) return;
+    if (currentIndex < 0) return;
 
-    goToRowIndex(currentIndex - 1);
-  };
-
-  const moveNext = ({ skipBlocked = false } = {}) => {
-    if (!selectedRow) return;
-    const currentIndex = orderedData.findIndex(
-      (doc) => doc.id === selectedRow.id,
-    );
-    if (currentIndex < 0 || currentIndex >= orderedData.length - 1) return;
-
-    let nextIndex = currentIndex + 1;
-
-    if (skipBlocked && !isSegmentBlocked(selectedRow)) {
-      while (
-        nextIndex < orderedData.length &&
-        isSegmentBlocked(orderedData[nextIndex])
-      ) {
-        nextIndex += 1;
-      }
+    let index = currentIndex + step;
+    while (
+      index >= 0 &&
+      index < orderedData.length &&
+      isSegmentBlocked(orderedData[index])
+    ) {
+      index += step;
     }
-
-    if (nextIndex < orderedData.length) {
-      goToRowIndex(nextIndex);
-    }
+    if (index >= 0 && index < orderedData.length) goToRowIndex(index);
   };
 
   const save = async (str) => {
@@ -988,6 +1063,10 @@ const TusList = ({ shareToken } = {}) => {
     }
 
     const currentRow = selectedRow;
+    if (isSegmentBlocked(currentRow)) {
+      messageApi.info("This segment is locked");
+      return;
+    }
     const reviewLiteral =
       str ?? currentRow.reviewLiteral ?? currentRow.translatedLiteral ?? "";
 
@@ -1005,7 +1084,7 @@ const TusList = ({ shareToken } = {}) => {
           action: "approve",
         });
 
-        moveNext({ skipBlocked: true });
+        clearDraft(currentRow.id);
 
         if (projectConfig?.tmIds?.length) {
           const tmIds = projectConfig.tmIds.filter(
@@ -1028,14 +1107,12 @@ const TusList = ({ shareToken } = {}) => {
             });
           }
         }
-      } else {
-        moveNext();
       }
 
       messageApi.open({
         key: "loading",
         type: "success",
-        content: "Successful save!",
+        content: "Confirmed!",
         duration: 2,
       });
     } catch (error) {
@@ -1065,7 +1142,7 @@ const TusList = ({ shareToken } = {}) => {
       reviewLiteral: null,
       action: "reject",
     });
-    moveNext();
+    clearDraft(selectedRow.id);
     messageApi.open({
       key: "loading",
       type: "success",
@@ -1138,6 +1215,27 @@ const TusList = ({ shareToken } = {}) => {
     if (liveEvalTimerRef.current) clearTimeout(liveEvalTimerRef.current);
   }, [selectedRow?.id]);
 
+  // A draft exists only while the text differs from what is persisted
+  // (reviewLiteral, falling back to the MT): reverting the edit clears it.
+  const markDraft = (tuId, text) => {
+    const row = data.find((doc) => doc.id === tuId);
+    const baseline = normalizeDraft(row?.reviewLiteral || row?.translatedLiteral || "");
+    const next = { ...draftsRef.current };
+    if (normalizeDraft(text) === baseline) delete next[tuId];
+    else next[tuId] = text;
+    draftsRef.current = next;
+    setDrafts(next);
+    if (saveFailed) setSaveFailed(false);
+  };
+
+  const clearDraft = (tuId) => {
+    if (!(tuId in draftsRef.current)) return;
+    const next = { ...draftsRef.current };
+    delete next[tuId];
+    draftsRef.current = next;
+    setDrafts(next);
+  };
+
   const changeTextInTextarea = (text) => {
     const html = stripHTML(text);
     if (selectedRow && selectedRow.reviewLiteral !== html) {
@@ -1146,6 +1244,7 @@ const TusList = ({ shareToken } = {}) => {
         reviewLiteral: html,
       }));
       if (!isSegmentBlocked(selectedRow)) {
+        markDraft(selectedRow.id, html);
         scheduleLiveEvaluation(selectedRow.id, html);
       }
     }
@@ -1160,9 +1259,93 @@ const TusList = ({ shareToken } = {}) => {
         reviewLiteral: text,
       }));
       if (!isSegmentBlocked(selectedRow)) {
+        markDraft(selectedRow.id, text);
         scheduleLiveEvaluation(selectedRow.id, text);
       }
     }
+  };
+
+  // Save every unsaved draft WITHOUT approving it (action "save_draft": status
+  // untouched, no propagation, QE v2 re-scored). Sequential: each request
+  // re-scores against QE v2. Text typed while a request is in flight is kept as
+  // a new draft instead of being overwritten by the server's copy.
+  const saveDrafts = async () => {
+    const ids = Object.keys(draftsRef.current);
+    if (ids.length === 0 || savingDrafts) return;
+    if (editingLocked) {
+      messageApi.warning("Editing is closed: this work was submitted.");
+      return;
+    }
+
+    setSavingDrafts(true);
+    setSaveFailed(false);
+    let failed = 0;
+    let firstReason = null;
+    for (const id of ids) {
+      const sent = draftsRef.current[id];
+      try {
+        await confirm({ tuId: id, reviewLiteral: sent, action: "save_draft" });
+        if (draftsRef.current[id] === sent) {
+          clearDraft(id);
+        } else {
+          // Typed again meanwhile: keep the newer text on screen.
+          const newer = draftsRef.current[id];
+          setSelectedRow((prev) =>
+            prev?.id === id ? { ...prev, reviewLiteral: newer } : prev,
+          );
+        }
+      } catch (error) {
+        failed += 1;
+        const body = error?.response?.data;
+        firstReason ??=
+          body?.message ||
+          body?.error?.message ||
+          (typeof body?.error === "string" ? body.error : null);
+        console.error(error);
+      }
+    }
+    setSavingDrafts(false);
+    if (failed > 0) {
+      setSaveFailed(true);
+      messageApi.error(
+        firstReason ? `Not saved: ${firstReason}` : `${failed} segment(s) not saved`,
+      );
+    } else {
+      messageApi.success(ids.length === 1 ? "Saved" : `${ids.length} segments saved`);
+    }
+  };
+
+  const draftCount = Object.keys(drafts).length;
+
+  // Warn before closing the tab with unsaved text (there is no autosave).
+  useEffect(() => {
+    if (draftCount === 0) return undefined;
+    const warn = (event) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [draftCount]);
+
+  // "Last saved": the newest reviewedAt of the document (a reviewer's save,
+  // not a pipeline write). Time only when it is today, date + time otherwise.
+  const lastSavedAt = useMemo(() => {
+    let newest = 0;
+    for (const row of data) {
+      const stamp = row.reviewedAt ? Date.parse(row.reviewedAt) : 0;
+      if (stamp > newest) newest = stamp;
+    }
+    return newest || null;
+  }, [data]);
+
+  const formatSavedAt = (stamp) => {
+    if (!stamp) return "—";
+    const moment = new Date(stamp);
+    const today = moment.toDateString() === new Date().toDateString();
+    return today
+      ? moment.toLocaleTimeString()
+      : `${moment.toLocaleDateString()} ${moment.toLocaleTimeString()}`;
   };
 
   const loadXml = async (record) => {
@@ -1192,11 +1375,19 @@ const TusList = ({ shareToken } = {}) => {
     reject();
   });
   useHotkeys("ctrl+shift+down", () => {
-    moveNext();
+    navigate(1);
   });
   useHotkeys("ctrl+shift+up", () => {
-    movePrevious();
+    navigate(-1);
   });
+  useHotkeys(
+    "ctrl+s",
+    (event) => {
+      event.preventDefault();
+      saveDrafts();
+    },
+    { preventDefault: true },
+  );
 
   return (
     <div>
@@ -1252,6 +1443,36 @@ const TusList = ({ shareToken } = {}) => {
       ) : null}
 
       <div className="mb-2">
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={toggleTopPanel}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              toggleTopPanel();
+            }
+          }}
+          className="flex cursor-pointer select-none items-center gap-2 rounded px-1 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+          title={topPanelOpen ? "Hide suggestion, TMs and glossaries" : "Show suggestion, TMs and glossaries"}
+        >
+          {topPanelOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          <span>Suggestion · TMs · Glossaries</span>
+          <Badge
+            count={
+              (liveEval?.tuId === selectedRow?.id && liveEval?.suggestion) ||
+              (selectedRow?.suggestionStatus === "PENDING" &&
+                selectedRow?.suggestionLiteral)
+                ? 1
+                : 0
+            }
+            color="gold"
+            title="LLM suggestion available"
+          />
+          <Badge count={tmInfo.length} color="blue" title="TM matches" showZero={false} />
+          <Badge count={glossaryInfo.length} color="green" title="Glossary hits" showZero={false} />
+        </div>
+        {topPanelOpen ? (
         <Tabs
           type="card"
           defaultActiveKey="1"
@@ -1287,11 +1508,12 @@ const TusList = ({ shareToken } = {}) => {
                   live={liveEval?.tuId === selectedRow?.id ? liveEval : null}
                   onApplyLive={() => {
                     if (!liveEval?.suggestion) return;
-                    if (liveEval.referenceOnly || hasInlineTags(selectedRow?.srcLiteral)) return;
+                    if (!tagIssue(selectedRow?.srcLiteral, liveEval.suggestion).ok) return;
                     const text = liveEval.suggestion;
                     setSelectedRow((prev) =>
                       prev ? { ...prev, reviewLiteral: text } : prev,
                     );
+                    markDraft(selectedRow.id, text);
                     setEditorRefreshKey((prev) => prev + 1);
                   }}
                 />
@@ -1319,9 +1541,10 @@ const TusList = ({ shareToken } = {}) => {
             },
           ]}
         />
+        ) : null}
       </div>
 
-      <Divider />
+      {topPanelOpen ? <Divider /> : null}
 
       <Card id="tus-list">
         <Modal
@@ -1385,7 +1608,51 @@ const TusList = ({ shareToken } = {}) => {
             Clear
           </Button>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <span
+              className={`text-xs ${
+                saveFailed
+                  ? "text-red-600"
+                  : draftCount > 0
+                    ? "text-amber-600"
+                    : "text-slate-500"
+              }`}
+            >
+              {savingDrafts
+                ? "Saving…"
+                : saveFailed
+                  ? "Save failed"
+                  : draftCount > 0
+                    ? `Unsaved changes (${draftCount})`
+                    : "All changes saved"}
+            </span>
+            <Tooltip
+              title={
+                selectedRow?.reviewedAt
+                  ? `This segment: ${formatSavedAt(Date.parse(selectedRow.reviewedAt))}${
+                      selectedRow.reviewedByName ? ` · ${selectedRow.reviewedByName}` : ""
+                    }`
+                  : "Last time a reviewer saved a segment of this document"
+              }
+            >
+              <Tag bordered={false} className="m-0">
+                Last saved{" "}
+                <span className="font-bold tabular-nums">
+                  {formatSavedAt(lastSavedAt)}
+                </span>
+              </Tag>
+            </Tooltip>
+            <Tooltip title="Save the text you typed without approving it (Ctrl+S)">
+              <Button
+                size="small"
+                icon={<Save size={13} />}
+                loading={savingDrafts}
+                disabled={draftCount === 0 || editingLocked}
+                onClick={saveDrafts}
+              >
+                {draftCount > 1 ? `Save (${draftCount})` : "Save"}
+              </Button>
+            </Tooltip>
             <Tag bordered={false} color={scoreFilterActive ? "blue" : "default"} className="m-0">
               Segments{" "}
               <span className="font-bold tabular-nums">
@@ -1432,7 +1699,7 @@ const TusList = ({ shareToken } = {}) => {
             return {
               onClick: () => {
                 if (!selectedRow || selectedRow.id !== record.id) {
-                  setSelectedRow(record);
+                  selectRow(record);
                 }
               },
             };
@@ -1448,6 +1715,7 @@ const TusList = ({ shareToken } = {}) => {
             else if (record.Status === "EDITED") classes.push("edited");
 
             if (selectedRow?.id === record.id) classes.push("selected-row");
+            if (drafts[record.id] != null) classes.push("unsaved");
 
             return classes.join(" ");
           }}
@@ -1468,7 +1736,10 @@ const TusList = ({ shareToken } = {}) => {
               }
             },
           }}
-          scroll={{ x: "100%", y: "calc(100vh - 460px)" }}
+          scroll={{
+            x: "100%",
+            y: topPanelOpen ? "calc(100vh - 460px)" : "calc(100vh - 300px)",
+          }}
         />
       </Card>
     </div>
