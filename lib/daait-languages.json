@@ -1,0 +1,1060 @@
+{
+  "source": "DAAIT GET /service/autope2/language?active=true (2.3.54)",
+  "fetched_at": "2026-10-02",
+  "count": 77,
+  "languages": [
+    {
+      "tag": "am",
+      "name_en": "Amharic",
+      "name_i18n": {
+        "en": "Amharic",
+        "es": "Amárico",
+        "fr": "Amharique",
+        "it": "Amarico",
+        "ja": "アムハラ語",
+        "pt": "Amárico"
+      },
+      "equivalents": "am-ET",
+      "active": true
+    },
+    {
+      "tag": "ar",
+      "name_en": "Arabic",
+      "name_i18n": {
+        "en": "Arabic",
+        "es": "Árabe",
+        "fr": "Arabe",
+        "it": "Arabo",
+        "ja": "アラビア語",
+        "pt": "Árabe"
+      },
+      "equivalents": "ar-EG",
+      "active": true
+    },
+    {
+      "tag": "ar-AE",
+      "name_en": "Arabic (United Arab Emirates)",
+      "name_i18n": {
+        "en": "Arabic (United Arab Emirates)",
+        "es": "Árabe (Emiratos Árabes Unidos)",
+        "fr": "Arabe (Émirats arabes unis)",
+        "it": "Arabo (Emirati Arabi Uniti)",
+        "ja": "アラビア語 (アラブ首長国連邦)",
+        "pt": "Árabe (Emirados Árabes Unidos)"
+      },
+      "equivalents": null,
+      "active": true
+    },
+    {
+      "tag": "bg",
+      "name_en": "Bulgarian",
+      "name_i18n": {
+        "en": "Bulgarian",
+        "es": "Búlgaro",
+        "fr": "Bulgare",
+        "it": "Bulgaro",
+        "ja": "ブルガリア語",
+        "pt": "Búlgaro"
+      },
+      "equivalents": "bg-BG",
+      "active": true
+    },
+    {
+      "tag": "bs",
+      "name_en": "Bosnian",
+      "name_i18n": {
+        "en": "Bosnian",
+        "es": "Bosnio",
+        "fr": "Bosniaque",
+        "it": "Bosniaco",
+        "ja": "ボスニア語",
+        "pt": "Bósnio"
+      },
+      "equivalents": "bs-Latn bs-Latn-BA",
+      "active": true
+    },
+    {
+      "tag": "ca",
+      "name_en": "Catalan",
+      "name_i18n": {
+        "en": "Catalan",
+        "es": "Catalán",
+        "fr": "Catalan",
+        "it": "Catalano",
+        "ja": "カタロニア語",
+        "pt": "Catalão"
+      },
+      "equivalents": "ca-ES",
+      "active": true
+    },
+    {
+      "tag": "ca-ES-valencia",
+      "name_en": "Valencian (Spain)",
+      "name_i18n": {
+        "en": "Catalan (Spain, Valencian)",
+        "es": "Catalán (España, Valenciano)",
+        "fr": "Catalan (Espagne, valencien)",
+        "it": "Catalano (Spagna, valenziano)",
+        "ja": "カタロニア語 (スペイン, バレンシア方言)",
+        "pt": "Catalão (Espanha, valenciano)"
+      },
+      "equivalents": null,
+      "active": true
+    },
+    {
+      "tag": "ca-IT",
+      "name_en": "Catalan (Italy)",
+      "name_i18n": {
+        "en": "Catalan (Italy)",
+        "es": "Catalán (Italia)",
+        "fr": "Catalan (Italie)",
+        "it": "Catalano (Italia)",
+        "ja": "カタロニア語 (イタリア)",
+        "pt": "Catalão (Itália)"
+      },
+      "equivalents": null,
+      "active": true
+    },
+    {
+      "tag": "cs",
+      "name_en": "Czech",
+      "name_i18n": {
+        "en": "Czech",
+        "es": "Checo",
+        "fr": "Tchèque",
+        "it": "Ceco",
+        "ja": "チェコ語",
+        "pt": "Tcheco"
+      },
+      "equivalents": "cs-CZ",
+      "active": true
+    },
+    {
+      "tag": "cy",
+      "name_en": "Welsh",
+      "name_i18n": {
+        "en": "Welsh",
+        "es": "Galés",
+        "fr": "Gallois",
+        "it": "Gallese",
+        "ja": "ウェールズ語",
+        "pt": "Galês"
+      },
+      "equivalents": "cy-GB",
+      "active": true
+    },
+    {
+      "tag": "da",
+      "name_en": "Danish",
+      "name_i18n": {
+        "en": "Danish",
+        "es": "Danés",
+        "fr": "Danois",
+        "it": "Danese",
+        "ja": "デンマーク語",
+        "pt": "Dinamarquês"
+      },
+      "equivalents": "da-DK",
+      "active": true
+    },
+    {
+      "tag": "de",
+      "name_en": "German",
+      "name_i18n": {
+        "en": "German",
+        "es": "Alemán",
+        "fr": "Allemand",
+        "it": "Tedesco",
+        "ja": "ドイツ語",
+        "pt": "Alemão"
+      },
+      "equivalents": null,
+      "active": true
+    },
+    {
+      "tag": "de-DE",
+      "name_en": "German (Germany)",
+      "name_i18n": {
+        "es": "Alemán (Alemania)"
+      },
+      "equivalents": null,
+      "active": true
+    },
+    {
+      "tag": "de-IT",
+      "name_en": "German (Italy)",
+      "name_i18n": {
+        "en": "German (Italy)",
+        "es": "Alemán (Italia)",
+        "fr": "Allemand (Italie)",
+        "it": "Tedesco (Italia)",
+        "ja": "ドイツ語 (イタリア)",
+        "pt": "Alemão (Itália)"
+      },
+      "equivalents": null,
+      "active": true
+    },
+    {
+      "tag": "el",
+      "name_en": "Greek",
+      "name_i18n": {
+        "en": "Greek",
+        "es": "Griego",
+        "fr": "Grec",
+        "it": "Greco",
+        "ja": "ギリシャ語",
+        "pt": "Grego"
+      },
+      "equivalents": "el-GR",
+      "active": true
+    },
+    {
+      "tag": "en",
+      "name_en": "English",
+      "name_i18n": {
+        "en": "English",
+        "es": "Inglés",
+        "fr": "Anglais",
+        "it": "Inglese",
+        "ja": "英語",
+        "pt": "Inglês"
+      },
+      "equivalents": null,
+      "active": true
+    },
+    {
+      "tag": "en-GB",
+      "name_en": "English (United Kingdom)",
+      "name_i18n": {
+        "en": "English (United Kingdom)",
+        "es": "Inglés (Reino Unido)",
+        "fr": "Anglais (Royaume-Uni)",
+        "it": "Inglese (Regno Unito)",
+        "ja": "英語 (イギリス)",
+        "pt": "Inglês (Reino Unido)"
+      },
+      "equivalents": null,
+      "active": true
+    },
+    {
+      "tag": "en-US",
+      "name_en": "English (United States)",
+      "name_i18n": {
+        "es": "Inglés (Estados Unidos)"
+      },
+      "equivalents": null,
+      "active": true
+    },
+    {
+      "tag": "es",
+      "name_en": "Spanish",
+      "name_i18n": {
+        "en": "Spanish",
+        "es": "Español",
+        "fr": "Espagnol",
+        "it": "Spagnolo",
+        "ja": "スペイン語",
+        "pt": "Espanhol"
+      },
+      "equivalents": null,
+      "active": true
+    },
+    {
+      "tag": "es-ES",
+      "name_en": "Spanish (Spain)",
+      "name_i18n": {
+        "es": "Español (España)"
+      },
+      "equivalents": null,
+      "active": true
+    },
+    {
+      "tag": "es-MX",
+      "name_en": "Spanish (Mexico)",
+      "name_i18n": {
+        "en": "Spanish (Mexico)",
+        "es": "Español (México)",
+        "fr": "Espagnol (Mexique)",
+        "it": "Spagnolo (Messico)",
+        "ja": "スペイン語 (メキシコ)",
+        "pt": "Espanhol (México)"
+      },
+      "equivalents": null,
+      "active": true
+    },
+    {
+      "tag": "es-US",
+      "name_en": "Spanish (United States)",
+      "name_i18n": {
+        "en": "Spanish (United States)",
+        "es": "Español (Estados Unidos)",
+        "fr": "Espagnol (États-Unis)",
+        "it": "Spagnolo (Stati Uniti)",
+        "ja": "スペイン語 (アメリカ合衆国)",
+        "pt": "Espanhol (Estados Unidos)"
+      },
+      "equivalents": null,
+      "active": true
+    },
+    {
+      "tag": "et",
+      "name_en": "Estonian",
+      "name_i18n": {
+        "en": "Estonian",
+        "es": "Estonio",
+        "fr": "Estonien",
+        "it": "Estone",
+        "ja": "エストニア語",
+        "pt": "Estoniano"
+      },
+      "equivalents": "et-EE",
+      "active": true
+    },
+    {
+      "tag": "eu",
+      "name_en": "Basque",
+      "name_i18n": {
+        "en": "Basque",
+        "es": "Euskera",
+        "fr": "Basque",
+        "it": "Basco",
+        "ja": "バスク語",
+        "pt": "Basco"
+      },
+      "equivalents": "eu-ES",
+      "active": true
+    },
+    {
+      "tag": "fa",
+      "name_en": "Persian",
+      "name_i18n": {
+        "en": "Persian",
+        "es": "Persa",
+        "fr": "Persan",
+        "it": "Persiano",
+        "ja": "ペルシア語",
+        "pt": "Persa"
+      },
+      "equivalents": "fa-IR",
+      "active": true
+    },
+    {
+      "tag": "fi",
+      "name_en": "Finnish",
+      "name_i18n": {
+        "en": "Finnish",
+        "es": "Finés",
+        "fr": "Finnois",
+        "it": "Finlandese",
+        "ja": "フィンランド語",
+        "pt": "Finlandês"
+      },
+      "equivalents": "fi-FI",
+      "active": true
+    },
+    {
+      "tag": "fil",
+      "name_en": "Filipino",
+      "name_i18n": {
+        "en": "Filipino",
+        "es": "Filipino",
+        "fr": "Filipino",
+        "it": "Filippino",
+        "ja": "フィリピノ語",
+        "pt": "Filipino"
+      },
+      "equivalents": "fil-PH",
+      "active": true
+    },
+    {
+      "tag": "fr",
+      "name_en": "French",
+      "name_i18n": {
+        "en": "French",
+        "es": "Francés",
+        "fr": "Français",
+        "it": "Francese",
+        "ja": "フランス語",
+        "pt": "Francês"
+      },
+      "equivalents": null,
+      "active": true
+    },
+    {
+      "tag": "fr-CA",
+      "name_en": "French (Canada)",
+      "name_i18n": {
+        "en": "French (Canada)",
+        "es": "Francés (Canadá)",
+        "fr": "Français (Canada)",
+        "it": "Francese (Canada)",
+        "ja": "フランス語 (カナダ)",
+        "pt": "Francês (Canadá)"
+      },
+      "equivalents": null,
+      "active": true
+    },
+    {
+      "tag": "fr-FR",
+      "name_en": "French (France)",
+      "name_i18n": {
+        "es": "Francés (Francia)"
+      },
+      "equivalents": null,
+      "active": true
+    },
+    {
+      "tag": "ga",
+      "name_en": "Irish",
+      "name_i18n": {
+        "en": "Irish",
+        "es": "Irlandés",
+        "fr": "Irlandais",
+        "it": "Irlandese",
+        "ja": "アイルランド語",
+        "pt": "Irlandês"
+      },
+      "equivalents": "ga-IE",
+      "active": true
+    },
+    {
+      "tag": "gl",
+      "name_en": "Galician",
+      "name_i18n": {
+        "en": "Galician",
+        "es": "Gallego",
+        "fr": "Galicien",
+        "it": "Galiziano",
+        "ja": "ガリシア語",
+        "pt": "Galego"
+      },
+      "equivalents": "gl-ES",
+      "active": true
+    },
+    {
+      "tag": "he",
+      "name_en": "Hebrew",
+      "name_i18n": {
+        "en": "Hebrew",
+        "es": "Hebreo",
+        "fr": "Hébreu",
+        "it": "Ebraico",
+        "ja": "ヘブライ語",
+        "pt": "Hebraico"
+      },
+      "equivalents": "he-IL",
+      "active": true
+    },
+    {
+      "tag": "hi",
+      "name_en": "Hindi",
+      "name_i18n": {
+        "en": "Hindi",
+        "es": "Hindi",
+        "fr": "Hindi",
+        "it": "Hindi",
+        "ja": "ヒンディー語",
+        "pt": "Híndi"
+      },
+      "equivalents": "hi-IN",
+      "active": true
+    },
+    {
+      "tag": "hr",
+      "name_en": "Croatian",
+      "name_i18n": {
+        "en": "Croatian",
+        "es": "Croata",
+        "fr": "Croate",
+        "it": "Croato",
+        "ja": "クロアチア語",
+        "pt": "Croata"
+      },
+      "equivalents": "hr-HR",
+      "active": true
+    },
+    {
+      "tag": "hu",
+      "name_en": "Hungarian",
+      "name_i18n": {
+        "en": "Hungarian",
+        "es": "Húngaro",
+        "fr": "Hongrois",
+        "it": "Ungherese",
+        "ja": "ハンガリー語",
+        "pt": "Húngaro"
+      },
+      "equivalents": "hu-HU",
+      "active": true
+    },
+    {
+      "tag": "id",
+      "name_en": "Indonesian",
+      "name_i18n": {
+        "en": "Indonesian",
+        "es": "Indonesio",
+        "fr": "Indonésien",
+        "it": "Indonesiano",
+        "ja": "インドネシア語",
+        "pt": "Indonésio"
+      },
+      "equivalents": "id-ID",
+      "active": true
+    },
+    {
+      "tag": "it",
+      "name_en": "Italian",
+      "name_i18n": {
+        "en": "Italian",
+        "es": "Italiano",
+        "fr": "Italien",
+        "it": "Italiano",
+        "ja": "イタリア語",
+        "pt": "Italiano"
+      },
+      "equivalents": null,
+      "active": true
+    },
+    {
+      "tag": "it-IT",
+      "name_en": "Italian (Italy)",
+      "name_i18n": {
+        "es": "Italiano (Italia)"
+      },
+      "equivalents": null,
+      "active": true
+    },
+    {
+      "tag": "ja",
+      "name_en": "Japanese",
+      "name_i18n": {
+        "en": "Japanese",
+        "es": "Japonés",
+        "fr": "Japonais",
+        "it": "Giapponese",
+        "ja": "日本語",
+        "pt": "Japonês"
+      },
+      "equivalents": "ja-JP",
+      "active": true
+    },
+    {
+      "tag": "ka",
+      "name_en": "Georgian",
+      "name_i18n": {
+        "en": "Georgian",
+        "es": "Georgiano",
+        "fr": "Géorgien",
+        "it": "Georgiano",
+        "ja": "ジョージア語",
+        "pt": "Georgiano"
+      },
+      "equivalents": "ka-GE",
+      "active": true
+    },
+    {
+      "tag": "kk",
+      "name_en": "Kazakh",
+      "name_i18n": {
+        "en": "Kazakh",
+        "es": "Kazajo",
+        "fr": "Kazakh",
+        "it": "Kazako",
+        "ja": "カザフ語",
+        "pt": "Cazaque"
+      },
+      "equivalents": "kk-KZ",
+      "active": true
+    },
+    {
+      "tag": "km",
+      "name_en": "Khmer",
+      "name_i18n": {
+        "en": "Khmer",
+        "es": "Jemer",
+        "fr": "Khmer",
+        "it": "Khmer",
+        "ja": "クメール語",
+        "pt": "Khmer"
+      },
+      "equivalents": "km-KH",
+      "active": true
+    },
+    {
+      "tag": "ko",
+      "name_en": "Korean",
+      "name_i18n": {
+        "en": "Korean",
+        "es": "Coreano",
+        "fr": "Coréen",
+        "it": "Coreano",
+        "ja": "韓国語",
+        "pt": "Coreano"
+      },
+      "equivalents": "ko-KR",
+      "active": true
+    },
+    {
+      "tag": "kr",
+      "name_en": "Kanuri",
+      "name_i18n": {
+        "en": "Kanuri",
+        "es": "Kanuri",
+        "fr": "Kanouri",
+        "it": "Kanuri",
+        "ja": "カヌリ語",
+        "pt": "Canúri"
+      },
+      "equivalents": "kr-Latn",
+      "active": true
+    },
+    {
+      "tag": "lt",
+      "name_en": "Lithuanian",
+      "name_i18n": {
+        "en": "Lithuanian",
+        "es": "Lituano",
+        "fr": "Lituanien",
+        "it": "Lituano",
+        "ja": "リトアニア語",
+        "pt": "Lituano"
+      },
+      "equivalents": "lt-LT",
+      "active": true
+    },
+    {
+      "tag": "lv",
+      "name_en": "Latvian",
+      "name_i18n": {
+        "en": "Latvian",
+        "es": "Letón",
+        "fr": "Letton",
+        "it": "Lettone",
+        "ja": "ラトビア語",
+        "pt": "Letão"
+      },
+      "equivalents": "lv-LV",
+      "active": true
+    },
+    {
+      "tag": "mk",
+      "name_en": "Macedonian",
+      "name_i18n": {
+        "en": "Macedonian",
+        "es": "Macedonio",
+        "fr": "Macédonien",
+        "it": "Macedone",
+        "ja": "マケドニア語",
+        "pt": "Macedônio"
+      },
+      "equivalents": "mk-MK",
+      "active": true
+    },
+    {
+      "tag": "mn",
+      "name_en": "Mongolian",
+      "name_i18n": {
+        "en": "Mongolian",
+        "es": "Mongol",
+        "fr": "Mongol",
+        "it": "Mongolo",
+        "ja": "モンゴル語",
+        "pt": "Mongol"
+      },
+      "equivalents": "mn-Cyrl mn-MN",
+      "active": true
+    },
+    {
+      "tag": "mr",
+      "name_en": "Marathi",
+      "name_i18n": {
+        "en": "Marathi",
+        "es": "Maratí",
+        "fr": "Marathi",
+        "it": "Marathi",
+        "ja": "マラーティー語",
+        "pt": "Marati"
+      },
+      "equivalents": "mr-IN",
+      "active": true
+    },
+    {
+      "tag": "mt",
+      "name_en": "Maltese",
+      "name_i18n": {
+        "en": "Maltese",
+        "es": "Maltés",
+        "fr": "Maltais",
+        "it": "Maltese",
+        "ja": "マルタ語",
+        "pt": "Maltês"
+      },
+      "equivalents": "mt-MT",
+      "active": true
+    },
+    {
+      "tag": "nb",
+      "name_en": "Norwegian Bokmål",
+      "name_i18n": {
+        "en": "Norwegian Bokmål",
+        "es": "Noruego bokmal",
+        "fr": "Norvégien bokmål",
+        "it": "Norvegese bokmål",
+        "ja": "ノルウェー語(ブークモール)",
+        "pt": "Bokmål norueguês"
+      },
+      "equivalents": "nb-NO",
+      "active": true
+    },
+    {
+      "tag": "nl",
+      "name_en": "Dutch",
+      "name_i18n": {
+        "en": "Dutch",
+        "es": "Neerlandés",
+        "fr": "Néerlandais",
+        "it": "Olandese",
+        "ja": "オランダ語",
+        "pt": "Holandês"
+      },
+      "equivalents": "nl-NL",
+      "active": true
+    },
+    {
+      "tag": "pa",
+      "name_en": "Punjabi",
+      "name_i18n": {
+        "en": "Punjabi",
+        "es": "Punyabí",
+        "fr": "Pendjabi",
+        "it": "Punjabi",
+        "ja": "パンジャブ語",
+        "pt": "Panjabi"
+      },
+      "equivalents": "pa-Guru pa-IN",
+      "active": true
+    },
+    {
+      "tag": "pl",
+      "name_en": "Polish",
+      "name_i18n": {
+        "en": "Polish",
+        "es": "Polaco",
+        "fr": "Polonais",
+        "it": "Polacco",
+        "ja": "ポーランド語",
+        "pt": "Polonês"
+      },
+      "equivalents": "pl-PL",
+      "active": true
+    },
+    {
+      "tag": "pt-BR",
+      "name_en": "Portuguese (Brazil)",
+      "name_i18n": {
+        "en": "Portuguese (Brazil)",
+        "es": "Portugués (Brasil)",
+        "fr": "Portugais (Brésil)",
+        "it": "Portoghese (Brasile)",
+        "ja": "ポルトガル語 (ブラジル)",
+        "pt": "Português (Brasil)"
+      },
+      "equivalents": null,
+      "active": true
+    },
+    {
+      "tag": "pt-PT",
+      "name_en": "Portuguese (Portugal)",
+      "name_i18n": {
+        "en": "Portuguese (Portugal)",
+        "es": "Portugués (Portugal)",
+        "fr": "Portugais (Portugal)",
+        "it": "Portoghese (Portogallo)",
+        "ja": "ポルトガル語 (ポルトガル)",
+        "pt": "Português (Portugal)"
+      },
+      "equivalents": null,
+      "active": true
+    },
+    {
+      "tag": "ro",
+      "name_en": "Romanian",
+      "name_i18n": {
+        "en": "Romanian",
+        "es": "Rumano",
+        "fr": "Roumain",
+        "it": "Rumeno",
+        "ja": "ルーマニア語",
+        "pt": "Romeno"
+      },
+      "equivalents": "ro-RO",
+      "active": true
+    },
+    {
+      "tag": "ru",
+      "name_en": "Russian",
+      "name_i18n": {
+        "en": "Russian",
+        "es": "Ruso",
+        "fr": "Russe",
+        "it": "Russo",
+        "ja": "ロシア語",
+        "pt": "Russo"
+      },
+      "equivalents": "ru-RU",
+      "active": true
+    },
+    {
+      "tag": "sk",
+      "name_en": "Slovak",
+      "name_i18n": {
+        "en": "Slovak",
+        "es": "Eslovaco",
+        "fr": "Slovaque",
+        "it": "Slovacco",
+        "ja": "スロバキア語",
+        "pt": "Eslovaco"
+      },
+      "equivalents": "sk-SK",
+      "active": true
+    },
+    {
+      "tag": "sl",
+      "name_en": "Slovenian",
+      "name_i18n": {
+        "en": "Slovenian",
+        "es": "Esloveno",
+        "fr": "Slovène",
+        "it": "Sloveno",
+        "ja": "スロベニア語",
+        "pt": "Esloveno"
+      },
+      "equivalents": "sl-SI",
+      "active": true
+    },
+    {
+      "tag": "sq",
+      "name_en": "Albanian",
+      "name_i18n": {
+        "en": "Albanian",
+        "es": "Albanés",
+        "fr": "Albanais",
+        "it": "Albanese",
+        "ja": "アルバニア語",
+        "pt": "Albanês"
+      },
+      "equivalents": "sq-AL",
+      "active": true
+    },
+    {
+      "tag": "sr",
+      "name_en": "Serbian",
+      "name_i18n": {
+        "en": "Serbian",
+        "es": "Serbio",
+        "fr": "Serbe",
+        "it": "Serbo",
+        "ja": "セルビア語",
+        "pt": "Sérvio"
+      },
+      "equivalents": "sr-Cyrl sr-Cyrl-RS",
+      "active": true
+    },
+    {
+      "tag": "sr-Latn-ME",
+      "name_en": "Serbian (Latin, Montenegro)",
+      "name_i18n": {
+        "en": "Serbian (Latin, Montenegro)",
+        "es": "Serbio (latino, Montenegro)",
+        "fr": "Serbe (latin, Monténégro)",
+        "it": "Serbo (latino, Montenegro)",
+        "ja": "セルビア語 (ラテン文字, モンテネグロ)",
+        "pt": "Sérvio (latim, Montenegro)"
+      },
+      "equivalents": null,
+      "active": true
+    },
+    {
+      "tag": "sv",
+      "name_en": "Swedish",
+      "name_i18n": {
+        "en": "Swedish",
+        "es": "Sueco",
+        "fr": "Suédois",
+        "it": "Svedese",
+        "ja": "スウェーデン語",
+        "pt": "Sueco"
+      },
+      "equivalents": "sv-SE",
+      "active": true
+    },
+    {
+      "tag": "sw",
+      "name_en": "Swahili",
+      "name_i18n": {
+        "en": "Swahili",
+        "es": "Suajili",
+        "fr": "Swahili",
+        "it": "Swahili",
+        "ja": "スワヒリ語",
+        "pt": "Suaíli"
+      },
+      "equivalents": "sw-TZ",
+      "active": true
+    },
+    {
+      "tag": "ta",
+      "name_en": "Tamil",
+      "name_i18n": {
+        "en": "Tamil",
+        "es": "Tamil",
+        "fr": "Tamoul",
+        "it": "Tamil",
+        "ja": "タミル語",
+        "pt": "Tâmil"
+      },
+      "equivalents": "ta-IN",
+      "active": true
+    },
+    {
+      "tag": "te",
+      "name_en": "Telugu",
+      "name_i18n": {
+        "en": "Telugu",
+        "es": "Telugu",
+        "fr": "Télougou",
+        "it": "Telugu",
+        "ja": "テルグ語",
+        "pt": "Télugo"
+      },
+      "equivalents": "te-IN",
+      "active": true
+    },
+    {
+      "tag": "tg",
+      "name_en": "Tajik",
+      "name_i18n": {
+        "en": "Tajik",
+        "es": "Tayiko",
+        "fr": "Tadjik",
+        "it": "Tagico",
+        "ja": "タジク語",
+        "pt": "Tadjique"
+      },
+      "equivalents": "tg-Cyrl tg-Cyrl-TJ",
+      "active": true
+    },
+    {
+      "tag": "th",
+      "name_en": "Thai",
+      "name_i18n": {
+        "en": "Thai",
+        "es": "Tailandés",
+        "fr": "Thaï",
+        "it": "Thailandese",
+        "ja": "タイ語",
+        "pt": "Tailandês"
+      },
+      "equivalents": "th-TH",
+      "active": true
+    },
+    {
+      "tag": "tk",
+      "name_en": "Turkmen",
+      "name_i18n": {
+        "en": "Turkmen",
+        "es": "Turcomano",
+        "fr": "Turkmène",
+        "it": "Turcomanno",
+        "ja": "トルクメン語",
+        "pt": "Turcomeno"
+      },
+      "equivalents": "tk-TM",
+      "active": true
+    },
+    {
+      "tag": "tr",
+      "name_en": "Turkish",
+      "name_i18n": {
+        "en": "Turkish",
+        "es": "Turco",
+        "fr": "Turc",
+        "it": "Turco",
+        "ja": "トルコ語",
+        "pt": "Turco"
+      },
+      "equivalents": "tr-TR",
+      "active": true
+    },
+    {
+      "tag": "uk",
+      "name_en": "Ukrainian",
+      "name_i18n": {
+        "en": "Ukrainian",
+        "es": "Ucraniano",
+        "fr": "Ukrainien",
+        "it": "Ucraino",
+        "ja": "ウクライナ語",
+        "pt": "Ucraniano"
+      },
+      "equivalents": "uk-UA",
+      "active": true
+    },
+    {
+      "tag": "uz",
+      "name_en": "Uzbek",
+      "name_i18n": {
+        "en": "Uzbek",
+        "es": "Uzbeko",
+        "fr": "Ouzbek",
+        "it": "Uzbeco",
+        "ja": "ウズベク語",
+        "pt": "Uzbeque"
+      },
+      "equivalents": "uz-Latn uz-Latn-UZ",
+      "active": true
+    },
+    {
+      "tag": "vi",
+      "name_en": "Vietnamese",
+      "name_i18n": {
+        "en": "Vietnamese",
+        "es": "Vietnamita",
+        "fr": "Vietnamien",
+        "it": "Vietnamita",
+        "ja": "ベトナム語",
+        "pt": "Vietnamita"
+      },
+      "equivalents": "vi-VN",
+      "active": true
+    },
+    {
+      "tag": "zh",
+      "name_en": "Chinese",
+      "name_i18n": {
+        "en": "Chinese",
+        "es": "Chino",
+        "fr": "Chinois",
+        "it": "Cinese",
+        "ja": "中国語",
+        "pt": "Chinês"
+      },
+      "equivalents": "zh-CN zh-Hans",
+      "active": true
+    },
+    {
+      "tag": "zh-TW",
+      "name_en": "Chinese (Taiwan)",
+      "name_i18n": {
+        "en": "Chinese (Traditional, Taiwan)",
+        "es": "Chino (tradicional, Taiwán)",
+        "fr": "Chinois (traditionnel, Taïwan)",
+        "it": "Cinese (tradizionale, Taiwan)",
+        "ja": "中国語 (繁体字, 台湾)",
+        "pt": "Chinês (tradicional, Taiwan)"
+      },
+      "equivalents": "zh-Hant",
+      "active": true
+    }
+  ]
+}
