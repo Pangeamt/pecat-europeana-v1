@@ -236,6 +236,10 @@ model Tu {
   /// action in modules/tus/service.js.
   reviewedById            String?
   reviewedByName          String?
+  /// Last time a reviewer saved the segment (draft, confirm, reject, apply or
+  /// discard a suggestion). NOT updatedAt: the pipeline (QE scores, locks)
+  /// touches that one too. Null until someone saves it.
+  reviewedAt              DateTime?
   sourceLanguage          String
   targetLanguage          String
   translationScorePercent Float?

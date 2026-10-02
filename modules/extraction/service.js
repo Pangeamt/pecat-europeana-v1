@@ -5,6 +5,7 @@ import { uid } from "uid";
 import contentDisposition from "content-disposition";
 import { HttpError } from "@/modules/shared";
 import { isSpliceFormat } from "@/lib/utils";
+import { exportTarget } from "@/modules/documents/export-target";
 // Direct file import on purpose: going through @/modules/projects would close
 // an import cycle (projects barrel -> import-service -> this module).
 import {
@@ -255,7 +256,7 @@ export function buildSegmentUpdatesFromTus(tus) {
   let skipped = 0;
   for (const tu of tus) {
     if (!tu.externalId) continue;
-    const target = tu.reviewLiteral || tu.translatedLiteral;
+    const target = exportTarget(tu);
     if (!target) continue;
     if (!hasSameInlineCodes(tu.srcLiteral, target)) {
       skipped += 1;

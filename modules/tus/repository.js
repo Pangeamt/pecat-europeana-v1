@@ -40,6 +40,7 @@ export async function findDocumentPipelineContext(documentId) {
       workspaceId: true,
       sourceLanguage: true,
       targetLanguage: true,
+      extension: true,
       profileId: true,
       profile: { select: { sourceLanguage: true, targetLanguage: true } },
       documentTms: { select: { tmId: true } },

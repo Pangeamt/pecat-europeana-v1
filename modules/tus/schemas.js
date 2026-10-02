@@ -11,6 +11,7 @@ export const updateTuSchema = Joi.object({
   action: Joi.string()
     .valid(
       "approve",
+      "save_draft",
       "reject",
       "apply_suggestion",
       "discard_suggestion",

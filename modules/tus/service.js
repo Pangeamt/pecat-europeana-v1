@@ -190,7 +190,31 @@ async function applyTuStatusUpdate(tu, payload, reviewer = null) {
         action === "apply_suggestion"
           ? SUGGESTION_STATUS.APPLIED
           : SUGGESTION_STATUS.DISCARDED,
+      reviewedAt: new Date(),
     });
+    return { tu: tuUpdated, alsoUpdated: [] };
+  }
+
+  // Save a DRAFT: persist the reviewer's text WITHOUT approving it. The review
+  // status is untouched (the segment keeps waiting for Confirm), nothing
+  // propagates to same-source siblings, and the QE v2 score follows the saved
+  // text. An empty text clears the draft (the segment falls back to the MT).
+  if (action === "save_draft") {
+    const text = typeof reviewLiteral === "string" ? reviewLiteral : "";
+    const draft = {
+      reviewLiteral: text.trim() ? text : null,
+      reviewedAt: new Date(),
+    };
+    if (reviewer) {
+      draft.reviewedById = reviewer.id ?? null;
+      draft.reviewedByName = reviewer.name ?? null;
+    }
+    const rescoredDraft = await rescoreReviewedPair(
+      tu,
+      text.trim() ? text : tu.translatedLiteral,
+    );
+    if (rescoredDraft !== null) draft.mtqeV2Score = rescoredDraft;
+    const tuUpdated = await updateTuById(tu.id, draft);
     return { tu: tuUpdated, alsoUpdated: [] };
   }
 
@@ -222,6 +246,9 @@ async function applyTuStatusUpdate(tu, payload, reviewer = null) {
 
   // Trace who performed the review action ("Edited by María" tooltips).
   // Sibling segments (same source) get the same reviewer via `data`.
+  if (action === "approve" || action === "reject") {
+    data.reviewedAt = new Date();
+  }
   if ((action === "approve" || action === "reject") && reviewer) {
     data.reviewedById = reviewer.id ?? null;
     data.reviewedByName = reviewer.name ?? null;
@@ -288,6 +315,7 @@ async function evaluateTuDraft(tu, documentId, target) {
           workspaceId: context?.workspaceId,
           sourceLanguage: context?.sourceLanguage,
           targetLanguage: context?.targetLanguage,
+          ordered: isSpliceFormat(context?.extension),
         });
       } catch (error) {
         // Live feedback is best-effort: a DAAIT hiccup must not surface as an
@@ -302,8 +330,6 @@ async function evaluateTuDraft(tu, documentId, target) {
     score,
     verdict: review?.verdict ?? null,
     suggestion: review?.suggestion ?? null,
-    // Tagged segment: the (plain-text) suggestion is a reference, not applicable.
-    referenceOnly: Boolean(review?.referenceOnly),
     meta: review?.meta ?? null,
     daaitStatus: review?.daaitStatus ?? null,
   };
@@ -347,7 +373,7 @@ const LOCK_ACTIONS = ["lock", "unlock"];
 // segment whose tag signature matches the seg-source in order (the same rule
 // module-file-translate enforces with FT-111).
 function assertInlineTagsKept(tu, payload, document) {
-  if (payload.action !== "approve" || !payload.reviewLiteral) return;
+  if (!["approve", "save_draft"].includes(payload.action) || !payload.reviewLiteral) return;
   // No early return when the source has no tags: a placeholder typed by hand
   // (e.g. "<x1/>" in the plain Quill editor) would be stored as a real tag and
   // the export would then skip the segment. It is reported as "extra".
