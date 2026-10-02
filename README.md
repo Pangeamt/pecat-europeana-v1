@@ -60,7 +60,6 @@ Al subir un documento la petición responde al instante y el trabajo pesado corr
 |---|---|---|---|
 | `project-import` | `import-upload`, `import-sdlxliff`, `pipeline-review` | 2 | PDF→docx (LibreOffice), extracción y segmentación (Okapi Tikal + SRX), traducción DAAIT, persistencia de TUs — **el documento pasa a READY al terminar**; y la revisión LLM (`/content/post_edit`, retirada: nada la encola) |
 | `mtqe-v2` | `score-mtqe-v2` | 1 | Puntuación QE (`MTQE_V2` score-with-references: una llamada por segmento con sus referencias de TM y glosario). Es el **único score**. Sin `MTQE_V2`/`MTQE_V2_API_KEY` no se puntúa |
-| `mtqe-v1` | `pipeline-score` | 1 | **Retirada.** Solo drena los jobs que dejó en Redis la versión anterior: liberan el documento (READY) y encolan QE v2. Se borra en la próxima release |
 
 La cola MTQE va con concurrencia 1 a propósito: el servicio MTQE no tolera bien la puntuación en paralelo, y así el scoring nunca compite con la extracción/traducción de otros documentos.
 
