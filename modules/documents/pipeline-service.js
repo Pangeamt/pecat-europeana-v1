@@ -24,10 +24,6 @@ import {
 // unused.
 const POST_EDIT_BATCH_SIZE = 25;
 
-// Retired QE v1 stage. The job name is only kept so pipeline-score jobs still
-// sitting in Redis when this code deploys get drained (handleLegacyScoreJob).
-// TODO: delete together with the mtqe-v1 queue in the next release.
-export const PIPELINE_SCORE_JOB = "pipeline-score";
 export const PIPELINE_REVIEW_JOB = "pipeline-review";
 // Runs on the dedicated MTQE_V2_QUEUE, not the import queue.
 export const MTQE_V2_JOB = "score-mtqe-v2";
@@ -87,18 +83,6 @@ export async function releaseDocumentAndScore(documentId) {
       mtqeV2Error: `QE v2 not scheduled: ${error.message}`,
     }).catch(() => {});
   }
-}
-
-// Drains pipeline-score jobs enqueued by the retired QE v1 stage before this
-// code deployed: no v1 scoring anymore, just release the document the new
-// way. TODO: delete together with PIPELINE_SCORE_JOB in the next release.
-export async function handleLegacyScoreJob({ projectId: documentId }) {
-  const document = await prisma.document.findUnique({
-    where: { id: documentId },
-    select: { id: true },
-  });
-  if (!document) return;
-  await releaseDocumentAndScore(documentId);
 }
 
 /**
