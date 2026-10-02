@@ -1,7 +1,13 @@
 // Catalogo de idiomas de DAAIT con cache de 1 hora. node --test "tests/**/*.test.mjs"
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { catalogFromStatic, createCache, normalizeCatalog } from "../../lib/language-catalog.js";
+import {
+  catalogFromSnapshot,
+  createCache,
+  normalizeCatalog,
+  toCatalogTag,
+} from "../../lib/language-catalog.js";
+import snapshot from "../../lib/daait-languages.json" with { type: "json" };
 
 const PAYLOAD = {
   count: 3,
@@ -63,7 +69,51 @@ test("cache: si DAAIT falla se sirve la ultima copia (stale); sin copia, el erro
   await assert.rejects(() => cold.get(), /nunca cargo/);
 });
 
-test("catalogo estatico de respaldo: codigos con guion", () => {
-  const list = catalogFromStatic({ en_GB: ["English (United Kingdom)", "UTF-8", "ltr"], af: ["Afrikaans", "UTF-8", "ltr"] });
-  assert.deepEqual(list.map((l) => l.code), ["af", "en-GB"]);
+// The 77 languages active in DAAIT 2.3.54 on 2026-10-02 (GET /language?active=true).
+// If DAAIT's catalog changes: `npm run sync:daait-languages` and update this list.
+const DAAIT_ACTIVE_2026_10_02 = (
+  "am ar ar-AE bg bs ca ca-ES-valencia ca-IT cs cy da de de-DE de-IT el en en-GB en-US es " +
+  "es-ES es-MX es-US et eu fa fi fil fr fr-CA fr-FR ga gl he hi hr hu id it it-IT ja ka kk km " +
+  "ko kr lt lv mk mn mr mt nb nl pa pl pt-BR pt-PT ro ru sk sl sq sr sr-Latn-ME sv sw ta te tg " +
+  "th tk tr uk uz vi zh zh-TW"
+).split(" ");
+
+test("respaldo: exactamente los idiomas activos de DAAIT, con sus codigos tal cual", () => {
+  const codes = catalogFromSnapshot(snapshot).map((l) => l.code).sort();
+  assert.deepEqual(codes, [...DAAIT_ACTIVE_2026_10_02].sort());
+  assert.equal(snapshot.count, 77);
+  assert.ok(codes.every((code) => !code.includes("_")), "ningun codigo con guion bajo");
+});
+
+test("respaldo: no ofrece idiomas de la lista vieja que DAAIT no tiene", () => {
+  const codes = new Set(catalogFromSnapshot(snapshot).map((l) => l.code));
+  for (const old of ["af", "af-ZA", "gu", "ar-IQ", "ak-GH", "aa-ET", "en-AU", "pt"]) {
+    assert.ok(!codes.has(old), `${old} no esta activo en DAAIT`);
+  }
+});
+
+test("catalogo: equivalents de DAAIT separados por espacios", () => {
+  const [zh] = normalizeCatalog({ languages: [{ tag: "zh", name_en: "Chinese", equivalents: "zh-CN zh-Hans" }] });
+  assert.deepEqual(zh.equivalents, ["zh-CN", "zh-Hans"]);
+  assert.deepEqual(normalizeCatalog({ languages: [{ tag: "en-GB", equivalents: null }] })[0].equivalents, []);
+});
+
+test("toCatalogTag: un codigo de fuera pasa a ser el codigo de DAAIT", () => {
+  const catalog = catalogFromSnapshot(snapshot);
+  const cases = {
+    "en-GB": "en-GB", // exacto
+    "EN_us": "en-US", // mayusculas y guion bajo
+    "am-ET": "am", // equivalente declarado por DAAIT
+    "zh-CN": "zh", // equivalente: zh-CN es zh para DAAIT
+    "zh-Hant": "zh-TW", // equivalente: DAAIT lista zh-Hant bajo zh-TW (tradicional), no bajo zh
+    "es-AR": "es", // no listado: idioma principal
+    "fr-CA": "fr-CA",
+    "ca-ES-valencia": "ca-ES-valencia",
+    "af-ZA": "af-ZA", // DAAIT no lo tiene: se deja tal cual, no se cambia de idioma
+  };
+  for (const [input, expected] of Object.entries(cases)) {
+    assert.equal(toCatalogTag(input, catalog), expected, input);
+  }
+  assert.equal(toCatalogTag("", catalog), "");
+  assert.equal(toCatalogTag(null, catalog), null);
 });

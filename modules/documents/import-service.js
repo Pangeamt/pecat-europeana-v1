@@ -17,6 +17,7 @@ import {
 // close an import cycle before the bindings are initialized.
 import { findProjectWithProfilesForActor } from "../projects/repository";
 import { getProfileDaait } from "../profiles/daait-repository";
+import { resolveDaaitLanguageTag } from "../languages/service";
 import { Prisma } from "@prisma/client";
 import { UnrecoverableError } from "bullmq";
 import {
@@ -275,8 +276,10 @@ export async function handleSdlxliffImportJob({
   const { sourceLanguage, targetLanguage, segments } =
     await parseSdlxliffFile(filePath);
 
-  const normalizedSrc = src || sourceLanguage;
-  const normalizedTgt = tgt || targetLanguage;
+  // The upload form already carries DAAIT catalog codes; a language taken from
+  // the file header is turned into one (exact, DAAIT equivalent, or primary).
+  const normalizedSrc = src || (await resolveDaaitLanguageTag(sourceLanguage));
+  const normalizedTgt = tgt || (await resolveDaaitLanguageTag(targetLanguage));
 
   if (!normalizedSrc) {
     throw new Error("No source language provided (missing in file and upload)");

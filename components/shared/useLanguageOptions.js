@@ -1,18 +1,19 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
-import locales from "@/lib/locales.json";
-import { catalogFromStatic } from "@/lib/language-catalog";
+import snapshot from "@/lib/daait-languages.json";
+import { catalogFromSnapshot } from "@/lib/language-catalog";
 
 // Options for the language pickers, from DAAIT's catalog (/api/languages, which
 // caches it for an hour). The browser keeps the answer for the same hour, so
 // opening several forms costs one request. While it loads (or if it fails) the
-// pickers show the old static list, so they are never empty.
+// pickers show the snapshot of DAAIT's active languages, so they are never
+// empty and never offer a code DAAIT does not have.
 const BROWSER_TTL_MS = 60 * 60 * 1000;
 let memo = null; // { at, languages }
 let pending = null;
 
-const staticCatalog = catalogFromStatic(locales);
+const staticCatalog = catalogFromSnapshot(snapshot);
 
 const load = () => {
   if (memo && Date.now() - memo.at < BROWSER_TTL_MS) return Promise.resolve(memo.languages);
