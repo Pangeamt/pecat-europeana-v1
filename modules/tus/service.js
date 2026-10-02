@@ -288,6 +288,7 @@ async function evaluateTuDraft(tu, documentId, target) {
           workspaceId: context?.workspaceId,
           sourceLanguage: context?.sourceLanguage,
           targetLanguage: context?.targetLanguage,
+          ordered: isSpliceFormat(context?.extension),
         });
       } catch (error) {
         // Live feedback is best-effort: a DAAIT hiccup must not surface as an
@@ -302,8 +303,6 @@ async function evaluateTuDraft(tu, documentId, target) {
     score,
     verdict: review?.verdict ?? null,
     suggestion: review?.suggestion ?? null,
-    // Tagged segment: the (plain-text) suggestion is a reference, not applicable.
-    referenceOnly: Boolean(review?.referenceOnly),
     meta: review?.meta ?? null,
     daaitStatus: review?.daaitStatus ?? null,
   };

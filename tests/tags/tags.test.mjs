@@ -1,33 +1,43 @@
-// Inline tags: what reaches MTQE/post_edit (text only) and the editor rules
-// (Trados model: reference = source tags). node --test "tests/**/*.test.mjs"
+// Inline tags: what reaches MTQE/post_edit (WITH their tags since 2026-10-02) and
+// the editor rules (Trados model: reference = source tags).
+// node --test "tests/**/*.test.mjs"
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { hasTags, qePair, stripTags, toQeReferences } from "../../modules/documents/qe-payload.js";
+import { suggestionKeepsTags, toQeReferences } from "../../modules/documents/qe-payload.js";
 import { checkTagEdit, missingTags, tagsComplete } from "../../components/TagEditor/tag-rules.js";
 
 const SRC = "Pulse <g1>aquí</g1> y <x2/> luego.";
 
-test("MTQE/post_edit reciben SOLO el texto, sin marcadores", () => {
-  assert.equal(stripTags(SRC), "Pulse aquí y luego.");
-  assert.deepEqual(qePair(SRC, "Click <g1>here</g1> and <x2/> then."), {
-    source: "Pulse aquí y luego.",
-    target: "Click here and then.",
-  });
-  assert.equal(hasTags(SRC), true);
-  assert.equal(hasTags("sin etiquetas"), false);
-  assert.equal(stripTags("x < 5 y <total>"), "x < 5 y <total>", "texto con < > normal no se toca");
-});
-
-test("las referencias de TM/glosario tambien van sin marcadores", () => {
+test("las referencias de TM/glosario van tal cual, con sus marcadores, y con tope", () => {
   const refs = toQeReferences([
     { source: "Pressure pipe <x1/> 1", target: "Tuyau <x1/> 1", tm_score: 1 },
     { source: "B", target: "b" },
     { source: "C", target: "c" },
   ]);
   assert.deepEqual(refs, [
-    { source: "Pressure pipe 1", target: "Tuyau 1" },
+    { source: "Pressure pipe <x1/> 1", target: "Tuyau <x1/> 1" },
     { source: "B", target: "b" },
   ]);
+  assert.deepEqual(toQeReferences(null), []);
+  assert.deepEqual(toQeReferences([{ source: "A" }]), [], "sin target no es referencia");
+});
+
+test("una sugerencia del LLM solo se admite si conserva las etiquetas del origen", () => {
+  const ok = "Click <g1>here</g1> and <x2/> then.";
+  assert.equal(suggestionKeepsTags(SRC, ok), true);
+  assert.equal(suggestionKeepsTags(SRC, "Click here and then."), false, "pierde las etiquetas");
+  assert.equal(suggestionKeepsTags(SRC, "Click <g1>here</g1> then."), false, "pierde <x2/>");
+  assert.equal(suggestionKeepsTags(SRC, ok + " <x9/>"), false, "inventa una etiqueta");
+  assert.equal(suggestionKeepsTags("sin etiquetas", "tampoco"), true);
+  assert.equal(suggestionKeepsTags("sin etiquetas", "inventa <x1/>"), false);
+});
+
+test("sugerencia con las etiquetas reordenadas: solo falla donde se exige el orden", () => {
+  const src = "A <x1/> B <x2/> C";
+  const swapped = "A' <x2/> B' <x1/> C'";
+  assert.equal(suggestionKeepsTags(src, swapped), true, "por conjunto pasa");
+  assert.equal(suggestionKeepsTags(src, swapped, { ordered: true }), false, "SDLXLIFF/XLIFF: orden");
+  assert.equal(suggestionKeepsTags(src, "A' <x1/> B' <x2/> C'", { ordered: true }), true);
 });
 
 test("editor: no se puede borrar una etiqueta del origen que ya estaba", () => {

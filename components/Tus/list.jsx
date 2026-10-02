@@ -893,9 +893,9 @@ const TusList = ({ shareToken } = {}) => {
   // suggestionStatus so acceptance can be measured.
   const applySuggestion = async () => {
     if (!selectedRow?.suggestionLiteral) return;
-    // Suggestions come without tags: on a tagged segment they are a
-    // reference only (the panel hides "Apply"; this is the guard).
-    if (hasInlineTags(selectedRow.srcLiteral)) return;
+    // Guard: a suggestion that does not keep the source's tags (e.g. one
+    // stored before tags went to the LLM) is never applied.
+    if (!tagIssue(selectedRow.srcLiteral, selectedRow.suggestionLiteral).ok) return;
     const text = selectedRow.suggestionLiteral;
     try {
       await confirm({ tuId: selectedRow.id, action: "apply_suggestion" });
@@ -1287,7 +1287,7 @@ const TusList = ({ shareToken } = {}) => {
                   live={liveEval?.tuId === selectedRow?.id ? liveEval : null}
                   onApplyLive={() => {
                     if (!liveEval?.suggestion) return;
-                    if (liveEval.referenceOnly || hasInlineTags(selectedRow?.srcLiteral)) return;
+                    if (!tagIssue(selectedRow?.srcLiteral, liveEval.suggestion).ok) return;
                     const text = liveEval.suggestion;
                     setSelectedRow((prev) =>
                       prev ? { ...prev, reviewLiteral: text } : prev,
