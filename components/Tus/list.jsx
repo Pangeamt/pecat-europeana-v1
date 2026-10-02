@@ -17,7 +17,7 @@ import {
   Tooltip,
 } from "antd";
 import axios from "axios";
-import { Ban, CircleCheck, CircleX, Filter, Hourglass, LockIcon, Pencil, Save, Search, UnlockIcon } from "lucide-react";
+import { Ban, ChevronDown, ChevronRight, CircleCheck, CircleX, Filter, Hourglass, LockIcon, Pencil, Save, Search, UnlockIcon } from "lucide-react";
 import { useParams } from "next/navigation";
 
 import React, {
@@ -127,6 +127,27 @@ const TusList = ({ shareToken } = {}) => {
   const [drafts, setDrafts] = useState({});
   const draftsRef = useRef({});
   const [savingDrafts, setSavingDrafts] = useState(false);
+  // Suggestion / TMs / Glossaries panel above the grid: COLLAPSED by default
+  // (it took a third of the screen even when empty); the choice is remembered.
+  const TOP_PANEL_KEY = "pecat.tus.topPanelOpen";
+  const [topPanelOpen, setTopPanelOpen] = useState(false);
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(TOP_PANEL_KEY) === "1") setTopPanelOpen(true);
+    } catch {
+      // storage blocked: stay collapsed
+    }
+  }, []);
+  const toggleTopPanel = () => {
+    setTopPanelOpen((open) => {
+      try {
+        window.localStorage.setItem(TOP_PANEL_KEY, open ? "0" : "1");
+      } catch {
+        // storage blocked: the toggle still works for this visit
+      }
+      return !open;
+    });
+  };
   const [saveFailed, setSaveFailed] = useState(false);
   // Bumped when an LLM suggestion is applied so the target editor remounts
   // with the new reviewLiteral (Quill/TagEditor only read the initial value).
@@ -226,6 +247,51 @@ const TusList = ({ shareToken } = {}) => {
     };
     run();
   }, [getProjectConfig]);
+
+  // While QE v2 is still scoring the document in the background
+  // (pipelineStats.stage === "SCORING"), pull the scores every 5 s and merge
+  // ONLY mtqeV2Score into the grid: selection, unsaved drafts, page and sort
+  // order are never touched. The project config is read FIRST and the
+  // segments after it, so the tick that sees "DONE" already carries the last
+  // scores. Rows with an unsaved draft keep their live score.
+  const scoring = projectConfig?.pipelineStats?.stage === "SCORING";
+  useEffect(() => {
+    if (!scoring) return undefined;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const configResponse = shareToken
+          ? await getDocumentConfigByShareToken(shareToken)
+          : await getProject(projectId);
+        const tusResponse = shareToken
+          ? await getTusByShareToken(shareToken)
+          : await getTus(projectId);
+        if (cancelled) return;
+        const scores = new Map(
+          (tusResponse.data.docs || []).map((doc) => [doc.id, doc.mtqeV2Score]),
+        );
+        const fresh = (row) => {
+          const score = scores.get(row.id);
+          return typeof score === "number" &&
+            score !== row.mtqeV2Score &&
+            draftsRef.current[row.id] == null
+            ? { ...row, mtqeV2Score: score }
+            : row;
+        };
+        setData((prev) => prev.map(fresh));
+        setSelectedRow((prev) => (prev ? fresh(prev) : prev));
+        setProjectConfig(configResponse.data);
+      } catch (error) {
+        // Quiet: the next tick retries; the grid keeps what it has.
+        console.warn("QE v2 refresh failed", error?.message);
+      }
+    };
+    const timer = setInterval(tick, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [scoring, shareToken, projectId]);
 
   const stats = (() => {
     if (requesting || data.length === 0) return EMPTY_STATS;
@@ -1377,6 +1443,36 @@ const TusList = ({ shareToken } = {}) => {
       ) : null}
 
       <div className="mb-2">
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={toggleTopPanel}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              toggleTopPanel();
+            }
+          }}
+          className="flex cursor-pointer select-none items-center gap-2 rounded px-1 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+          title={topPanelOpen ? "Hide suggestion, TMs and glossaries" : "Show suggestion, TMs and glossaries"}
+        >
+          {topPanelOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          <span>Suggestion · TMs · Glossaries</span>
+          <Badge
+            count={
+              (liveEval?.tuId === selectedRow?.id && liveEval?.suggestion) ||
+              (selectedRow?.suggestionStatus === "PENDING" &&
+                selectedRow?.suggestionLiteral)
+                ? 1
+                : 0
+            }
+            color="gold"
+            title="LLM suggestion available"
+          />
+          <Badge count={tmInfo.length} color="blue" title="TM matches" showZero={false} />
+          <Badge count={glossaryInfo.length} color="green" title="Glossary hits" showZero={false} />
+        </div>
+        {topPanelOpen ? (
         <Tabs
           type="card"
           defaultActiveKey="1"
@@ -1445,9 +1541,10 @@ const TusList = ({ shareToken } = {}) => {
             },
           ]}
         />
+        ) : null}
       </div>
 
-      <Divider />
+      {topPanelOpen ? <Divider /> : null}
 
       <Card id="tus-list">
         <Modal
@@ -1639,7 +1736,10 @@ const TusList = ({ shareToken } = {}) => {
               }
             },
           }}
-          scroll={{ x: "100%", y: "calc(100vh - 460px)" }}
+          scroll={{
+            x: "100%",
+            y: topPanelOpen ? "calc(100vh - 460px)" : "calc(100vh - 300px)",
+          }}
         />
       </Card>
     </div>
