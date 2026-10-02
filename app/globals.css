@@ -126,6 +126,11 @@
     background-color: #e6f4ff;
 }
 
+/* Text typed but not saved yet (the editor's Save button): amber edge. */
+.ant-table-row.unsaved > td:first-child {
+    box-shadow: inset 3px 0 0 #faad14;
+}
+
 .ant-table-row.rejected {
     background-color: #fff1f0;
 }
