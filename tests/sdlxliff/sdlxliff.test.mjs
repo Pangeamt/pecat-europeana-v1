@@ -96,6 +96,23 @@ test("escritor: lo del cliente sin tocar NO se reconfirma, y lo bloqueado nunca 
   assert.equal(report.skippedLocked, 1);
 });
 
+test("escritor: un borrador guardado SIN aprobar no se exporta (sale la MT)", () => {
+  const tus = [
+    {
+      externalId: "t1::1",
+      translatedLiteral: "Tuyau de pression <x1/> 1",
+      reviewLiteral: "BORRADOR sin aprobar <x1/> 1",
+      Status: "NOT_REVIEWED",
+    },
+  ];
+  const { text } = writeSdlxliff(FILE, tus);
+  assert.ok(!text.includes("BORRADOR"), "el borrador no sale en el fichero");
+  assert.match(text, /Tuyau de pression/);
+  // Aprobado, si.
+  const approved = writeSdlxliff(FILE, [{ ...tus[0], Status: "EDITED" }]).text;
+  assert.ok(approved.includes("BORRADOR"), "aprobado = entra");
+});
+
 test("escritor: documento antiguo sin marcadores -> no se escribe y se cuenta", () => {
   const tus = [{ externalId: "t1::1", reviewLiteral: "Tuyau de pression 1", Status: "EDITED" }];
   const { text, report } = writeSdlxliff(FILE, tus);

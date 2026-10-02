@@ -4,6 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { suggestionKeepsTags, toQeReferences } from "../../modules/documents/qe-payload.js";
+import { exportTarget } from "../../modules/documents/export-target.js";
 import { checkTagEdit, missingTags, tagsComplete } from "../../components/TagEditor/tag-rules.js";
 
 const SRC = "Pulse <g1>aquí</g1> y <x2/> luego.";
@@ -38,6 +39,17 @@ test("sugerencia con las etiquetas reordenadas: solo falla donde se exige el ord
   assert.equal(suggestionKeepsTags(src, swapped), true, "por conjunto pasa");
   assert.equal(suggestionKeepsTags(src, swapped, { ordered: true }), false, "SDLXLIFF/XLIFF: orden");
   assert.equal(suggestionKeepsTags(src, "A' <x1/> B' <x2/> C'", { ordered: true }), true);
+});
+
+test("export: el texto del revisor solo cuenta si esta aprobado", () => {
+  const base = { translatedLiteral: "MT", reviewLiteral: "REV" };
+  assert.equal(exportTarget({ ...base, Status: "ACCEPTED" }), "REV");
+  assert.equal(exportTarget({ ...base, Status: "EDITED" }), "REV");
+  assert.equal(exportTarget({ ...base, Status: "NOT_REVIEWED" }), "MT", "borrador guardado");
+  assert.equal(exportTarget({ ...base, Status: "TRANSLATED_MT" }), "MT");
+  assert.equal(exportTarget({ ...base, Status: "REJECTED" }), "MT", "rechazado: vuelve la MT");
+  assert.equal(exportTarget({ Status: "EDITED", reviewLiteral: "REV" }), "REV");
+  assert.equal(exportTarget({ Status: "NOT_REVIEWED" }), "");
 });
 
 test("editor: no se puede borrar una etiqueta del origen que ya estaba", () => {
