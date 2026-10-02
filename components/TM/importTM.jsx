@@ -1,7 +1,7 @@
 "use client";
 
 import { Button, Form, Input, Modal, Upload, message, Select } from "antd";
-import locales from "@/lib/locales.json";
+import { useLanguageOptions } from "@/components/shared/useLanguageOptions";
 import { useCallback, useState } from "react";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { tmStore } from "@/store";
@@ -9,18 +9,13 @@ import { FileText, Plus, Upload as UploadIcon } from "lucide-react";
 
 const { Dragger } = Upload;
 
-const languageOptions = Object.keys(locales).map((code) => ({
-  value: code,
-  label: locales[code][0],
-}));
-
 const checkFile = (file) => {
   const fileName = file.name.trim().replace(/\s+/g, "");
   const fileExtension = fileName.split(".").pop().toLowerCase();
   return fileExtension === "tmx";
 };
 
-const getTargetOptions = (source) => {
+const getTargetOptions = (languageOptions, source) => {
   if (!source) return languageOptions;
   return languageOptions.filter((option) => option.value !== source);
 };
@@ -30,6 +25,7 @@ const isUploadReady = ({ name, source, target }) =>
 
 const ImportTmButton = ({ refetch }) => {
   const { t } = useTranslation();
+  const languageOptions = useLanguageOptions();
   const tmSt = tmStore();
   const { tm } = tmSt;
   const [form] = Form.useForm();
@@ -241,7 +237,7 @@ const ImportTmButton = ({ refetch }) => {
                           showSearch
                           placeholder={t("tms.import.targetPlaceholder")}
                           optionFilterProp="label"
-                          options={getTargetOptions(source)}
+                          options={getTargetOptions(languageOptions, source)}
                           disabled={!source}
                         />
                       </Form.Item>

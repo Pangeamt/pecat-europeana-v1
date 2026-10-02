@@ -1,25 +1,13 @@
 "use client";
 import { Button, Form, Input, Select, message } from "antd";
-import locales from "@/lib/locales.json";
+import { useLanguageOptions } from "@/components/shared/useLanguageOptions";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { addTMRequest } from "@/services/tm.services";
 import { FileText, Globe } from "lucide-react";
 
-const languages = locales;
-const languageOptions = Object.keys(languages).map((code) => ({
-  value: languages[code][0],
-  label: languages[code][0],
-}));
-
-const getLocaleCode = (locale) => {
-  const language = Object.keys(languages).find(
-    (key) => languages[key][0] === locale,
-  );
-  return language;
-};
-
 export default function CreateTmForm({ user, onBack, onCreated }) {
   const { t } = useTranslation();
+  const languageOptions = useLanguageOptions();
   const [form] = Form.useForm();
   const [messageApi, contextHolder] = message.useMessage();
 
@@ -31,8 +19,8 @@ export default function CreateTmForm({ user, onBack, onCreated }) {
         user: userEmail,
         project: values.project,
         domain: values.domain,
-        source: getLocaleCode(values.source),
-        target: getLocaleCode(values.target),
+        source: values.source,
+        target: values.target,
       };
       messageApi.loading({
         content: t("tms.create.creating"),

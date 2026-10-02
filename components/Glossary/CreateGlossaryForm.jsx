@@ -1,23 +1,11 @@
 "use client";
 import { Button, Form, Input, Select, message } from "antd";
-import locales from "@/lib/locales.json";
+import { useLanguageOptions } from "@/components/shared/useLanguageOptions";
 import { addGlossaryRequest } from "@/services/glossary.services";
 import { Book, Globe } from "lucide-react";
 
-const languages = locales;
-const languageOptions = Object.keys(languages).map((code) => ({
-  value: languages[code][0],
-  label: languages[code][0],
-}));
-
-const getLocaleCode = (locale) => {
-  const language = Object.keys(languages).find(
-    (key) => languages[key][0] === locale,
-  );
-  return language;
-};
-
 export default function CreateGlossaryForm({ user, onBack, onCreated }) {
+  const languageOptions = useLanguageOptions();
   const [form] = Form.useForm();
   const [messageApi, contextHolder] = message.useMessage();
 
@@ -29,8 +17,8 @@ export default function CreateGlossaryForm({ user, onBack, onCreated }) {
         user: userEmail,
         project: values.project,
         domain: values.domain,
-        source: getLocaleCode(values.source),
-        target: getLocaleCode(values.target),
+        source: values.source,
+        target: values.target,
       };
       messageApi.loading({ content: "Creating glossary...", key: "add-glossary" });
       await addGlossaryRequest(data);

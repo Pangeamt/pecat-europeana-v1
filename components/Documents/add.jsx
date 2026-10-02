@@ -14,17 +14,12 @@ import {
 import { useMemo, useState } from "react";
 
 import { useTranslation } from "@/components/i18n/LanguageProvider";
-import locales from "@/lib/locales.json";
+import { useLanguageOptions } from "@/components/shared/useLanguageOptions";
 import { checkFile, isSpliceFormat } from "@/lib/utils";
 import { fetchProfileByIdRequest } from "@/services/profiles.services";
 import { ArrowLeft, ArrowRight, Plus, Upload as UploadIcon } from "lucide-react";
 
 const { Dragger } = Upload;
-
-const languageOptions = Object.keys(locales).map((code) => ({
-  value: code,
-  label: locales[code][0],
-}));
 
 // Documents are always translated with the project's profile. Step 2 lets
 // the user narrow which of the profile's TMs/glossaries apply to this
@@ -48,6 +43,7 @@ const matchesPair = (asset, src, tgt) =>
 
 const DocumentAdd = ({ project, refetch }) => {
   const { t } = useTranslation();
+  const languageOptions = useLanguageOptions();
   const [form] = Form.useForm();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
