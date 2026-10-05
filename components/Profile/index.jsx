@@ -1,13 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Card, Form, Input, Segmented, Tag, message } from "antd";
-import { Globe, KeyRound, UserRound } from "lucide-react";
+import {
+  Avatar,
+  Button,
+  Card,
+  Form,
+  Input,
+  Segmented,
+  Tag,
+  message,
+} from "antd";
+import { Globe, KeyRound } from "lucide-react";
 
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { SUPPORTED_LANGUAGES } from "@/lib/i18n";
 import { updateProfile } from "@/services/user.services";
 import { userStore } from "@/store";
+
+const DEFAULT_AVATAR = "/images/Logo perfil RRSS 1.png";
 
 const ROLE_COLORS = {
   SUPER: "purple",
@@ -57,38 +68,34 @@ const Profile = () => {
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-5">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900">
+      {/* Identity header: who is signed in, shown once (no separate card). */}
+      <div className="rounded-2xl bg-gradient-to-br from-primary-900 to-primary-700 p-5 text-white">
+        <div className="text-xs font-semibold uppercase tracking-[0.2em] text-primary-200">
           {t("profile.title")}
-        </h1>
-        <p className="mt-1 text-sm text-slate-500">{t("profile.subtitle")}</p>
-      </div>
-
-      <Card
-        title={
-          <span className="flex items-center gap-2">
-            <UserRound size={16} className="text-slate-400" />
-            {t("profile.accountSection")}
-          </span>
-        }
-      >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <div className="text-xs text-slate-500">{t("profile.name")}</div>
-            <div className="mt-1 font-medium text-slate-900">{user.name}</div>
-          </div>
-          <div>
-            <div className="text-xs text-slate-500">{t("profile.email")}</div>
-            <div className="mt-1 font-medium text-slate-900">{user.email}</div>
-          </div>
-          <div>
-            <div className="text-xs text-slate-500">{t("profile.role")}</div>
-            <div className="mt-1">
-              <Tag color={ROLE_COLORS[user.role] ?? "default"}>{user.role}</Tag>
-            </div>
-          </div>
         </div>
-      </Card>
+        <div className="mt-3 flex items-center gap-4">
+          <Avatar
+            src={user.image || DEFAULT_AVATAR}
+            size={56}
+            className="shrink-0 ring-2 ring-white/40"
+          />
+          <div className="min-w-0 flex-1">
+            <h1 className="m-0 truncate text-2xl font-semibold">{user.name}</h1>
+            <p className="m-0 mt-1 truncate text-sm text-slate-300">
+              {user.email}
+            </p>
+          </div>
+          <Tag
+            color={ROLE_COLORS[user.role] ?? "default"}
+            className="m-0 shrink-0"
+          >
+            {user.role}
+          </Tag>
+        </div>
+        <p className="m-0 mt-4 text-sm text-slate-300">
+          {t("profile.subtitle")}
+        </p>
+      </div>
 
       <Card
         title={
