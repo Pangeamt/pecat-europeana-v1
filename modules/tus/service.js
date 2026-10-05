@@ -1,16 +1,15 @@
 import { HttpError } from "../shared/http-error";
 import { DOCUMENT_STATUS } from "../../lib/document-status";
-import {
-  isMtqeV2Configured,
-  postMTQEv2,
-  toQeReferences,
-} from "../../lib/utils";
+import { isMtqeV2Configured, postMTQEv2Segments } from "../../lib/utils";
 import {
   BLOCK_REASON,
   SUGGESTION_STATUS,
   profileMatchesLanguagePair,
 } from "../documents/pipeline-constants";
-import { reviewDraftSegment } from "../documents/pipeline-service";
+import {
+  findQeResourceIds,
+  reviewDraftSegment,
+} from "../documents/pipeline-service";
 import { describeTagIssue, tagIssue } from "../documents/tag-check";
 import { isSpliceFormat } from "../../lib/utils";
 import {
@@ -118,7 +117,7 @@ export async function listTusByShareTokenService(token) {
 }
 
 // Best-effort QE v2 re-score of the reviewed pair (same references as the
-// pipeline: the segment's own TM and glossary matches): the stored score
+// pipeline: the document's memories and glossaries): the stored score
 // follows each edit. Returns 0-1 or null. Never blocks the save.
 const RESCORE_TIMEOUT_MS = 8_000;
 
@@ -133,20 +132,20 @@ async function rescoreReviewedPair(tu, target) {
   });
 
   try {
-    const response = await Promise.race([
-      postMTQEv2({
-        source: tu.srcLiteral,
-        target,
-        tm: toQeReferences(tu.tmInfo),
-        glossary: toQeReferences(tu.glossaryInfo),
+    const rescore = async () => {
+      const { tmIds, glossaryIds } = await findQeResourceIds(tu.documentId);
+      return postMTQEv2Segments({
+        segments: [{ source: tu.srcLiteral, target }],
         sourceLanguage: tu.sourceLanguage,
         targetLanguage: tu.targetLanguage,
-      }),
-      timeout,
-    ]);
-    // v2 answers 0-100 (null + error on a per-segment upstream failure).
-    const raw = response?.score;
-    return typeof raw === "number" ? raw / 100 : null;
+        tmIds,
+        glossaryIds,
+        timeout: RESCORE_TIMEOUT_MS,
+      });
+    };
+    const scores = await Promise.race([rescore(), timeout]);
+    // One segment in, one 0-1 score out (null on an upstream failure).
+    return scores?.[0] ?? null;
   } catch {
     return null;
   }

@@ -2,9 +2,9 @@ import prisma from "../../lib/prisma";
 import {
   isMtqeV2Configured,
   isSpliceFormat,
-  postMTQEv2,
-  toQeReferences,
+  postMTQEv2Segments,
 } from "../../lib/utils";
+import { chunkSegments } from "../../lib/mtqe-v2";
 import { postEditContent } from "../../lib/daait";
 import { enqueueMtqeV2 } from "../../lib/queue";
 import { suggestionKeepsTags } from "./qe-payload";
@@ -86,10 +86,32 @@ export async function releaseDocumentAndScore(documentId) {
 }
 
 /**
+ * The document's translation memories and glossaries (DAAIT resource ids, the
+ * ones linked at upload): what MTQE v2 takes its references from.
+ */
+export async function findQeResourceIds(documentId) {
+  const [tms, glossaries] = await Promise.all([
+    prisma.documentTm.findMany({
+      where: { documentId },
+      select: { tmId: true },
+    }),
+    prisma.documentGlossary.findMany({
+      where: { documentId },
+      select: { glossaryId: true },
+    }),
+  ]);
+  return {
+    tmIds: tms.map((row) => row.tmId),
+    glossaryIds: glossaries.map((row) => row.glossaryId),
+  };
+}
+
+/**
  * MTQE v2 job (own queue): scores every visible segment that still lacks a
- * QE score, via /score-with-references — ONE segment per request, with
- * the segment's own TM matches (tmInfo) and glossary hits (glossaryInfo) as
- * references. Scores come back 0-100 and are stored normalized to 0-1.
+ * QE score, via /score-segments in batches of up to 50, with the document's
+ * memories and glossaries as references. Each batch's scores are stored as
+ * soon as it answers (0-100, normalized to 0-1), so the open editor shows
+ * them arriving while the rest is still being scored.
  * Throws on a total outage so BullMQ retries the job; partial failures are
  * recorded in pipelineStats and never touch Document.status.
  */
@@ -100,6 +122,7 @@ export async function handleScoreMtqeV2Job({ projectId: documentId }) {
     select: { id: true, sourceLanguage: true, targetLanguage: true },
   });
   if (!document) return;
+  const { tmIds, glossaryIds } = await findQeResourceIds(documentId);
 
   const tus = await prisma.tu.findMany({
     where: {
@@ -113,8 +136,6 @@ export async function handleScoreMtqeV2Job({ projectId: documentId }) {
       id: true,
       srcLiteral: true,
       translatedLiteral: true,
-      tmInfo: true,
-      glossaryInfo: true,
     },
     orderBy: { count: "asc" },
   });
@@ -126,37 +147,48 @@ export async function handleScoreMtqeV2Job({ projectId: documentId }) {
   const started = Date.now();
   let scored = 0;
   let failed = 0;
-  for (const tu of tus) {
-    let result;
+  for (const batch of chunkSegments(tus)) {
+    let scores;
     try {
-      result = await postMTQEv2({
-        source: tu.srcLiteral,
-        target: tu.translatedLiteral,
-        tm: toQeReferences(tu.tmInfo),
-        glossary: toQeReferences(tu.glossaryInfo),
+      scores = await postMTQEv2Segments({
+        segments: batch.map((tu) => ({
+          source: tu.srcLiteral,
+          target: tu.translatedLiteral,
+        })),
         sourceLanguage: document.sourceLanguage,
         targetLanguage: document.targetLanguage,
+        tmIds,
+        glossaryIds,
       });
     } catch (error) {
-      failed += 1;
+      failed += batch.length;
       console.error(
-        `[pipeline] MTQE v2 failed for segment ${tu.id} (document ${documentId}):`,
+        `[pipeline] MTQE v2 failed for a batch of ${batch.length} segments (document ${documentId}):`,
         error.message,
       );
       continue;
     }
 
-    // A per-segment upstream error comes back as { score: null, error }.
-    const raw = result?.score;
-    if (typeof raw !== "number") {
-      failed += 1;
-      continue;
-    }
-    await prisma.tu.update({
-      where: { id: tu.id },
-      data: { mtqeV2Score: raw / 100 },
+    // A per-segment upstream error comes back as a null score.
+    const updates = [];
+    batch.forEach((tu, index) => {
+      if (scores[index] === null) {
+        failed += 1;
+        return;
+      }
+      updates.push(
+        prisma.tu.update({
+          where: { id: tu.id },
+          data: { mtqeV2Score: scores[index] },
+        }),
+      );
     });
-    scored += 1;
+    if (updates.length > 0) {
+      await prisma.$transaction(updates);
+      scored += updates.length;
+      // Progress for the pipeline cell while the stage is still SCORING.
+      await mergePipelineStats(documentId, { mtqeV2Scored: scored });
+    }
   }
 
   const totalOutage = scored === 0 && failed === tus.length;
