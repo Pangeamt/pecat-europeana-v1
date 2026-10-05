@@ -62,7 +62,7 @@
   "account": {
     "openMenu": "Abrir menú de cuenta de {name}",
     "loadingWorkspace": "Cargando espacio de trabajo…",
-    "profile": "Perfil",
+    "profile": "Cuenta",
     "signOut": "Cerrar sesión"
   },
   "login": {
