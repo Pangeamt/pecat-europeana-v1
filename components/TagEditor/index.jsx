@@ -11,7 +11,16 @@ import {
   tagLabel,
   tagSequence,
 } from "../shared/inline-tags";
-import { checkTagEdit, describeTagIssue, fixTags, missingTags, tagIssue } from "./tag-rules";
+import {
+  CARET_ANCHOR,
+  checkTagEdit,
+  describeTagIssue,
+  editorPieces,
+  fixTags,
+  missingTags,
+  stripCaretAnchors,
+  tagIssue,
+} from "./tag-rules";
 
 // Target editor for segments with inline-code placeholders (<g1>…</g1>,
 // <x2/>…), ported from revisions-pangeanic-local (static/js/editor.js): a
@@ -25,6 +34,13 @@ import { checkTagEdit, describeTagIssue, fixTags, missingTags, tagIssue } from "
 // Ctrl+, for the next one; a paired tag wraps the selection) or with "Copy
 // source". Quill cannot be used here: it parses the value as HTML and
 // silently destroys unknown tags.
+//
+// Caret anchors (2026-10-05): chips side by side, or a chip at the start or
+// end of the box, left no text position between them -- the reviewer could not
+// click there nor get past them with the arrow keys. The box now keeps a
+// zero-width space at those spots (see tag-rules.js); the caret is tracked in
+// "units" (one per character, one per chip, anchors do not count), so it
+// survives the DOM being tidied or restored.
 
 const esc = (value) =>
   String(value ?? "").replace(
@@ -44,29 +60,179 @@ function chipHtml(raw, info) {
   );
 }
 
-/** Plain text with placeholders -> editor HTML with chips. */
+/** Plain text with placeholders -> editor HTML with chips and caret anchors. */
 function toHtml(text, info) {
-  const value = String(text ?? "");
-  let html = "";
-  let cursor = 0;
-  for (const match of value.matchAll(inlineTagRe())) {
-    html += esc(value.slice(cursor, match.index));
-    html += chipHtml(match[0], info);
-    cursor = match.index + match[0].length;
-  }
-  return html + esc(value.slice(cursor));
+  return editorPieces(text)
+    .map((piece) =>
+      piece.type === "tag"
+        ? chipHtml(piece.raw, info)
+        : piece.type === "anchor"
+          ? CARET_ANCHOR
+          : esc(piece.value),
+    )
+    .join("");
 }
 
 /** Editor DOM -> plain text with placeholders (chips serialize via data-raw). */
 function toText(node) {
   let out = "";
   for (const child of node.childNodes) {
-    if (child.nodeType === Node.TEXT_NODE) out += child.nodeValue;
+    if (child.nodeType === Node.TEXT_NODE) out += stripCaretAnchors(child.nodeValue);
     else if (child.dataset && child.dataset.raw) out += child.dataset.raw;
     else if (child.tagName === "BR") out += "";
     else out += toText(child); // <mark> or other wrappers the browser adds
   }
   return out;
+}
+
+const isChip = (node) => Boolean(node?.dataset?.raw);
+const isText = (node) => node?.nodeType === 3;
+const visibleLength = (node) => stripCaretAnchors(node.nodeValue).length;
+
+/**
+ * Caret position in units from the start of the box: one per character, one
+ * per chip; anchors do not count. null when the caret is not in the box.
+ */
+function caretUnits(box) {
+  const selection = window.getSelection();
+  if (!selection?.rangeCount) return null;
+  const { focusNode, focusOffset } = selection;
+  if (!focusNode || !box.contains(focusNode)) return null;
+  let units = 0;
+  const children = [...box.childNodes];
+  // Caret between two children of the box (focusNode is the box itself).
+  const stop = focusNode === box ? focusOffset : children.indexOf(
+    children.find((child) => child === focusNode || child.contains(focusNode)),
+  );
+  for (let index = 0; index < children.length; index += 1) {
+    const child = children[index];
+    if (index === stop) {
+      if (focusNode !== box && isText(child)) {
+        units += stripCaretAnchors(child.nodeValue.slice(0, focusOffset)).length;
+      }
+      return units;
+    }
+    units += isText(child) ? visibleLength(child) : isChip(child) ? 1 : toText(child).length;
+  }
+  return units;
+}
+
+/** Puts the caret at `units` (see caretUnits), always inside a text node when there is one. */
+function placeCaret(box, units) {
+  let left = Math.max(0, units);
+  const range = document.createRange();
+  let placed = false;
+  const children = [...box.childNodes];
+  for (let index = 0; index < children.length && !placed; index += 1) {
+    const child = children[index];
+    if (isText(child)) {
+      const length = visibleLength(child);
+      if (left <= length) {
+        // Raw offset after `left` visible characters (anchors skipped).
+        let offset = 0;
+        let seen = 0;
+        while (offset < child.nodeValue.length && seen < left) {
+          if (child.nodeValue[offset] !== CARET_ANCHOR) seen += 1;
+          offset += 1;
+        }
+        // An anchor-only node: sit after the anchor, so typing follows it.
+        if (length === 0) offset = child.nodeValue.length;
+        range.setStart(child, offset);
+        placed = true;
+      } else {
+        left -= length;
+      }
+    } else if (left === 0) {
+      range.setStart(box, index);
+      placed = true;
+    } else {
+      left -= isChip(child) ? 1 : toText(child).length;
+    }
+  }
+  if (!placed) {
+    range.selectNodeContents(box);
+    range.collapse(false);
+  } else {
+    range.collapse(true);
+  }
+  const selection = window.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+const totalUnits = (box) =>
+  [...box.childNodes].reduce(
+    (sum, child) =>
+      sum + (isText(child) ? visibleLength(child) : isChip(child) ? 1 : toText(child).length),
+    0,
+  );
+
+/**
+ * Keeps one text position beside every chip: adds an anchor where a chip has
+ * no text next to it and drops the anchors that text has made redundant.
+ * Returns whether the DOM changed (the caller then restores the caret).
+ */
+function tidyAnchors(box) {
+  let changed = false;
+  for (const child of [...box.childNodes]) {
+    if (!isText(child) || !child.nodeValue.includes(CARET_ANCHOR)) continue;
+    const visible = stripCaretAnchors(child.nodeValue);
+    const needed =
+      visible === "" &&
+      (isChip(child.previousSibling) || isChip(child.nextSibling)) &&
+      !isText(child.previousSibling) &&
+      !isText(child.nextSibling);
+    if (visible !== "") {
+      child.nodeValue = visible;
+      changed = true;
+    } else if (!needed) {
+      child.remove();
+      changed = true;
+    } else if (child.nodeValue !== CARET_ANCHOR) {
+      child.nodeValue = CARET_ANCHOR;
+      changed = true;
+    }
+  }
+  for (const chip of [...box.childNodes].filter(isChip)) {
+    if (!isText(chip.previousSibling)) {
+      chip.before(document.createTextNode(CARET_ANCHOR));
+      changed = true;
+    }
+    if (!isText(chip.nextSibling)) {
+      chip.after(document.createTextNode(CARET_ANCHOR));
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+/**
+ * What lies next to the caret in `step` direction (-1 left, +1 right), for the
+ * keys the browser gets wrong around chips: "char" (ordinary text: leave it to
+ * the browser), "chip" (with the chip node), or "edge" (an anchor or nothing).
+ */
+function besideCaret(box, step) {
+  const selection = window.getSelection();
+  const node = selection?.focusNode;
+  if (!node || !box.contains(node)) return { kind: "edge" };
+  let sibling;
+  if (isText(node)) {
+    let offset = selection.focusOffset;
+    const value = node.nodeValue;
+    while (step > 0 ? offset < value.length : offset > 0) {
+      const char = value[step > 0 ? offset : offset - 1];
+      if (char !== CARET_ANCHOR) return { kind: "char" };
+      offset += step;
+    }
+    sibling = step > 0 ? node.nextSibling : node.previousSibling;
+  } else {
+    sibling = box.childNodes[step > 0 ? selection.focusOffset : selection.focusOffset - 1];
+  }
+  while (isText(sibling) && visibleLength(sibling) === 0) {
+    sibling = step > 0 ? sibling.nextSibling : sibling.previousSibling;
+  }
+  if (isChip(sibling)) return { kind: "chip", chip: sibling };
+  return isText(sibling) ? { kind: "char" } : { kind: "edge" };
 }
 
 const tagSequenceList = (text) => String(text ?? "").match(inlineTagRe()) ?? [];
@@ -123,12 +289,29 @@ const TagEditor = ({
     placeCaretAtEnd(box);
   }, []);
 
+  // Caret in units (see caretUnits) at the last valid state: a rejected edit
+  // puts it back there instead of at the end of the box.
+  const caretRef = useRef(null);
+  // An IME / dead-key composition is in progress: the DOM is not touched.
+  const composingRef = useRef(false);
+
   const rememberRange = () => {
     const box = boxRef.current;
     const selection = window.getSelection();
     if (!box || !selection?.rangeCount) return;
     const range = selection.getRangeAt(0);
-    if (box.contains(range.commonAncestorContainer)) rangeRef.current = range.cloneRange();
+    if (box.contains(range.commonAncestorContainer)) {
+      rangeRef.current = range.cloneRange();
+      caretRef.current = caretUnits(box);
+    }
+  };
+
+  // Re-creates the caret anchors after an edit, keeping the caret where it was.
+  const tidy = () => {
+    const box = boxRef.current;
+    if (!box || composingRef.current) return;
+    const units = caretUnits(box);
+    if (tidyAnchors(box) && units !== null) placeCaret(box, units);
   };
 
   // Validates the editor's current content against the last valid state.
@@ -139,10 +322,12 @@ const TagEditor = ({
     const verdict = checkTagEdit(snapshotRef.current.text, next, source);
     if (!verdict.ok) {
       box.innerHTML = snapshotRef.current.html;
-      placeCaretAtEnd(box);
+      if (caretRef.current !== null) placeCaret(box, caretRef.current);
+      else placeCaretAtEnd(box);
       message.error(`Formatting tags are protected: ${verdict.reason}`);
       return;
     }
+    tidy();
     snapshotRef.current = { html: box.innerHTML, text: next };
     setText(next);
     setValue?.(next);
@@ -150,6 +335,26 @@ const TagEditor = ({
 
   const handleInput = () => {
     commit();
+    rememberRange();
+  };
+
+  // Click on a chip: the caret goes to the side of the chip that was clicked
+  // (a chip is not editable, so the browser would leave the caret where it was).
+  const handleMouseDown = (event) => {
+    const box = boxRef.current;
+    const chip = event.target?.closest?.("[data-raw]");
+    if (!box || !chip || chip.parentNode !== box) return;
+    event.preventDefault();
+    box.focus();
+    const rect = chip.getBoundingClientRect();
+    const rightHalf = event.clientX > rect.left + rect.width / 2;
+    const after = dir === "rtl" ? !rightHalf : rightHalf;
+    let units = 0;
+    for (const child of box.childNodes) {
+      if (child === chip) break;
+      units += isText(child) ? visibleLength(child) : isChip(child) ? 1 : toText(child).length;
+    }
+    placeCaret(box, units + (after ? 1 : 0));
     rememberRange();
   };
 
@@ -247,6 +452,61 @@ const TagEditor = ({
       event.preventDefault();
       return;
     }
+    const box = boxRef.current;
+    const plain = !event.ctrlKey && !event.altKey && !event.metaKey;
+    const collapsed = window.getSelection()?.isCollapsed;
+    // Left / Right next to a chip: one press crosses the chip (and its
+    // invisible anchor), landing on a real caret position. Ordinary text is
+    // left to the browser.
+    if (
+      box &&
+      plain &&
+      !event.shiftKey &&
+      collapsed &&
+      (event.key === "ArrowLeft" || event.key === "ArrowRight")
+    ) {
+      const forward = (event.key === "ArrowRight") !== (dir === "rtl");
+      const step = forward ? 1 : -1;
+      if (besideCaret(box, step).kind !== "char") {
+        event.preventDefault();
+        const units = caretUnits(box);
+        if (units !== null) {
+          placeCaret(box, Math.min(totalUnits(box), Math.max(0, units + step)));
+          rememberRange();
+        }
+        return;
+      }
+    }
+    // Backspace / Delete next to a chip: a tag the source does not have can
+    // be removed; a source tag stays (no error, the key just does nothing).
+    if (
+      box &&
+      plain &&
+      collapsed &&
+      (event.key === "Backspace" || event.key === "Delete")
+    ) {
+      const beside = besideCaret(box, event.key === "Delete" ? 1 : -1);
+      if (beside.kind !== "char") {
+        event.preventDefault();
+        if (beside.kind === "chip") {
+          const units = caretUnits(box);
+          const holder = document.createComment("");
+          beside.chip.replaceWith(holder);
+          const verdict = checkTagEdit(snapshotRef.current.text, toText(box), source);
+          if (verdict.ok) {
+            holder.remove();
+            if (units !== null) {
+              placeCaret(box, event.key === "Delete" ? units : units - 1);
+            }
+            commit();
+            rememberRange();
+          } else {
+            holder.replaceWith(beside.chip);
+          }
+        }
+        return;
+      }
+    }
     onKeyDown?.(event);
   };
 
@@ -264,7 +524,15 @@ const TagEditor = ({
         onPaste={handlePaste}
         onKeyDown={handleKeyDown}
         onKeyUp={rememberRange}
+        onMouseDown={handleMouseDown}
         onMouseUp={rememberRange}
+        onCompositionStart={() => {
+          composingRef.current = true;
+        }}
+        onCompositionEnd={() => {
+          composingRef.current = false;
+          tidy();
+        }}
         onBeforeInput={(e) => {
           if (e.nativeEvent?.inputType?.startsWith("format")) e.preventDefault();
         }}
