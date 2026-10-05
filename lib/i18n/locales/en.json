@@ -81,12 +81,8 @@
     "invalidCredentials": "Incorrect email or password."
   },
   "profile": {
-    "title": "Profile",
+    "title": "Account",
     "subtitle": "Manage your account preferences and security.",
-    "accountSection": "Account",
-    "name": "Name",
-    "email": "Email",
-    "role": "Role",
     "languageSection": "Language",
     "languageHint": "Choose the language used across the interface.",
     "preferredLanguage": "Preferred language",
