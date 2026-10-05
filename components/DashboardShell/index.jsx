@@ -39,9 +39,9 @@ const getAutoCollapseKey = (pathname) => {
 };
 
 const getSelectedKey = (pathname) => {
-  // "profiles" must be matched before the "profile" (account) prefix.
+  // "/dashboard/account" is the user's own account page (MENU_KEYS.profile).
   if (pathname.startsWith("/dashboard/profiles")) return MENU_KEYS.profiles;
-  if (pathname.startsWith("/dashboard/profile")) return MENU_KEYS.profile;
+  if (pathname.startsWith("/dashboard/account")) return MENU_KEYS.profile;
   if (pathname.startsWith("/dashboard/users")) return MENU_KEYS.users;
   if (pathname.startsWith("/dashboard/workspaces")) return MENU_KEYS.workspaces;
   if (pathname.startsWith("/dashboard/queues")) return MENU_KEYS.queues;
@@ -111,7 +111,7 @@ const buildMenuItems = (role, t) => {
   items.push({
     key: MENU_KEYS.profile,
     icon: <IdCard size={15} />,
-    label: <Link href="/dashboard/profile">{t("account.profile")}</Link>,
+    label: <Link href="/dashboard/account">{t("account.profile")}</Link>,
   });
 
   return items;
