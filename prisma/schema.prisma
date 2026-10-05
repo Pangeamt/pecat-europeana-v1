@@ -240,6 +240,19 @@ model Tu {
   /// discard a suggestion). NOT updatedAt: the pipeline (QE scores, locks)
   /// touches that one too. Null until someone saves it.
   reviewedAt              DateTime?
+  /// The segment as the client's file had it at import (SDLXLIFF / XLIFF
+  /// only; null for other formats and for documents imported before
+  /// 2026-10-05). segmentNumber = its number in the CAT tool; fileConf = the
+  /// confirmation level (sdl:seg conf, or the XLIFF state); fileOrigin /
+  /// filePercent / fileTextMatch = where its target came from; fileLocked =
+  /// locked in the file; fileTarget = the file already carried a target.
+  segmentNumber           Int?
+  fileConf                String?
+  fileOrigin              String?
+  filePercent             Int?
+  fileTextMatch           String?
+  fileLocked              Boolean?
+  fileTarget              Boolean?
   sourceLanguage          String
   targetLanguage          String
   translationScorePercent Float?

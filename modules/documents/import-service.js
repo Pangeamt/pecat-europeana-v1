@@ -315,8 +315,8 @@ export async function handleSdlxliffImportJob({
     // SDLXLIFF / XLIFF: the tags must come back in the source's ORDER (the
     // export writes nothing else); other formats keep the set rule.
     orderedTags: true,
-    // .xlf/.xliff send NOTHING to DAAIT: the empty segments stay empty for a
-    // human (the extension is the file's own: filePath ends with its name).
+    // Only the EMPTY, unlocked segments go to DAAIT (.sdlxliff, .xlf and
+    // .xliff alike); what the file already translated is never re-translated.
     machineTranslate: translatesEmptiesOnImport(filePath.split(".").pop()),
   });
 
