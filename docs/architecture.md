@@ -28,7 +28,7 @@
 | Cola | Jobs | Concurrencia | Qué hace |
 |---|---|---|---|
 | `project-import` | `import-upload`, `import-sdlxliff`, `pipeline-review` | 2 | Extracción, traducción DAAIT y persistencia de TUs: el documento pasa a `READY` aquí (`pipeline-review` está retirado) |
-| `mtqe-v2` | `score-mtqe-v2` | 1 | QE v2 por segmento, único score (sin `MTQE_V2` no se puntúa) |
+| `mtqe-v2` | `score-mtqe-v2` | 1 | QE v2 en tandas de hasta 50 segmentos, único score (sin `MTQE_V2` no se puntúa) |
 
 ```
 import-upload / import-sdlxliff   [project-import]  → READY
@@ -38,6 +38,37 @@ import-upload / import-sdlxliff   [project-import]  → READY
 Todos los jobs: **3 intentos** con backoff exponencial desde 5 s. Solo la fase de import puede dejar un
 documento en error (`FILE_ERROR` / `MTQE_ERROR`); lo posterior degrada sin bloquear la revisión.
 Los usuarios `SUPER` tienen un monitor de colas en `/dashboard/queues`.
+
+### Contrato con MTQE v2 (`/score-segments`)
+
+Verificado 2026-10-05 contra `mtqe-v2-api` 2.6.5 · Fuente: `lib/mtqe-v2.js`, `tests/mtqe/mtqe-v2.test.mjs`.
+
+`MTQE_V2` es la URL del servicio (`http://<host>:8800/mtqe/v2`); PECAT-E llama siempre a su
+`POST /score-segments` con la cabecera `X-API-Key` (`MTQE_V2_API_KEY`).
+
+```json
+{
+  "segments": [{ "source": "...", "target": "..." }],
+  "source_language": "en-us",
+  "target_language": "es-es",
+  "ape": false,
+  "tm_id": ["<id de memoria>"],
+  "glossary_id": ["<id de glosario>"]
+}
+```
+
+- **De 1 a 50 segmentos por petición** (51 → `422`). Un documento se parte en tandas de 50, una detrás de otra.
+- **`ape` es obligatorio** (sin él → `422`); PECAT-E solo puntúa, así que va siempre a `false`.
+- `tm_id` / `glossary_id` son las memorias y glosarios del documento (ids de DAAIT); el servicio busca él
+  las referencias de cada segmento. Se omiten si el documento no tiene. Un id que no existe no rompe la llamada.
+- Respuesta: una entrada por segmento **en el mismo orden**, con `score` de 0 a 100 (se guarda de 0 a 1) o
+  `score: null` + `error` si ese segmento no se pudo puntuar. Sin clave → `401`.
+- **El servicio no tiene callback.** Lo asíncrono lo pone PECAT-E: el documento ya está en `READY`, el job
+  `score-mtqe-v2` guarda las notas de cada tanda en cuanto responde, y el editor abierto las recoge cada 5 s
+  mientras `pipelineStats.stage` es `SCORING`.
+- Las mismas llamadas (con un solo segmento) sirven para repuntuar al guardar un borrador y al aprobar.
+
+Prueba contra el servicio real: `MTQE_V2_LIVE=http://<host>:8800/mtqe/v2 MTQE_V2_LIVE_KEY=<clave> npm test`.
 
 ## Documentos
 
