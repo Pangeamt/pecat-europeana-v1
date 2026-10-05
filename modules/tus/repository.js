@@ -21,6 +21,8 @@ export async function findDocumentByTusShareToken(token) {
 export async function findTusByDocumentId(documentId) {
   return prisma.tu.findMany({
     where: { documentId, visible: true },
+    // Document order: the grid numbers and walks the segments by it.
+    orderBy: { count: "asc" },
   });
 }
 
