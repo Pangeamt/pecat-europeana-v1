@@ -11,7 +11,7 @@ Repo: [`Pangeamt/pecat-europeana-v1`](https://github.com/Pangeamt/pecat-european
 1. El usuario sube un documento (Office, PDF, SDLXLIFF…) dentro de un proyecto con un **perfil**.
 2. Se extrae y segmenta con **Okapi Tikal** (SRX propio; PDF → docx con LibreOffice).
 3. Se traduce con **DAAIT** (`/content/pecat`), aplicando las memorias y glosarios del perfil.
-4. El documento pasa a `READY` y, en segundo plano, se puntúa cada segmento con **MTQE v2**
+4. El documento pasa a `READY` y, en segundo plano, se puntúan los segmentos con **MTQE v2** en tandas de 50
    (único score; QE v1 está retirado). El editor ofrece además una evaluación en vivo
    (QE v2 + LLM `/content/post_edit`) del segmento que se está editando.
 5. El revisor humano edita segmento a segmento; el panel *Effort* estima el trabajo restante.
