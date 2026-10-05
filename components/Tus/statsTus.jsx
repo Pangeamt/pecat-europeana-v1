@@ -122,7 +122,7 @@ const EffortModal = ({ open, onClose, effort, requesting, totalSegments }) => {
               Translation effort
             </h2>
             <p className="mt-1 max-w-sm text-sm text-slate-300">
-              Word-weighted effort over the QE v2 score. Unscored segments
+              Word-weighted effort over the MTQE score. Unscored segments
               count as full effort.
             </p>
           </div>
