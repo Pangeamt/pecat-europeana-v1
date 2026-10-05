@@ -20,6 +20,43 @@ export { describeTagIssue, tagIssue };
 
 const TOKEN = /<\/?[gxbe]\d+\/?>/g;
 
+// ---- Caret anchors -------------------------------------------------------
+//
+// A tag is an atomic chip the caret cannot enter. Two chips side by side (or a
+// chip at the very start or end of the box) leave NO text position between
+// them, so the reviewer could neither click nor arrow there. The editor puts a
+// zero-width space at those spots: an invisible character the caret can sit
+// on. Anchors exist only in the editor's DOM; they are stripped from
+// everything that leaves it (state, save, file).
+export const CARET_ANCHOR = "​";
+
+/** `text` without the editor's caret anchors. */
+export function stripCaretAnchors(text) {
+  return String(text ?? "").split(CARET_ANCHOR).join("");
+}
+
+/**
+ * `text` as the pieces the editor renders, with an anchor wherever a tag has
+ * no text beside it: [{ type: "text", value } | { type: "tag", raw } |
+ * { type: "anchor" }]. Text with no tags gets no anchors.
+ */
+export function editorPieces(text) {
+  const value = stripCaretAnchors(text);
+  const pieces = [];
+  let cursor = 0;
+  for (const match of value.matchAll(new RegExp(TOKEN.source, "g"))) {
+    const before = value.slice(cursor, match.index);
+    if (before) pieces.push({ type: "text", value: before });
+    else pieces.push({ type: "anchor" }); // start of the box, or tag after tag
+    pieces.push({ type: "tag", raw: match[0] });
+    cursor = match.index + match[0].length;
+  }
+  const rest = value.slice(cursor);
+  if (rest) pieces.push({ type: "text", value: rest });
+  else if (pieces.length) pieces.push({ type: "anchor" }); // tag at the end
+  return pieces;
+}
+
 /** Tag tokens of a text, in order: ["<g1>", "</g1>", "<x2/>"]. */
 export function tagList(text) {
   return String(text ?? "").match(new RegExp(TOKEN.source, "g")) ?? [];

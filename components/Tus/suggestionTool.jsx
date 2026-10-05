@@ -31,7 +31,7 @@ const SuggestionTool = ({
   if (live?.loading) {
     return (
       <div className="flex items-center gap-2 p-2 text-slate-500">
-        <Spin size="small" /> Evaluating draft (QE v2 + LLM)...
+        <Spin size="small" /> Evaluating draft (MTQE + LLM)...
       </div>
     );
   }
@@ -47,7 +47,7 @@ const SuggestionTool = ({
                 live.score >= 0.85 ? "green" : live.score >= 0.65 ? "gold" : "red"
               }
             >
-              QE v2 {live.score.toFixed(2)}
+              MTQE {live.score.toFixed(2)}
             </Tag>
           ) : null}
           {live.verdict === "OK" ? <Tag color="green">LLM: OK</Tag> : null}

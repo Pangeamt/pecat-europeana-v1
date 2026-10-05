@@ -17,7 +17,7 @@ import {
   Tooltip,
 } from "antd";
 import axios from "axios";
-import { Ban, ChevronDown, ChevronRight, CircleCheck, CircleX, Filter, Hourglass, LockIcon, Pencil, Save, Search, UnlockIcon } from "lucide-react";
+import { Ban, ChevronDown, ChevronRight, CircleCheck, CircleX, Filter, Hourglass, LoaderCircle, LockIcon, Pencil, Save, Search, UnlockIcon } from "lucide-react";
 import { useParams } from "next/navigation";
 
 import React, {
@@ -77,6 +77,70 @@ const qeBandColor = (score) =>
       : score >= 0.65
         ? "gold"
         : "red";
+
+// Column filters and sorters as plain functions: the table uses them, and so
+// does the "visible list" (navigation and the filter-bar counters), which
+// must show exactly the rows the table shows.
+const matchesStatusFilter = (value, record) =>
+  // NOT_REVIEWED and TRANSLATED_MT both render as "not reviewed".
+  value === "NOT_REVIEWED"
+    ? record.Status === "NOT_REVIEWED" || record.Status === "TRANSLATED_MT"
+    : record.Status === value;
+
+const matchesTextFilter = (dataIndex, value, record) => {
+  const fieldValue =
+    dataIndex === "reviewLiteral"
+      ? record.reviewLiteral || record.translatedLiteral
+      : record[dataIndex];
+  if (!fieldValue) return false;
+  // Tags are chips, not text: "Hello world" must match "Hello <g1>world</g1>".
+  return stripInlineTags(fieldValue.toString())
+    .toLowerCase()
+    .includes(value.toString().toLowerCase());
+};
+
+const COLUMN_FILTERS = {
+  status: matchesStatusFilter,
+  srcLiteral: (value, record) => matchesTextFilter("srcLiteral", value, record),
+  reviewLiteral: (value, record) =>
+    matchesTextFilter("reviewLiteral", value, record),
+};
+
+const COLUMN_SORTERS = {
+  block: (a, b) => Number(Boolean(a.block)) - Number(Boolean(b.block)),
+  mtqeV2Score: (a, b) => (a.mtqeV2Score ?? -1) - (b.mtqeV2Score ?? -1),
+};
+
+const isConfirmed = (doc) =>
+  doc?.Status === "ACCEPTED" || doc?.Status === "EDITED";
+
+// Whether the caret sits on the first ("up") or last ("down") visual line of
+// the editor: only then do the plain arrow keys leave the segment.
+const caretOnEdgeLine = (container, direction) => {
+  try {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || !selection.isCollapsed) {
+      return false;
+    }
+    const all = document.createRange();
+    all.selectNodeContents(container);
+    const lines = [...all.getClientRects()].filter((rect) => rect.height > 0);
+    if (lines.length === 0) return true;
+    const caret =
+      selection.getRangeAt(0).getClientRects()[0] ??
+      (selection.anchorNode?.nodeType === 1
+        ? selection.anchorNode
+        : selection.anchorNode?.parentElement
+      )?.getBoundingClientRect();
+    if (!caret) return true;
+    const half = (caret.height || 16) / 2;
+    return direction === "down"
+      ? caret.bottom >= Math.max(...lines.map((rect) => rect.bottom)) - half
+      : caret.top <= Math.min(...lines.map((rect) => rect.top)) + half;
+  } catch {
+    return false;
+  }
+};
 
 const EMPTY_STATS = {
   notReviewed: 0,
@@ -175,13 +239,28 @@ const TusList = ({ shareToken } = {}) => {
 
   const [pageSize, setPageSize] = useState(20);
   const [page, setPage] = useState(1);
-  // Visual order of the table. AntD's Table applies sorting/filtering
-  // internally at render time, so `data` keeps the fetch order — but
-  // previous/next navigation must follow what the reviewer actually sees.
-  // Snapshotted (as ids) from `extra.currentDataSource` on every table
-  // change event and re-mapped against `data`, so row updates via
-  // setData(prev => ...) are never read from a stale copy.
-  const [viewOrderIds, setViewOrderIds] = useState(null);
+  // Column filters and sort the table currently applies (from its onChange).
+  // AntD applies them internally at render time, so they are replayed over
+  // `data` (see orderedData) for navigation and the counters to follow what
+  // the reviewer actually sees.
+  const [tableView, setTableView] = useState({ filters: {}, sorter: null });
+  // Segments with a request in flight: { [tuId]: "status" | "lock" }. Only
+  // that row shows a spinner and turns read-only; every other row stays
+  // editable. Mirrored in a ref so a second Ctrl+Enter is ignored at once.
+  const [pending, setPending] = useState({});
+  const pendingRef = useRef({});
+  const beginPending = (tuId, kind) => {
+    if (pendingRef.current[tuId]) return false;
+    pendingRef.current = { ...pendingRef.current, [tuId]: kind };
+    setPending(pendingRef.current);
+    return true;
+  };
+  const endPending = (tuId) => {
+    const next = { ...pendingRef.current };
+    delete next[tuId];
+    pendingRef.current = next;
+    setPending(next);
+  };
   const [xmlRequesting, setXmlRequesting] = useState(null);
   const pendingScrollIndexRef = useRef(null);
 
@@ -209,7 +288,6 @@ const TusList = ({ shareToken } = {}) => {
           : await getTus(projectId);
         const docs = response.data.docs || [];
         setData(docs);
-        setViewOrderIds(null);
         setSelectedRow((prev) => prev || docs[0] || null);
         setRequesting(false);
       } catch (error) {
@@ -218,7 +296,6 @@ const TusList = ({ shareToken } = {}) => {
           error?.response?.data?.error?.message || "Project is not ready yet",
         );
         setData([]);
-        setViewOrderIds(null);
         setSelectedRow(null);
         setRequesting(false);
       }
@@ -430,10 +507,33 @@ const TusList = ({ shareToken } = {}) => {
     () => computeEffort(data, effortOptions),
     [data, effortOptions],
   );
+
+  // Rows in the order the table displays them: the MTQE score filter first,
+  // then the table's own column filters (status, source/target search) and
+  // sort. This is the working list for navigation and for the counters.
+  const orderedData = useMemo(() => {
+    let rows = tableData;
+    for (const [key, values] of Object.entries(tableView.filters ?? {})) {
+      const match = COLUMN_FILTERS[key];
+      if (!match || !values?.length) continue;
+      rows = rows.filter((record) =>
+        values.some((value) => match(value, record)),
+      );
+    }
+    const compare = tableView.sorter && COLUMN_SORTERS[tableView.sorter.key];
+    if (compare) {
+      const direction = tableView.sorter.order === "descend" ? -1 : 1;
+      rows = [...rows].sort((a, b) => direction * compare(a, b));
+    }
+    return rows;
+  }, [tableData, tableView]);
+  // Any filter (score, status or text search) that leaves rows out.
+  const listFiltered = orderedData.length !== data.length;
+
   const filteredEffort = useMemo(
     () =>
-      scoreFilterActive ? computeEffort(tableData, effortOptions) : documentEffort,
-    [scoreFilterActive, tableData, effortOptions, documentEffort],
+      listFiltered ? computeEffort(orderedData, effortOptions) : documentEffort,
+    [listFiltered, orderedData, effortOptions, documentEffort],
   );
   const totalWords = documentEffort.totalWords;
   const filteredWords = filteredEffort.totalWords;
@@ -460,16 +560,6 @@ const TusList = ({ shareToken } = {}) => {
   ) {
     setSelectedRow(tableData[0]);
   }
-
-  // Rows in the order the table displays them (fetch order until the user
-  // sorts or filters; the QE score filter applies first). Ids missing from
-  // the filtered list are dropped; an empty snapshot falls back to it.
-  const orderedData = useMemo(() => {
-    if (!viewOrderIds) return tableData;
-    const byId = new Map(tableData.map((doc) => [doc.id, doc]));
-    const ordered = viewOrderIds.map((id) => byId.get(id)).filter(Boolean);
-    return ordered.length ? ordered : tableData;
-  }, [tableData, viewOrderIds]);
 
   // All TM matches DAAIT returned for the segment, unfiltered.
   const tmInfo = useMemo(
@@ -552,17 +642,7 @@ const TusList = ({ shareToken } = {}) => {
     filterIcon: (filtered) => (
       <Search size={15} style={{ color: filtered ? "#1677ff" : undefined }} />
     ),
-    onFilter: (value, record) => {
-      const fieldValue =
-        dataIndex === "reviewLiteral"
-          ? record.reviewLiteral || record.translatedLiteral
-          : record[dataIndex];
-      if (!fieldValue) return false;
-      // Tags are chips, not text: "Hello world" must match "Hello <g1>world</g1>".
-      return stripInlineTags(fieldValue.toString())
-        .toLowerCase()
-        .includes(value.toString().toLowerCase());
-    },
+    onFilter: (value, record) => matchesTextFilter(dataIndex, value, record),
     filterDropdownProps: {
       onOpenChange: (visible) => {
         if (visible) {
@@ -603,19 +683,22 @@ const TusList = ({ shareToken } = {}) => {
       dataIndex: "index",
       key: "index",
       width: 50,
-      render: (_, __, index) => {
-        if (selectedRow && selectedRow.id === __.id) {
+      render: (_, record, index) => {
+        // The segment's own number (its order in the document), so it stays
+        // the same whatever filter or sort is applied. Rows without it fall
+        // back to their position in the view.
+        const number =
+          typeof record.count === "number"
+            ? record.count + 1
+            : (page - 1) * pageSize + index + 1;
+        if (selectedRow && selectedRow.id === record.id) {
           return (
             <div className="absolute top-2 left-2">
-              <Tag color="#D97706">{(page - 1) * pageSize + index + 1}</Tag>
+              <Tag color="#D97706">{number}</Tag>
             </div>
           );
         }
-        return (
-          <code className="absolute top-2 left-4">
-            {(page - 1) * pageSize + index + 1}
-          </code>
-        );
+        return <code className="absolute top-2 left-4">{number}</code>;
       },
     },
     {
@@ -651,7 +734,8 @@ const TusList = ({ shareToken } = {}) => {
       render: (text, record) => {
         const aux = drafts[record.id] ?? (text || record.translatedLiteral || "");
 
-        if (record.block) {
+        // Locked, or with a save in flight: read-only until it answers.
+        if (record.block || pending[record.id]) {
           const reviewLiteral = getColumnSearchProps("reviewLiteral");
           return (
             <div
@@ -715,7 +799,7 @@ const TusList = ({ shareToken } = {}) => {
                 if (e.key === "Enter" && e.ctrlKey && !e.shiftKey) {
                   e.preventDefault();
                   e.stopPropagation();
-                  save(selectedRow.reviewLiteral);
+                  save(selectedRow.reviewLiteral, { advance: true });
                 }
                 if (e.key === "Enter" && e.ctrlKey && e.shiftKey) {
                   e.preventDefault();
@@ -731,6 +815,25 @@ const TusList = ({ shareToken } = {}) => {
                   e.preventDefault();
                   e.stopPropagation();
                   navigate(-1);
+                }
+                // Plain Down on the last line / Up on the first one move to
+                // the next / previous segment of the list, as in a CAT grid.
+                if (
+                  (e.key === "ArrowDown" || e.key === "ArrowUp") &&
+                  !e.ctrlKey &&
+                  !e.shiftKey &&
+                  !e.altKey &&
+                  !e.metaKey
+                ) {
+                  const direction = e.key === "ArrowDown" ? "down" : "up";
+                  const box =
+                    e.currentTarget.querySelector?.(".ql-editor") ||
+                    e.currentTarget;
+                  if (caretOnEdgeLine(box, direction)) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    navigate(direction === "down" ? 1 : -1);
+                  }
                 }
                 if ((e.key === "s" || e.key === "S") && e.ctrlKey && !e.shiftKey) {
                   e.preventDefault();
@@ -758,8 +861,14 @@ const TusList = ({ shareToken } = {}) => {
       width: 80,
       dataIndex: "block",
       key: "block",
-      sorter: (a, b) => Number(Boolean(a.block)) - Number(Boolean(b.block)),
+      sorter: COLUMN_SORTERS.block,
       render: (value, record) => {
+        // Lock/unlock in flight: the spinner replaces the padlock of this row.
+        if (pending[record.id] === "lock") {
+          return (
+            <LoaderCircle size={16} className="animate-spin text-gray-400" />
+          );
+        }
         const reason = value
           ? {
               TM_MATCH: "TM exact match",
@@ -788,6 +897,7 @@ const TusList = ({ shareToken } = {}) => {
               type="text"
               size="small"
               icon={icon}
+              disabled={Boolean(pending[record.id])}
               onClick={(event) => {
                 event.stopPropagation();
                 toggleLock(record);
@@ -798,14 +908,14 @@ const TusList = ({ shareToken } = {}) => {
       },
     },
     // MTQE bands (modules/documents/pipeline-constants.js): >=0.85 reliable,
-    // >=0.65 doubtful, below priority. QE v2 is the only score (0-1); it is
+    // >=0.65 doubtful, below priority. MTQE v2 is the only score (0-1); it is
     // re-scored when a segment is confirmed.
     {
-      title: "QE v2",
+      title: "MTQE",
       width: 84,
       dataIndex: "mtqeV2Score",
       key: "mtqeV2Score",
-      sorter: (a, b) => (a.mtqeV2Score ?? -1) - (b.mtqeV2Score ?? -1),
+      sorter: COLUMN_SORTERS.mtqeV2Score,
       render: (value) => {
         const score = typeof value === "number" ? value : null;
         return (
@@ -840,14 +950,17 @@ const TusList = ({ shareToken } = {}) => {
           value: "NOT_REVIEWED",
         },
       ],
-      // NOT_REVIEWED and TRANSLATED_MT both render as "not reviewed"
-      // (hourglass), so the filter must match either.
-      onFilter: (value, record) =>
-        value === "NOT_REVIEWED"
-          ? record.Status === "NOT_REVIEWED" ||
-            record.Status === "TRANSLATED_MT"
-          : record.Status === value,
+      onFilter: matchesStatusFilter,
       render: (text, record) => {
+        // Confirm / reject / save in flight: the spinner replaces the status
+        // icon of this row only.
+        if (pending[record.id] === "status") {
+          return (
+            <div className="absolute top-2 left-2">
+              <LoaderCircle size={18} className="animate-spin text-gray-400" />
+            </div>
+          );
+        }
         let cpm = (
           <Hourglass size={18}
             color="#D97706"
@@ -888,7 +1001,7 @@ const TusList = ({ shareToken } = {}) => {
       key: "action",
       width: 100,
       render: (record) => {
-        if (record.block) return null;
+        if (record.block || pending[record.id]) return null;
         if (selectedRow && selectedRow.id !== record.id) return null;
         return (
           <div className="absolute top-2 left-2">
@@ -914,7 +1027,7 @@ const TusList = ({ shareToken } = {}) => {
                   <Button
                     className="ml-2"
                     onClick={() => {
-                      save(null);
+                      save(null, { advance: true });
                     }}
                     variant="text"
                     color="green"
@@ -999,6 +1112,7 @@ const TusList = ({ shareToken } = {}) => {
   };
 
   const toggleLock = async (record) => {
+    if (!beginPending(record.id, "lock")) return;
     try {
       await confirm({
         tuId: record.id,
@@ -1007,7 +1121,19 @@ const TusList = ({ shareToken } = {}) => {
     } catch (error) {
       console.error(error);
       messageApi.error("Could not update the segment lock");
+    } finally {
+      endPending(record.id);
     }
+  };
+
+  // Server reason of a failed request, when it sent one.
+  const failureReason = (error) => {
+    const body = error?.response?.data;
+    return (
+      body?.message ||
+      body?.error?.message ||
+      (typeof body?.error === "string" ? body.error : null)
+    );
   };
 
   // Selecting a row restores its unsaved text, if any (the grid record only
@@ -1034,9 +1160,9 @@ const TusList = ({ shareToken } = {}) => {
     setPage(targetPage);
   };
 
-  // Manual navigation only (Ctrl+Shift+Down / Up): confirming, rejecting or
-  // saving NEVER moves the selection. Locked segments are skipped in both
-  // directions; no wrap-around.
+  // Manual navigation (Ctrl+Shift+Down / Up, or plain Down / Up on the edge
+  // line of the editor). Locked segments are skipped in both directions; no
+  // wrap-around.
   const navigate = (step) => {
     if (!selectedRow) return;
     const currentIndex = orderedData.findIndex(
@@ -1055,7 +1181,29 @@ const TusList = ({ shareToken } = {}) => {
     if (index >= 0 && index < orderedData.length) goToRowIndex(index);
   };
 
-  const save = async (str) => {
+  // After a confirm (as in Trados' Ctrl+Enter): the next segment of the
+  // visible list that is neither locked nor already confirmed. Stays put when
+  // there is none.
+  const goToNextUnconfirmed = (fromId) => {
+    const currentIndex = orderedData.findIndex((doc) => doc.id === fromId);
+    if (currentIndex < 0) return;
+    for (let index = currentIndex + 1; index < orderedData.length; index += 1) {
+      const doc = orderedData[index];
+      if (isSegmentBlocked(doc) || isConfirmed(doc)) continue;
+      if (pendingRef.current[doc.id]) continue;
+      goToRowIndex(index);
+      return;
+    }
+  };
+
+  // A failed request brings the reviewer back to its segment (the text typed
+  // there is still in the editor as an unsaved draft).
+  const returnToSegment = (tuId) => {
+    const index = orderedData.findIndex((doc) => doc.id === tuId);
+    if (index >= 0) goToRowIndex(index);
+  };
+
+  const save = async (str, { advance = false } = {}) => {
     if (!selectedRow) return;
     if (editingLocked) {
       messageApi.warning("Editing is closed: this work was submitted.");
@@ -1070,11 +1218,11 @@ const TusList = ({ shareToken } = {}) => {
     const reviewLiteral =
       str ?? currentRow.reviewLiteral ?? currentRow.translatedLiteral ?? "";
 
-    messageApi.open({
-      key: "loading",
-      type: "loading",
-      content: "saving...",
-    });
+    // Only this row waits (spinner in its status cell); a second Ctrl+Enter
+    // on it is ignored. The reviewer moves on to the next unconfirmed
+    // segment while the request is in flight.
+    if (!beginPending(currentRow.id, "status")) return;
+    if (advance) goToNextUnconfirmed(currentRow.id);
 
     try {
       if (!isSegmentBlocked(currentRow)) {
@@ -1109,20 +1257,13 @@ const TusList = ({ shareToken } = {}) => {
         }
       }
 
-      messageApi.open({
-        key: "loading",
-        type: "success",
-        content: "Confirmed!",
-        duration: 2,
-      });
     } catch (error) {
-      const data = error?.response?.data;
-      const reason =
-        data?.message ||
-        data?.error?.message ||
-        (typeof data?.error === "string" ? data.error : null);
+      const reason = failureReason(error);
       messageApi.error(reason ? `Not saved: ${reason}` : "Error saving TU");
       console.error(error);
+      returnToSegment(currentRow.id);
+    } finally {
+      endPending(currentRow.id);
     }
   };
 
@@ -1131,24 +1272,29 @@ const TusList = ({ shareToken } = {}) => {
       messageApi.warning("Editing is closed: this work was submitted.");
       return;
     }
-    messageApi.open({
-      key: "loading",
-      type: "loading",
-      content: "Rejecting...",
-    });
-
-    await confirm({
-      tuId: selectedRow.id,
-      reviewLiteral: null,
-      action: "reject",
-    });
-    clearDraft(selectedRow.id);
-    messageApi.open({
-      key: "loading",
-      type: "success",
-      content: "Rejected!",
-      duration: 2,
-    });
+    const currentRow = selectedRow;
+    if (!currentRow) return;
+    if (isSegmentBlocked(currentRow)) {
+      messageApi.info("This segment is locked");
+      return;
+    }
+    if (!beginPending(currentRow.id, "status")) return;
+    try {
+      await confirm({
+        tuId: currentRow.id,
+        reviewLiteral: null,
+        action: "reject",
+      });
+      clearDraft(currentRow.id);
+    } catch (error) {
+      const reason = failureReason(error);
+      messageApi.error(
+        reason ? `Not rejected: ${reason}` : "Error rejecting TU",
+      );
+      console.error(error);
+    } finally {
+      endPending(currentRow.id);
+    }
   };
 
   // Whitespace/entity-insensitive comparison: Quill and TagEditor normalize
@@ -1283,6 +1429,8 @@ const TusList = ({ shareToken } = {}) => {
     let firstReason = null;
     for (const id of ids) {
       const sent = draftsRef.current[id];
+      // Being confirmed right now: that request already carries its text.
+      if (sent == null || !beginPending(id, "status")) continue;
       try {
         await confirm({ tuId: id, reviewLiteral: sent, action: "save_draft" });
         if (draftsRef.current[id] === sent) {
@@ -1296,12 +1444,10 @@ const TusList = ({ shareToken } = {}) => {
         }
       } catch (error) {
         failed += 1;
-        const body = error?.response?.data;
-        firstReason ??=
-          body?.message ||
-          body?.error?.message ||
-          (typeof body?.error === "string" ? body.error : null);
+        firstReason ??= failureReason(error);
         console.error(error);
+      } finally {
+        endPending(id);
       }
     }
     setSavingDrafts(false);
@@ -1310,8 +1456,6 @@ const TusList = ({ shareToken } = {}) => {
       messageApi.error(
         firstReason ? `Not saved: ${firstReason}` : `${failed} segment(s) not saved`,
       );
-    } else {
-      messageApi.success(ids.length === 1 ? "Saved" : `${ids.length} segments saved`);
     }
   };
 
@@ -1369,7 +1513,7 @@ const TusList = ({ shareToken } = {}) => {
   };
 
   useHotkeys("ctrl+enter", async () => {
-    save(null);
+    save(null, { advance: true });
   });
   useHotkeys("ctrl+shift+enter", () => {
     reject();
@@ -1565,13 +1709,13 @@ const TusList = ({ shareToken } = {}) => {
         </Modal>
         <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
           <span className="flex items-center gap-1 text-xs font-medium text-slate-500">
-            <Filter size={14} /> QE filter
+            <Filter size={14} /> MTQE filter
           </span>
 
           {/* QE v2 rule */}
           <div className="flex items-center gap-1">
             <Tag bordered={false} className="m-0">
-              QE v2
+              MTQE
             </Tag>
             <Select
               size="small"
@@ -1653,27 +1797,27 @@ const TusList = ({ shareToken } = {}) => {
                 {draftCount > 1 ? `Save (${draftCount})` : "Save"}
               </Button>
             </Tooltip>
-            <Tag bordered={false} color={scoreFilterActive ? "blue" : "default"} className="m-0">
+            <Tag bordered={false} color={listFiltered ? "blue" : "default"} className="m-0">
               Segments{" "}
               <span className="font-bold tabular-nums">
-                {scoreFilterActive
-                  ? `${tableData.length}/${data.length}`
+                {listFiltered
+                  ? `${orderedData.length}/${data.length}`
                   : data.length}
               </span>
             </Tag>
-            <Tag bordered={false} color={scoreFilterActive ? "blue" : "default"} className="m-0">
+            <Tag bordered={false} color={listFiltered ? "blue" : "default"} className="m-0">
               Words{" "}
               <span className="font-bold tabular-nums">
-                {scoreFilterActive
+                {listFiltered
                   ? `${filteredWords.toLocaleString()}/${totalWords.toLocaleString()}`
                   : totalWords.toLocaleString()}
               </span>
             </Tag>
             <Tooltip title="Word-weighted effort of the visible list (see the Effort panel)">
-              <Tag bordered={false} color={scoreFilterActive ? "blue" : "default"} className="m-0">
+              <Tag bordered={false} color={listFiltered ? "blue" : "default"} className="m-0">
                 Weighted{" "}
                 <span className="font-bold tabular-nums">
-                  {scoreFilterActive
+                  {listFiltered
                     ? `${filteredEffort.weightedWords.toLocaleString()}/${documentEffort.weightedWords.toLocaleString()}`
                     : documentEffort.weightedWords.toLocaleString()}
                 </span>
@@ -1690,10 +1834,16 @@ const TusList = ({ shareToken } = {}) => {
           }}
           size="small"
           ref={tblRef}
-          onChange={(_pagination, _filters, _sorter, extra) => {
-            // Fires on every sort/filter/paginate: snapshot the visual order
-            // so previous/next navigation follows the table as displayed.
-            setViewOrderIds(extra.currentDataSource.map((doc) => doc.id));
+          onChange={(_pagination, filters, sorter) => {
+            // Fires on every sort/filter/paginate: keep the filters and sort
+            // the table applies, so navigation and the counters follow it.
+            const active = Array.isArray(sorter) ? sorter[0] : sorter;
+            setTableView({
+              filters: filters ?? {},
+              sorter: active?.order
+                ? { key: active.columnKey, order: active.order }
+                : null,
+            });
           }}
           onRow={(record) => {
             return {
