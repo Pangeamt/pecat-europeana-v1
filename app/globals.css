@@ -139,6 +139,42 @@
     background-color: #f6ffed;
 }
 
+/* The active segment of the editor: always findable at a glance (brand-green
+   edge and a soft tint), whatever its review status. Unsaved text keeps its
+   amber edge. */
+#tus-list .ant-table-row.selected-row {
+    background-color: #f4f9e6;
+}
+
+#tus-list .ant-table-row.selected-row > td:first-child {
+    box-shadow: inset 4px 0 0 #98c441;
+}
+
+#tus-list .ant-table-row.selected-row.unsaved > td:first-child {
+    box-shadow: inset 4px 0 0 #faad14;
+}
+
+/* Arrival after a long jump (page change, many locked segments skipped): the
+   row lights up once so the eye finds it; no scrolling animation there. */
+@keyframes tus-nav-arrived {
+    from {
+        background-color: #dcecab;
+    }
+    to {
+        background-color: #f4f9e6;
+    }
+}
+
+#tus-list .ant-table-row.nav-arrived {
+    animation: tus-nav-arrived 0.7s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #tus-list .ant-table-row.nav-arrived {
+        animation: none;
+    }
+}
+
 .ant-table-row.blocked {
     background-color: #f8fafc;
     box-shadow: inset 3px 0 0 #64748b;
