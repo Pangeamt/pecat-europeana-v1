@@ -860,6 +860,60 @@ const TusList = ({ shareToken } = {}) => {
       },
     },
     {
+      title: "Status",
+      dataIndex: "Status",
+      key: "status",
+      width: 100,
+      filters: [
+        {
+          text: "REJECTED",
+          value: "REJECTED",
+        },
+        {
+          text: "ACCEPTED",
+          value: "ACCEPTED",
+        },
+        {
+          text: "EDITED",
+          value: "EDITED",
+        },
+        {
+          text: "NOT_REVIEWED",
+          value: "NOT_REVIEWED",
+        },
+      ],
+      onFilter: matchesStatusFilter,
+      render: (text, record) => {
+        // Confirm / reject / save in flight: the spinner replaces the status
+        // icon of this row only.
+        if (pending[record.id] === "status") {
+          return (
+            <div className="absolute top-2 left-2">
+              <LoaderCircle size={18} className="animate-spin text-gray-400" />
+            </div>
+          );
+        }
+        // Display only, read as in a CAT tool: confirmation level + origin
+        // of the target (see SegmentStatusIcon). Locked segments show the
+        // level the client's file gave them.
+        const hasDraft = drafts[record.id] != null;
+        const by = record.reviewedAt ? record.reviewedByName : null;
+        const tooltip = `${segmentStatusLabel(record, { hasDraft })}${
+          by ? ` — ${by}` : ""
+        }`;
+        return (
+          <div className="absolute top-2 left-2">
+            {/* Hover: the status in words and the segment's edit history. */}
+            <SegmentHistory tu={record} shareToken={shareToken} title={tooltip}>
+              <span>
+                <SegmentStatusIcon tu={record} hasDraft={hasDraft} />
+              </span>
+            </SegmentHistory>
+          </div>
+        );
+      },
+    },
+    {
       title: <LockIcon size={16} className="text-gray-800" />,
       width: 80,
       dataIndex: "block",
@@ -927,60 +981,6 @@ const TusList = ({ shareToken } = {}) => {
               {score !== null ? score.toFixed(2) : "—"}
             </Tag>
           </Tooltip>
-        );
-      },
-    },
-    {
-      title: "Status",
-      dataIndex: "Status",
-      key: "status",
-      width: 100,
-      filters: [
-        {
-          text: "REJECTED",
-          value: "REJECTED",
-        },
-        {
-          text: "ACCEPTED",
-          value: "ACCEPTED",
-        },
-        {
-          text: "EDITED",
-          value: "EDITED",
-        },
-        {
-          text: "NOT_REVIEWED",
-          value: "NOT_REVIEWED",
-        },
-      ],
-      onFilter: matchesStatusFilter,
-      render: (text, record) => {
-        // Confirm / reject / save in flight: the spinner replaces the status
-        // icon of this row only.
-        if (pending[record.id] === "status") {
-          return (
-            <div className="absolute top-2 left-2">
-              <LoaderCircle size={18} className="animate-spin text-gray-400" />
-            </div>
-          );
-        }
-        // Display only, read as in a CAT tool: confirmation level + origin
-        // of the target (see SegmentStatusIcon). Locked segments show the
-        // level the client's file gave them.
-        const hasDraft = drafts[record.id] != null;
-        const by = record.reviewedAt ? record.reviewedByName : null;
-        const tooltip = `${segmentStatusLabel(record, { hasDraft })}${
-          by ? ` — ${by}` : ""
-        }`;
-        return (
-          <div className="absolute top-2 left-2">
-            {/* Hover: the status in words and the segment's edit history. */}
-            <SegmentHistory tu={record} shareToken={shareToken} title={tooltip}>
-              <span>
-                <SegmentStatusIcon tu={record} hasDraft={hasDraft} />
-              </span>
-            </SegmentHistory>
-          </div>
         );
       },
     },
