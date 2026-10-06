@@ -39,6 +39,13 @@ export const updateTuSchema = Joi.object({
     }).required(),
     otherwise: Joi.forbidden(),
   }),
+  // With "restore": whether the reviewer was undoing or redoing. It is what
+  // the segment's history records ("Undone" / "Redone").
+  direction: Joi.when("action", {
+    is: "restore",
+    then: Joi.string().valid("undo", "redo").default("undo"),
+    otherwise: Joi.forbidden(),
+  }),
   block: Joi.boolean().optional(),
   levenshteinDistance: Joi.number().optional(),
 });

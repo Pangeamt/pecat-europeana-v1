@@ -419,6 +419,26 @@
       "page": "Página {page} de {total}",
       "noneLeft": "No quedan segmentos sin confirmar en este filtro"
     },
+    "history": {
+      "empty": "Sin ediciones registradas en este segmento",
+      "loadError": "No se pudo cargar el historial",
+      "showMore": "Ver más ({count})",
+      "showLess": "Ver menos",
+      "propagated": "(mismo origen que otro segmento)",
+      "unknown": "Desconocido",
+      "action": {
+        "save_draft": "Borrador guardado",
+        "approve": "Confirmado",
+        "reject": "Rechazado",
+        "lock": "Bloqueado",
+        "unlock": "Desbloqueado",
+        "apply_suggestion": "Sugerencia aplicada",
+        "discard_suggestion": "Sugerencia descartada",
+        "restore": "Deshecho",
+        "undo": "Deshecho",
+        "redo": "Rehecho"
+      }
+    },
     "undo": {
       "undo": "Deshacer",
       "redo": "Rehacer",
