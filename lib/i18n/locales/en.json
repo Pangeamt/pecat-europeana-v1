@@ -419,6 +419,13 @@
       "page": "Page {page} of {total}",
       "noneLeft": "No unconfirmed segments left in this filter"
     },
+    "state": {
+      "LOCKED": "Locked",
+      "PENDING": "Not reviewed",
+      "CONFIRMED": "Confirmed",
+      "EDITED": "Confirmed with changes",
+      "REJECTED": "Rejected"
+    },
     "history": {
       "empty": "No edits recorded for this segment",
       "loadError": "Could not load the history",

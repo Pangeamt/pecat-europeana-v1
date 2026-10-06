@@ -55,8 +55,8 @@ test("escritor: rellena <target/>, crea el que falta con su sangria y pone el es
   const { text, report } = writeSdlxliff(raw, [tu("1", "Ouvrir"), tu("2", "Fermer")]);
   assert.equal(report.written, 2);
   assert.equal(report.targetCreated, 1);
-  assert.match(text, /<target state="needs-review-translation">Ouvrir<\/target>/);
-  assert.match(text, /<source>Close<\/source>\n {8}<target state="needs-review-translation">Fermer<\/target>/);
+  assert.match(text, /<target state="needs-translation">Ouvrir<\/target>/);
+  assert.match(text, /<source>Close<\/source>\n {8}<target state="needs-translation">Fermer<\/target>/);
   assert.equal(wellFormed(text), true);
   // Fuera de los targets, el fichero es el mismo byte a byte.
   assert.equal(
@@ -79,7 +79,7 @@ test("escritor: la traduccion del cliente no se pisa; revisada solo cambia su es
   assert.equal(report.unchanged, 2, "el texto no cambio en ninguno de los dos");
   assert.equal(report.confirmed, 1);
   assert.match(text, /<target state="translated">Enregistrer<\/target>/, "intacta");
-  assert.match(text, /<target state="signed-off">Ouvrir<\/target>/, "solo cambia el estado");
+  assert.match(text, /<target state="translated">Ouvrir<\/target>/, "confirmada sin cambios: sigue translated");
 });
 
 test("escritor: bloqueados (signed-off) no se tocan", () => {
@@ -102,7 +102,7 @@ test("escritor: etiquetas Okapi (bpt/ept/ph) y <g> se copian del origen; otro or
 
   const ok = writeSdlxliff(raw, [tu("1", "Appuyez sur <g1>Start</g1> et <x2/> maintenant"), tu("2", "Utilisez <b3/>5 V<e3/> maintenant")]);
   assert.equal(ok.report.written, 2);
-  assert.match(ok.text, /<target state="needs-review-translation">Appuyez sur <g id="1">Start<\/g> et <ph id="2">&lt;xref id="9"\/&gt;<\/ph> maintenant<\/target>/);
+  assert.match(ok.text, /<target state="needs-translation">Appuyez sur <g id="1">Start<\/g> et <ph id="2">&lt;xref id="9"\/&gt;<\/ph> maintenant<\/target>/);
   assert.match(ok.text, /<bpt id="3" ctype="x-unit">&lt;unit&gt;<\/bpt>5 V<ept id="3">&lt;\/unit&gt;<\/ept> maintenant<\/target>/);
   assert.equal(wellFormed(ok.text), true);
 
@@ -121,8 +121,8 @@ test("varios <file> con los mismos ids de trans-unit: cada uno recibe lo suyo", 
   const segs = readSdlxliffSegments(raw).segments;
   assert.deepEqual(segs.map((s) => s.transUnitId), ["0:1", "1:1"]);
   const { text } = writeSdlxliff(raw, [tu("0:1", "Premier"), tu("1:1", "Second")]);
-  assert.match(text, /First file<\/source><target state="needs-review-translation">Premier<\/target>/);
-  assert.match(text, /Second file<\/source><target state="needs-review-translation">Second<\/target>/);
+  assert.match(text, /First file<\/source><target state="needs-translation">Premier<\/target>/);
+  assert.match(text, /Second file<\/source><target state="needs-translation">Second<\/target>/);
   // Un solo <file>: la clave sigue siendo el id a secas (documentos ya importados).
   assert.equal(readSdlxliffSegments(wrap(`      <trans-unit id="7"><source>x</source></trans-unit>`)).segments[0].transUnitId, "7");
 });
@@ -133,7 +133,7 @@ test("UTF-8: CJK, acentos y entidades llegan sin tocar; CRLF y BOM se conservan"
     wrap(`      <trans-unit id="1"><source>Cover &amp; back</source><target/></trans-unit>`).replace(/\n/g, "\r\n");
   const { text } = writeSdlxliff(raw, [tu("1", "封面 & é ü — ½")]);
   assert.ok(text.startsWith("﻿"), "BOM");
-  assert.match(text, /<target state="needs-review-translation">封面 &amp; é ü — ½<\/target>/);
+  assert.match(text, /<target state="needs-translation">封面 &amp; é ü — ½<\/target>/);
   assert.equal(text.split("\r\n").length, raw.split("\r\n").length, "CRLF intacto");
   assert.equal(wellFormed(text.replace(/^﻿/, "")), true);
 });

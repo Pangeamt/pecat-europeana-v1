@@ -33,8 +33,22 @@ import { exportTarget, isApproved } from "../export-target.js";
 // Not copied from MFT: its two known gaps (overwriting client translations,
 // losing human edits of tagged segments) -- see the comparison doc.
 
+// What each segment says in the exported file, in Trados' own terms (the
+// grid's situations are another matter: lib/segment-status.js). A reviewer who
+// confirms a segment is the translator of that segment, so it leaves as
+// "Translated" -- never as a review-level approval nobody gave:
+//
+//   confirmed, text changed by the reviewer   Translated, origin interactive
+//   confirmed as DAAIT left it                Translated, origin mt (Trados "AT")
+//   confirmed as the client's file had it     Translated, its own origin kept
+//   rejected                                  RejectedTranslation
+//   exact memory match (auto-locked)          Translated, origin tm, 100
+//   DAAIT's, nobody confirmed it              Draft, origin mt
+//   untouched client target / locked          not written at all
 export const CONF = {
-  approved: { conf: "ApprovedTranslation", origin: "interactive" },
+  edited: { conf: "Translated", origin: "interactive" },
+  confirmedMt: { conf: "Translated", origin: "mt" },
+  confirmed: { conf: "Translated" },
   rejected: { conf: "RejectedTranslation", origin: "interactive" },
   tm: { conf: "Translated", origin: "tm", percent: "100" },
   mt: { conf: "Draft", origin: "mt" },
@@ -73,11 +87,18 @@ export function setAttributes(tag, attrs) {
 }
 
 // XLIFF 1.2 target states for plain files (the counterpart of CONF above).
+// The pairs are the ones Trados itself writes when it saves an SDLXLIFF as
+// XLIFF (measured on a file prepared in Trados, see revisions-pangeanic-local
+// utils/parsers.py): Draft = needs-translation, Translated = translated,
+// ApprovedTranslation = signed-off, ApprovedSignOff = final. Until 2026-10-06
+// a confirmed segment left as "signed-off" (a review approval, and a LOCK for
+// XTM) and DAAIT's unconfirmed text as "needs-review-translation" -- the same
+// state as a rejection, which Trados shows as rejected, not as a draft.
 const STATE = {
-  approved: "signed-off",
+  approved: "translated",
   rejected: "needs-review-translation",
   tm: "translated",
-  mt: "needs-review-translation",
+  mt: "needs-translation",
 };
 
 // XLIFF 2.x has four states, on <segment> (initial | translated | reviewed | final).
@@ -110,9 +131,15 @@ function isReviewed(tu) {
   return tu.reviewLiteral != null && isApproved(tu);
 }
 
-function confFor(tu) {
+// `changed` = the text written differs from what the file had in that segment.
+function confFor(tu, changed = true) {
   if (tu.Status === "REJECTED") return CONF.rejected;
-  if (isReviewed(tu)) return CONF.approved;
+  if (isReviewed(tu)) {
+    if (tu.Status === "EDITED") return CONF.edited;
+    // Confirmed as it was: the client's own target keeps its origin; DAAIT's
+    // keeps saying it is machine translation.
+    return changed && tu.fileTarget !== true ? CONF.confirmedMt : CONF.confirmed;
+  }
   if (tu.blockReason === "TM_MATCH") return CONF.tm;
   return CONF.mt;
 }
@@ -330,7 +357,7 @@ export function writeSdlxliff(raw, tus) {
       splices.push({
         start: seg.start,
         end: seg.openEnd,
-        text: setAttributes(raw.slice(seg.start, seg.openEnd), confFor(tu)),
+        text: setAttributes(raw.slice(seg.start, seg.openEnd), confFor(tu, changed)),
       });
       report.confirmed++;
     } else if (plain && unit.v2) {

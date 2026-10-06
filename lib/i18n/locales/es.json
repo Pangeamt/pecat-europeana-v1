@@ -419,6 +419,13 @@
       "page": "Página {page} de {total}",
       "noneLeft": "No quedan segmentos sin confirmar en este filtro"
     },
+    "state": {
+      "LOCKED": "Bloqueado",
+      "PENDING": "Sin revisar",
+      "CONFIRMED": "Confirmado",
+      "EDITED": "Confirmado con cambios",
+      "REJECTED": "Rechazado"
+    },
     "history": {
       "empty": "Sin ediciones registradas en este segmento",
       "loadError": "No se pudo cargar el historial",
