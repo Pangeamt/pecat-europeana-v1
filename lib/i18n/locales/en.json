@@ -407,7 +407,18 @@
     }
   },
   "tus": {
-    "resizeHandleTooltip": "Drag to resize the panel height"
+    "resizeHandleTooltip": "Drag to resize the panel height",
+    "status": {
+      "NOT_REVIEWED": "Not reviewed",
+      "ACCEPTED": "Confirmed",
+      "EDITED": "Confirmed with changes",
+      "REJECTED": "Rejected"
+    },
+    "nav": {
+      "lockedSkipped": "{count} locked skipped",
+      "page": "Page {page} of {total}",
+      "noneLeft": "No unconfirmed segments left in this filter"
+    }
   },
   "glossaries": {
     "eyebrow": "Translation assets",

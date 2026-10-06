@@ -407,7 +407,18 @@
     }
   },
   "tus": {
-    "resizeHandleTooltip": "Arrastra para ajustar la altura del panel"
+    "resizeHandleTooltip": "Arrastra para ajustar la altura del panel",
+    "status": {
+      "NOT_REVIEWED": "Sin revisar",
+      "ACCEPTED": "Confirmado",
+      "EDITED": "Confirmado con cambios",
+      "REJECTED": "Rechazado"
+    },
+    "nav": {
+      "lockedSkipped": "{count} bloqueados saltados",
+      "page": "Página {page} de {total}",
+      "noneLeft": "No quedan segmentos sin confirmar en este filtro"
+    }
   },
   "glossaries": {
     "eyebrow": "Recursos de traducción",
