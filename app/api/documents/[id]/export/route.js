@@ -16,7 +16,9 @@ export const GET = async (req, { params }) => {
     }
 
     if (format === 'sdlxliff') {
-      const { text, skipped } = await exportDocumentAsSdlxliffService(id, actorUser);
+      const { text, skipped } = await exportDocumentAsSdlxliffService(id, actorUser, {
+        partial: req.nextUrl.searchParams.get('partial') === '1',
+      });
 
       return new Response(text, {
         headers: {

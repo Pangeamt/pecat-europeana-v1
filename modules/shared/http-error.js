@@ -1,9 +1,12 @@
 export class HttpError extends Error {
-  constructor(status, message, code = null) {
+  // `data` (optional): facts behind the error the client shows in its own
+  // words and language (e.g. how many segments are still pending).
+  constructor(status, message, code = null, data = null) {
     super(message);
     this.name = "HttpError";
     this.status = status;
     this.code = code || defaultCodeForStatus(status);
+    this.data = data;
   }
 }
 

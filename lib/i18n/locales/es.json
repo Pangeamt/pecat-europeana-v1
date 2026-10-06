@@ -118,6 +118,16 @@
       "error": "Error"
     },
     "downloadTooltip": "Descargar archivo",
+    "downloadOriginal": "Descargar original",
+    "downloadOriginalHint": "El fichero tal cual se subió",
+    "downloadProcessed": "Descargar procesado",
+    "downloadProcessedHint": "El fichero con las traducciones confirmadas",
+    "incomplete": "Faltan {pending} de {total} segmentos por confirmar.",
+    "incompleteWithRejected": "Faltan {pending} de {total} segmentos por confirmar ({rejected} rechazados).",
+    "partialTitle": "El documento no está completo",
+    "partialQuestion": "¿Descargar igualmente como entrega parcial? Lo no confirmado saldrá como borrador.",
+    "partialOk": "Descargar parcial",
+    "partialCancel": "Cancelar",
     "removeTooltip": "Eliminar",
     "deleteTitle": "Eliminar la tarea",
     "deleteDescription": "¿Seguro que quieres eliminar esta tarea?",
@@ -419,6 +429,23 @@
       "page": "Página {page} de {total}",
       "noneLeft": "No quedan segmentos sin confirmar en este filtro"
     },
+    "done": {
+      "label": "Terminados",
+      "tooltipComplete": "Todos los segmentos están bloqueados o confirmados: ya se puede descargar el procesado",
+      "tooltipPending": "Faltan {pending} segmentos por confirmar ({rejected} rechazados)"
+    },
+    "bulk": {
+      "button": "Confirmar todo",
+      "tooltipFiltered": "Confirma los {count} segmentos sin revisar del filtro aplicado",
+      "tooltipAll": "Confirma los {count} segmentos sin revisar del documento",
+      "title": "¿Confirmar {count} segmentos?",
+      "contentFiltered": "Se confirmarán, sin revisarlos uno a uno, los segmentos sin revisar que muestra el filtro. Los bloqueados y los rechazados no se tocan. Se puede deshacer.",
+      "contentAll": "Se confirmarán, sin revisarlos uno a uno, todos los segmentos sin revisar del documento. Los bloqueados y los rechazados no se tocan. Se puede deshacer.",
+      "ok": "Confirmar {count}",
+      "cancel": "Cancelar",
+      "done": "{done} segmentos confirmados",
+      "someFailed": "{done} confirmados; {failed} no se pudieron confirmar"
+    },
     "state": {
       "LOCKED": "Bloqueado",
       "PENDING": "Sin revisar",
@@ -458,6 +485,7 @@
       "failed": "No se pudo deshacer",
       "action": {
         "approve": "confirmar",
+        "approve_all": "confirmar todo",
         "reject": "rechazar",
         "save_draft": "guardar borrador",
         "lock": "bloquear",

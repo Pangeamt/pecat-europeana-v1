@@ -293,12 +293,20 @@ async function saveTuStatusUpdate(tu, payload, reviewer = null) {
 
     data.reviewLiteral = reviewLiteral;
 
-    const rescored = await rescoreReviewedPair(
-      tu,
-      reviewLiteral || tu.translatedLiteral,
-    );
-    if (rescored !== null) {
-      data.mtqeV2Score = rescored;
+    // The score is of the text: confirming the very text that was already
+    // scored needs no new call (it made "confirm all" wait on MTQE for every
+    // segment); a changed text, or a segment with no score yet, is re-scored.
+    const currentText = tu.reviewLiteral || tu.translatedLiteral || "";
+    const sameText =
+      clearText(reviewLiteral || tu.translatedLiteral || "") === clearText(currentText);
+    if (!sameText || typeof tu.mtqeV2Score !== "number") {
+      const rescored = await rescoreReviewedPair(
+        tu,
+        reviewLiteral || tu.translatedLiteral,
+      );
+      if (rescored !== null) {
+        data.mtqeV2Score = rescored;
+      }
     }
   } else if (action === "reject") {
     data.Status = "REJECTED";

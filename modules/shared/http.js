@@ -7,7 +7,11 @@ export function toErrorResponse(
 ) {
   if (error instanceof HttpError) {
     return NextResponse.json(
-      { code: error.code, message: error.message },
+      {
+        code: error.code,
+        message: error.message,
+        ...(error.data ? { data: error.data } : {}),
+      },
       { status: error.status },
     );
   }
