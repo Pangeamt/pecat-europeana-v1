@@ -285,7 +285,8 @@ const TagEditor = ({
     if (!box) return;
     box.innerHTML = toHtml(snapshotRef.current.text, infoRef.current);
     snapshotRef.current.html = box.innerHTML;
-    box.focus();
+    // No scrolling here: the grid decides where the active segment sits.
+    box.focus({ preventScroll: true });
     placeCaretAtEnd(box);
   }, []);
 

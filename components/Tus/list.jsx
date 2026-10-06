@@ -59,6 +59,7 @@ import {
   stripInlineTags,
 } from "@/components/shared/inline-tags";
 import { computeEffort } from "@/lib/effort";
+import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { segmentNumberOf } from "@/lib/segment-status";
 import SegmentStatusIcon, { segmentStatusLabel } from "./SegmentStatusIcon";
 import SegmentHistory from "./SegmentHistory";
@@ -171,7 +172,13 @@ const EMPTY_STATS = {
 // through the token-authenticated /api/share/tu/[token]/* endpoints instead
 // of the session-authenticated ones, and the document id is never taken
 // from the URL (there is none) — it comes back from the config fetch.
+// Where the active segment sits after a keyboard move: a little above the
+// middle of the list, so the reviewer keeps looking at the same spot and sees
+// a couple of segments above it and the rest below.
+const ACTIVE_ROW_ANCHOR = 0.4;
+
 const TusList = ({ shareToken } = {}) => {
+  const { t } = useTranslation();
   const { projectId: routeProjectId } = useParams();
   const projectId = shareToken ? null : routeProjectId;
   const [data, setData] = useState([]);
@@ -240,7 +247,7 @@ const TusList = ({ shareToken } = {}) => {
   const [searchedColumn, setSearchedColumn] = useState("");
   const searchInput = useRef(null);
 
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(50);
   const [page, setPage] = useState(1);
   // Column filters and sort the table currently applies (from its onChange).
   // AntD applies them internally at render time, so they are replayed over
@@ -265,7 +272,27 @@ const TusList = ({ shareToken } = {}) => {
     setPending(next);
   };
   const [xmlRequesting, setXmlRequesting] = useState(null);
-  const pendingScrollIndexRef = useRef(null);
+  // A keyboard move (confirm, arrows) asks for the list to follow: the id of
+  // the segment to bring to the anchor, and whether it was a long jump (page
+  // change) that is placed at once and flashed instead of scrolled.
+  const navIntentRef = useRef(null);
+  // Row that briefly lights up on arrival when the list did not scroll to it.
+  const [arrivedId, setArrivedId] = useState(null);
+  // Short, self-clearing line in the filter bar telling what a move skipped
+  // ("104 -> 110 - 5 locked skipped", "Page 3 of 78", "nothing left").
+  const [navNotice, setNavNotice] = useState(null);
+  const navNoticeTimerRef = useRef(null);
+  const announce = (text) => {
+    if (navNoticeTimerRef.current) clearTimeout(navNoticeTimerRef.current);
+    setNavNotice(text);
+    navNoticeTimerRef.current = setTimeout(() => setNavNotice(null), 2600);
+  };
+  useEffect(
+    () => () => {
+      if (navNoticeTimerRef.current) clearTimeout(navNoticeTimerRef.current);
+    },
+    [],
+  );
 
   const isSegmentBlocked = (doc) => Boolean(doc?.block);
 
@@ -274,13 +301,58 @@ const TusList = ({ shareToken } = {}) => {
   const canToggleLock =
     !shareToken && ["ADMIN", "SUPER"].includes(user?.role);
 
+  // Brings the segment of a keyboard move to its anchor in the list. One
+  // short smooth scroll when it is near; a long way (or another page) is
+  // placed at once and the row flashes, because a long travel is what makes
+  // the list hard to follow. Runs after the row has rendered (the selected
+  // row grows: it holds the editor), and puts the caret in its editor.
   useEffect(() => {
-    if (pendingScrollIndexRef.current == null) return;
-
-    const indexOnPage = pendingScrollIndexRef.current;
-    pendingScrollIndexRef.current = null;
-    tblRef.current?.scrollTo({ index: indexOnPage });
-  }, [page, pageSize]);
+    const intent = navIntentRef.current;
+    if (!intent || intent.id !== selectedRow?.id) return undefined;
+    let attempts = 0;
+    let frame = null;
+    let flashTimer = null;
+    const place = () => {
+      const root = tblRef.current?.nativeElement ?? document;
+      const body = root.querySelector(".ant-table-body");
+      const row = body?.querySelector(
+        `tr[data-row-key="${window.CSS?.escape ? CSS.escape(intent.id) : intent.id}"]`,
+      );
+      if (!body || !row) {
+        // The page has not rendered that row yet (page change).
+        attempts += 1;
+        if (attempts < 30) frame = requestAnimationFrame(place);
+        return;
+      }
+      navIntentRef.current = null;
+      const bodyRect = body.getBoundingClientRect();
+      const rowRect = row.getBoundingClientRect();
+      const anchor = Math.max(
+        8,
+        body.clientHeight * ACTIVE_ROW_ANCHOR - rowRect.height / 2,
+      );
+      const top = Math.max(0, body.scrollTop + (rowRect.top - bodyRect.top) - anchor);
+      const distance = Math.abs(top - body.scrollTop);
+      const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      const smooth = !intent.jump && !reduced && distance <= body.clientHeight;
+      if (distance > 4) body.scrollTo({ top, behavior: smooth ? "smooth" : "auto" });
+      if (!smooth || distance <= 4) {
+        setArrivedId(intent.id);
+        flashTimer = setTimeout(() => setArrivedId(null), 700);
+      }
+      // Ready to type: the caret goes to the segment's editor without the
+      // browser scrolling on its own.
+      row.querySelector(".tag-editor, .ql-editor")?.focus({ preventScroll: true });
+    };
+    frame = requestAnimationFrame(place);
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      if (flashTimer) {
+        clearTimeout(flashTimer);
+        setArrivedId(null);
+      }
+    };
+  }, [selectedRow?.id, page, pageSize]);
 
   useEffect(() => {
     const get = async () => {
@@ -864,24 +936,11 @@ const TusList = ({ shareToken } = {}) => {
       dataIndex: "Status",
       key: "status",
       width: 100,
-      filters: [
-        {
-          text: "REJECTED",
-          value: "REJECTED",
-        },
-        {
-          text: "ACCEPTED",
-          value: "ACCEPTED",
-        },
-        {
-          text: "EDITED",
-          value: "EDITED",
-        },
-        {
-          text: "NOT_REVIEWED",
-          value: "NOT_REVIEWED",
-        },
-      ],
+      // The values are the review status codes; the reviewer reads them in
+      // words (and in their language).
+      filters: ["NOT_REVIEWED", "ACCEPTED", "EDITED", "REJECTED"].map(
+        (value) => ({ text: t(`tus.status.${value}`), value }),
+      ),
       onFilter: matchesStatusFilter,
       render: (text, record) => {
         // Confirm / reject / save in flight: the spinner replaces the status
@@ -1131,21 +1190,41 @@ const TusList = ({ shareToken } = {}) => {
     setSelectedRow(draft != null ? { ...record, reviewLiteral: draft } : record);
   };
 
-  const goToRowIndex = (index) => {
+  // Moves the selection to a row of the visible list and asks the list to
+  // follow it (see the navIntentRef effect). `fromIndex` = where the move
+  // started: what lies in between is what the notice reports as skipped.
+  const goToRowIndex = (index, fromIndex = null) => {
     if (index < 0 || index >= orderedData.length) return;
 
     const targetPage = Math.floor(index / pageSize) + 1;
-    const indexOnPage = index % pageSize;
+    const pageChanged = targetPage !== page;
+    const target = orderedData[index];
 
-    selectRow(orderedData[index]);
-
-    if (targetPage === page) {
-      tblRef.current?.scrollTo({ index: indexOnPage });
-      return;
+    if (fromIndex !== null && fromIndex !== index) {
+      const [low, high] = fromIndex < index ? [fromIndex, index] : [index, fromIndex];
+      const between = orderedData.slice(low + 1, high);
+      const locked = between.filter(isSegmentBlocked).length;
+      const parts = [];
+      if (between.length > 0) {
+        parts.push(
+          `${segmentNumberOf(orderedData[fromIndex], fromIndex + 1)} → ${segmentNumberOf(target, index + 1)}`,
+        );
+      }
+      if (locked > 0) parts.push(t("tus.nav.lockedSkipped", { count: locked }));
+      if (pageChanged) {
+        parts.push(
+          t("tus.nav.page", {
+            page: targetPage,
+            total: Math.max(1, Math.ceil(orderedData.length / pageSize)),
+          }),
+        );
+      }
+      if (parts.length > 0) announce(parts.join(" · "));
     }
 
-    pendingScrollIndexRef.current = indexOnPage;
-    setPage(targetPage);
+    navIntentRef.current = { id: target.id, jump: pageChanged };
+    selectRow(target);
+    if (pageChanged) setPage(targetPage);
   };
 
   // Manual navigation (Ctrl+Shift+Down / Up, or plain Down / Up on the edge
@@ -1166,7 +1245,9 @@ const TusList = ({ shareToken } = {}) => {
     ) {
       index += step;
     }
-    if (index >= 0 && index < orderedData.length) goToRowIndex(index);
+    if (index >= 0 && index < orderedData.length) {
+      goToRowIndex(index, currentIndex);
+    }
   };
 
   // After a confirm (as in Trados' Ctrl+Enter): the next segment of the
@@ -1179,9 +1260,11 @@ const TusList = ({ shareToken } = {}) => {
       const doc = orderedData[index];
       if (isSegmentBlocked(doc) || isConfirmed(doc)) continue;
       if (pendingRef.current[doc.id]) continue;
-      goToRowIndex(index);
+      goToRowIndex(index, currentIndex);
       return;
     }
+    // Nothing left to confirm below: say so instead of silently staying put.
+    announce(t("tus.nav.noneLeft"));
   };
 
   // A failed request brings the reviewer back to its segment (the text typed
@@ -1741,6 +1824,15 @@ const TusList = ({ shareToken } = {}) => {
           </Button>
 
           <div className="ml-auto flex flex-wrap items-center gap-2">
+            {navNotice ? (
+              <span
+                role="status"
+                aria-live="polite"
+                className="nav-notice rounded bg-slate-100 px-2 py-0.5 text-xs font-medium tabular-nums text-slate-700"
+              >
+                {navNotice}
+              </span>
+            ) : null}
             <span
               className={`text-xs ${
                 saveFailed
@@ -1853,6 +1945,7 @@ const TusList = ({ shareToken } = {}) => {
             else if (record.Status === "EDITED") classes.push("edited");
 
             if (selectedRow?.id === record.id) classes.push("selected-row");
+            if (arrivedId === record.id) classes.push("nav-arrived");
             if (drafts[record.id] != null) classes.push("unsaved");
 
             return classes.join(" ");
@@ -1860,7 +1953,7 @@ const TusList = ({ shareToken } = {}) => {
           pagination={{
             position: ["bottomCenter"],
             showSizeChanger: true,
-            pageSizeOptions: ["10", "20", "50"],
+            pageSizeOptions: ["20", "50", "100"],
             current: page,
             pageSize,
             onShowSizeChange: (_, size) => {
