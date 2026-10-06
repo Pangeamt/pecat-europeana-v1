@@ -73,7 +73,7 @@ test("escritor: la edicion con marca vuelve con la etiqueta REAL y su propio loc
   const target = /<target><mrk mtype="seg" mid="1">(.*?)<\/mrk><\/target>/.exec(text)[1];
   assert.match(target, /^Tuyau de pression <x id="locked5" xid="lockTU_[0-9a-f-]{36}"\/> 1$/);
   assert.ok(!target.includes("lockTU_seg"), "el destino NO comparte el lockTU del seg-source");
-  assert.match(text, /<sdl:seg id="1" conf="ApprovedTranslation" origin="interactive"\/>/);
+  assert.match(text, /<sdl:seg id="1" conf="Translated" origin="interactive"\/>/, "confirmado con cambios = Translated");
   assert.deepEqual(invariants(text), invariants(FILE));
   assert.ok(text.startsWith(BOM) && text.includes("\r\n"), "BOM y CRLF intactos");
 });

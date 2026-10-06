@@ -70,8 +70,12 @@ import {
   undoText,
 } from "@/lib/edit-history";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
-import { segmentNumberOf } from "@/lib/segment-status";
-import SegmentStatusIcon, { segmentStatusLabel } from "./SegmentStatusIcon";
+import {
+  segmentNumberOf,
+  segmentOrigin,
+  segmentState,
+} from "@/lib/segment-status";
+import SegmentStatusIcon from "./SegmentStatusIcon";
 import SegmentHistory from "./SegmentHistory";
 import { tagIssue } from "@/modules/documents/tag-check";
 import { isSpliceFormat } from "@/lib/utils";
@@ -977,9 +981,10 @@ const TusList = ({ shareToken } = {}) => {
         // level the client's file gave them.
         const hasDraft = drafts[record.id] != null;
         const by = record.reviewedAt ? record.reviewedByName : null;
-        const tooltip = `${segmentStatusLabel(record, { hasDraft })}${
-          by ? ` — ${by}` : ""
-        }`;
+        const origin = segmentOrigin(record, { hasDraft });
+        const tooltip = `${t(`tus.state.${segmentState(record, { hasDraft })}`)}${
+          origin ? ` · ${origin.text}` : ""
+        }${by ? ` — ${by}` : ""}`;
         return (
           <div className="absolute top-2 left-2">
             {/* Hover: the status in words and the segment's edit history. */}
