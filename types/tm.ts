@@ -166,7 +166,16 @@ export type UpdateProjectTuPayload = {
     | "apply_suggestion"
     | "discard_suggestion"
     | "lock"
-    | "unlock";
+    | "unlock"
+    | "restore";
+  snapshot?: {
+    reviewLiteral: string | null;
+    Status: string;
+    block: boolean;
+    blockReason?: string | null;
+    mtqeV2Score?: number | null;
+    reviewed: boolean;
+  };
   levenshteinDistance?: number;
   block?: boolean;
 };

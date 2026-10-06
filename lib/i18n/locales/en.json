@@ -418,6 +418,24 @@
       "lockedSkipped": "{count} locked skipped",
       "page": "Page {page} of {total}",
       "noneLeft": "No unconfirmed segments left in this filter"
+    },
+    "undo": {
+      "undo": "Undo",
+      "redo": "Redo",
+      "typedText": "typed text",
+      "undone": "Undone: {action} · segment {number}",
+      "redone": "Redone: {action} · segment {number}",
+      "outsideFilter": "(outside the filter)",
+      "nothingToUndo": "Nothing to undo",
+      "nothingToRedo": "Nothing to redo",
+      "failed": "Could not undo",
+      "action": {
+        "approve": "confirm",
+        "reject": "reject",
+        "save_draft": "save draft",
+        "lock": "lock",
+        "unlock": "unlock"
+      }
     }
   },
   "glossaries": {
