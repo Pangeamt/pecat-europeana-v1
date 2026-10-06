@@ -2,9 +2,15 @@
 
 import { useState } from "react";
 import { Popover, Spin } from "antd";
+import { Redo2, Undo2 } from "lucide-react";
 
 import { TagText, hasInlineTags } from "@/components/shared/inline-tags";
-import { REVISION_ACTION_LABEL } from "@/lib/tu-revision";
+import { useTranslation } from "@/components/i18n/LanguageProvider";
+import {
+  HISTORY_PREVIEW,
+  REVISION_ACTION_LABEL,
+  visibleRevisions,
+} from "@/lib/tu-revision";
 import {
   getTuRevisions,
   getTuRevisionsByShareToken,
@@ -31,20 +37,32 @@ const Text = ({ value, info }) =>
     value
   );
 
-const Revision = ({ revision, info }) => {
+const Revision = ({ revision, info, t }) => {
   const textChanged = revision.textBefore !== revision.textAfter;
   const scoreChanged = revision.mtqeBefore !== revision.mtqeAfter;
+  // An undo / redo is a change like any other, but it reads as what it was.
+  const stepBack = revision.action === "undo" || revision.action === "restore";
+  const stepForward = revision.action === "redo";
+  const label = t(`tus.history.action.${revision.action}`);
   return (
     <li className="border-b border-slate-100 py-2 last:border-b-0">
       <div className="flex flex-wrap items-baseline gap-x-2 text-xs">
-        <span className="font-semibold text-slate-800">
-          {REVISION_ACTION_LABEL[revision.action] ?? revision.action}
+        <span
+          className={`inline-flex items-center gap-1 font-semibold ${
+            stepBack || stepForward ? "text-amber-700" : "text-slate-800"
+          }`}
+        >
+          {stepBack ? <Undo2 size={12} /> : null}
+          {stepForward ? <Redo2 size={12} /> : null}
+          {label.startsWith("tus.history.")
+            ? (REVISION_ACTION_LABEL[revision.action] ?? revision.action)
+            : label}
         </span>
         {revision.propagatedFromId && (
-          <span className="text-slate-500">(same source as another segment)</span>
+          <span className="text-slate-500">{t("tus.history.propagated")}</span>
         )}
         <span className="text-slate-500">
-          {revision.byName || "Unknown"} · {when(revision.createdAt)}
+          {revision.byName || t("tus.history.unknown")} · {when(revision.createdAt)}
         </span>
         <span className="ml-auto tabular-nums text-slate-600">
           MTQE {scoreChanged ? `${score(revision.mtqeBefore)} → ` : ""}
@@ -66,10 +84,17 @@ const Revision = ({ revision, info }) => {
 };
 
 const SegmentHistory = ({ tu, shareToken, title, children }) => {
+  const { t } = useTranslation();
   const [state, setState] = useState({ loading: false, revisions: null, error: false });
+  // The newest 5 by default; "Show more" lists them all inside the same
+  // scrolling box, so a long history never grows past the popover.
+  const [expanded, setExpanded] = useState(false);
 
   const load = async (open) => {
-    if (!open) return;
+    if (!open) {
+      setExpanded(false);
+      return;
+    }
     setState((prev) => ({ ...prev, loading: true, error: false }));
     try {
       const response = shareToken
@@ -84,17 +109,32 @@ const SegmentHistory = ({ tu, shareToken, title, children }) => {
   const content = (
     <div style={{ width: 460, maxHeight: 340, overflowY: "auto" }}>
       {state.error ? (
-        <span className="text-xs text-red-600">Could not load the history</span>
+        <span className="text-xs text-red-600">{t("tus.history.loadError")}</span>
       ) : state.revisions === null ? (
         <Spin size="small" />
       ) : state.revisions.length === 0 ? (
-        <span className="text-xs text-slate-500">No edits recorded for this segment</span>
+        <span className="text-xs text-slate-500">{t("tus.history.empty")}</span>
       ) : (
-        <ul className="m-0 list-none p-0">
-          {state.revisions.map((revision) => (
-            <Revision key={revision.id} revision={revision} info={tu.tagInfo} />
-          ))}
-        </ul>
+        <>
+          <ul className="m-0 list-none p-0">
+            {visibleRevisions(state.revisions, expanded).map((revision) => (
+              <Revision key={revision.id} revision={revision} info={tu.tagInfo} t={t} />
+            ))}
+          </ul>
+          {state.revisions.length > HISTORY_PREVIEW ? (
+            <button
+              type="button"
+              className="history-more mt-1 w-full cursor-pointer rounded border-0 bg-slate-50 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
+              onClick={() => setExpanded((value) => !value)}
+            >
+              {expanded
+                ? t("tus.history.showLess")
+                : t("tus.history.showMore", {
+                    count: state.revisions.length - HISTORY_PREVIEW,
+                  })}
+            </button>
+          ) : null}
+        </>
       )}
     </div>
   );

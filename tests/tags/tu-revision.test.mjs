@@ -2,7 +2,12 @@
 // estado y la nota MTQE de antes y de despues. node --test "tests/**/*.test.mjs"
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildTuRevisions } from "../../lib/tu-revision.js";
+import {
+  HISTORY_PREVIEW,
+  buildTuRevisions,
+  revisionActionOf,
+  visibleRevisions,
+} from "../../lib/tu-revision.js";
 
 const before = {
   id: "tu1",
@@ -75,4 +80,30 @@ test("historial: bloquear no cambia el texto; sin nota MTQE queda en null; enlac
   assert.equal(row.byUserId, null);
   assert.equal(row.byName, "Translator link");
   assert.deepEqual(buildTuRevisions({ action: "approve", before, after: null, by }), []);
+});
+
+test("historial: un deshacer o un rehacer queda registrado como tal, no como un cambio cualquiera", () => {
+  assert.equal(revisionActionOf({ action: "restore", direction: "undo" }), "undo");
+  assert.equal(revisionActionOf({ action: "restore", direction: "redo" }), "redo");
+  assert.equal(revisionActionOf({ action: "restore" }), "undo", "sin direccion: deshacer");
+  assert.equal(revisionActionOf({ action: "approve" }), "approve");
+  const [row] = buildTuRevisions({
+    action: revisionActionOf({ action: "restore", direction: "undo" }),
+    before: { ...before, reviewLiteral: "Synthèse EDITADO", Status: "EDITED" },
+    after: before,
+    by,
+  });
+  assert.equal(row.action, "undo");
+  assert.equal(row.textBefore, "Synthèse EDITADO");
+  assert.equal(row.textAfter, "Synthèse");
+  assert.equal(row.statusAfter, "TRANSLATED_MT");
+});
+
+test("historial: el panel ensena las 5 ultimas y con 'ver mas' todas", () => {
+  const many = Array.from({ length: 12 }, (_, i) => ({ id: `r${i}` }));
+  assert.equal(HISTORY_PREVIEW, 5);
+  assert.deepEqual(visibleRevisions(many, false).map((r) => r.id), ["r0", "r1", "r2", "r3", "r4"]);
+  assert.equal(visibleRevisions(many, true).length, 12);
+  assert.equal(visibleRevisions(many.slice(0, 3), false).length, 3);
+  assert.deepEqual(visibleRevisions(null, false), []);
 });

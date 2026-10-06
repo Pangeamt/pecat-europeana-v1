@@ -168,6 +168,7 @@ export type UpdateProjectTuPayload = {
     | "lock"
     | "unlock"
     | "restore";
+  direction?: "undo" | "redo";
   snapshot?: {
     reviewLiteral: string | null;
     Status: string;

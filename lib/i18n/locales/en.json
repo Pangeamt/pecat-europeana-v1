@@ -419,6 +419,26 @@
       "page": "Page {page} of {total}",
       "noneLeft": "No unconfirmed segments left in this filter"
     },
+    "history": {
+      "empty": "No edits recorded for this segment",
+      "loadError": "Could not load the history",
+      "showMore": "Show more ({count})",
+      "showLess": "Show less",
+      "propagated": "(same source as another segment)",
+      "unknown": "Unknown",
+      "action": {
+        "save_draft": "Saved draft",
+        "approve": "Confirmed",
+        "reject": "Rejected",
+        "lock": "Locked",
+        "unlock": "Unlocked",
+        "apply_suggestion": "Applied suggestion",
+        "discard_suggestion": "Discarded suggestion",
+        "restore": "Undone",
+        "undo": "Undone",
+        "redo": "Redone"
+      }
+    },
     "undo": {
       "undo": "Undo",
       "redo": "Redo",
