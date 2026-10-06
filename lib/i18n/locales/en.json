@@ -118,6 +118,16 @@
       "error": "Error"
     },
     "downloadTooltip": "Download file",
+    "downloadOriginal": "Download original",
+    "downloadOriginalHint": "The file exactly as it was uploaded",
+    "downloadProcessed": "Download processed",
+    "downloadProcessedHint": "The file with the confirmed translations",
+    "incomplete": "{pending} of {total} segments are not confirmed yet.",
+    "incompleteWithRejected": "{pending} of {total} segments are not confirmed yet ({rejected} rejected).",
+    "partialTitle": "The document is not complete",
+    "partialQuestion": "Download it anyway as a partial delivery? Unconfirmed segments will leave as drafts.",
+    "partialOk": "Download partial",
+    "partialCancel": "Cancel",
     "removeTooltip": "Remove",
     "deleteTitle": "Delete the task",
     "deleteDescription": "Are you sure to delete this task?",
@@ -419,6 +429,23 @@
       "page": "Page {page} of {total}",
       "noneLeft": "No unconfirmed segments left in this filter"
     },
+    "done": {
+      "label": "Done",
+      "tooltipComplete": "Every segment is locked or confirmed: the processed file can be downloaded",
+      "tooltipPending": "{pending} segments still to confirm ({rejected} rejected)"
+    },
+    "bulk": {
+      "button": "Confirm all",
+      "tooltipFiltered": "Confirms the {count} unreviewed segments of the current filter",
+      "tooltipAll": "Confirms the {count} unreviewed segments of the document",
+      "title": "Confirm {count} segments?",
+      "contentFiltered": "The unreviewed segments the filter shows will be confirmed without reviewing them one by one. Locked and rejected segments are not touched. It can be undone.",
+      "contentAll": "Every unreviewed segment of the document will be confirmed without reviewing them one by one. Locked and rejected segments are not touched. It can be undone.",
+      "ok": "Confirm {count}",
+      "cancel": "Cancel",
+      "done": "{done} segments confirmed",
+      "someFailed": "{done} confirmed; {failed} could not be confirmed"
+    },
     "state": {
       "LOCKED": "Locked",
       "PENDING": "Not reviewed",
@@ -458,6 +485,7 @@
       "failed": "Could not undo",
       "action": {
         "approve": "confirm",
+        "approve_all": "confirm all",
         "reject": "reject",
         "save_draft": "save draft",
         "lock": "lock",

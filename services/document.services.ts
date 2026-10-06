@@ -49,13 +49,23 @@ export const updateDocumentTms = async (
   });
 };
 
+// Link of the PROCESSED file. The server refuses it (409 DOCUMENT_INCOMPLETE,
+// with the counts in `data`) while segments are pending; `partial` asks for an
+// admin's partial delivery.
 export const getDocumentShareLink = async (
   documentId: string,
   baseURL: string,
+  { partial = false }: { partial?: boolean } = {},
 ) => {
-  const { data } = await httpClient.get(`${baseURL}/api/file/${documentId}`);
+  const { data } = await httpClient.get(
+    `${baseURL}/api/file/${documentId}${partial ? "?partial=1" : ""}`,
+  );
   return `${baseURL}/api/file?uuid=${data.uuid}&projectId=${documentId}`;
 };
+
+// Link of the file exactly as it was uploaded (session cookie, always allowed).
+export const getDocumentOriginalLink = (documentId: string, baseURL: string) =>
+  `${baseURL}/api/documents/${documentId}/original`;
 
 export type DocumentAssignmentRole = "translator" | "reviewer";
 

@@ -6,6 +6,12 @@ import contentDisposition from "content-disposition";
 import { HttpError } from "@/modules/shared";
 import { isSpliceFormat } from "@/lib/utils";
 import { exportTarget } from "@/modules/documents/export-target";
+import {
+  PARTIAL_LINK_PREFIX,
+  completionOf,
+  mayDeliver,
+  processedFilename,
+} from "@/lib/document-completion";
 // Direct file import on purpose: going through @/modules/projects would close
 // an import cycle (projects barrel -> import-service -> this module).
 import {
@@ -267,13 +273,44 @@ export function buildSegmentUpdatesFromTus(tus) {
   return { updates, skipped };
 }
 
-export async function generateProjectShareUuidService(projectId, actorUser) {
+// The processed file is delivered only when every segment is locked or
+// confirmed. Told with the counts, so the client can say what is missing.
+function incompleteError(completion) {
+  return new HttpError(
+    409,
+    `${completion.pending} of ${completion.total} segments are not confirmed yet` +
+      (completion.rejected ? ` (${completion.rejected} rejected)` : ""),
+    "DOCUMENT_INCOMPLETE",
+    {
+      total: completion.total,
+      done: completion.done,
+      pending: completion.pending,
+      rejected: completion.rejected,
+    },
+  );
+}
+
+// `partial`: an ADMIN / SUPER asks for the file although segments are still
+// pending (a partial delivery). The link id says so (PARTIAL_LINK_PREFIX),
+// which is what the public download below checks.
+export async function generateProjectShareUuidService(
+  projectId,
+  actorUser,
+  { partial = false } = {},
+) {
   const project = await findProjectForActor(projectId, actorUser);
   if (!project) {
     throw new HttpError(404, "Project not found");
   }
 
-  const uuid = uid();
+  const completion = completionOf(await findTusByProjectId(project.id));
+  const isAdmin = ["ADMIN", "SUPER"].includes(actorUser?.role);
+  const partialLink = !completion.complete && partial && isAdmin;
+  if (!mayDeliver(completion, { partialLink })) {
+    throw incompleteError(completion);
+  }
+
+  const uuid = `${partialLink ? PARTIAL_LINK_PREFIX : ""}${uid()}`;
   await updateProjectById(projectId, {
     uuid,
     accessDeadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
@@ -299,6 +336,13 @@ export async function buildProjectDownloadService({ uuid, projectId }) {
 
   const tus = await findTusByProjectId(project.id);
 
+  // A link issued while the document was complete does not survive a later
+  // rejection or unlock: the check is repeated when the file is taken.
+  const completion = completionOf(tus);
+  if (!mayDeliver(completion, { partialLink: uuid.startsWith(PARTIAL_LINK_PREFIX) })) {
+    throw incompleteError(completion);
+  }
+
   // SDLXLIFF / XLIFF: our translations are written INTO the original file (by
   // externalId, review over MT, inline tags restored), everything else
   // byte-identical -- see modules/documents/sdlxliff/writer.js.
@@ -308,7 +352,8 @@ export async function buildProjectDownloadService({ uuid, projectId }) {
       body: Buffer.from(text, "utf8"),
       headers: {
         "Content-Type": "application/xml; charset=utf-8",
-        "Content-Disposition": contentDisposition(project.filename),
+        // Never the original's own name: the two sit side by side on disk.
+        "Content-Disposition": contentDisposition(processedFilename(project.filename)),
         // Segments with a translation that were NOT written (tags that do
         // not match the source, rows imported before inline tags existed...).
         "X-Pecat-Skipped-Segments": String(skippedSegments(report)),
