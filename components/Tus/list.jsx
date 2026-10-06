@@ -61,6 +61,7 @@ import {
 import { computeEffort } from "@/lib/effort";
 import { segmentNumberOf } from "@/lib/segment-status";
 import SegmentStatusIcon, { segmentStatusLabel } from "./SegmentStatusIcon";
+import SegmentHistory from "./SegmentHistory";
 import { tagIssue } from "@/modules/documents/tag-check";
 import { isSpliceFormat } from "@/lib/utils";
 
@@ -973,11 +974,12 @@ const TusList = ({ shareToken } = {}) => {
         }`;
         return (
           <div className="absolute top-2 left-2">
-            <Tooltip title={tooltip}>
+            {/* Hover: the status in words and the segment's edit history. */}
+            <SegmentHistory tu={record} shareToken={shareToken} title={tooltip}>
               <span>
                 <SegmentStatusIcon tu={record} hasDraft={hasDraft} />
               </span>
-            </Tooltip>
+            </SegmentHistory>
           </div>
         );
       },

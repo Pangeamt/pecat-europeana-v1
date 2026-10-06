@@ -12,7 +12,10 @@ import {
 } from "../documents/pipeline-service";
 import { describeTagIssue, tagIssue } from "../documents/tag-check";
 import { isSpliceFormat } from "../../lib/utils";
+import { buildTuRevisions } from "../../lib/tu-revision";
 import {
+  createTuRevisions,
+  findTuRevisions,
   findDocumentByTusShareToken,
   findDocumentForTus,
   findDocumentPipelineContext,
@@ -151,7 +154,41 @@ async function rescoreReviewedPair(tu, target) {
   }
 }
 
+// Saves the action AND its history row(s): text, status and MTQE before and
+// after, for the segment and for every same-source segment it propagated to.
+// The history is best-effort -- it never fails nor delays the answer's content.
 async function applyTuStatusUpdate(tu, payload, reviewer = null) {
+  const propagates = payload.action === "approve" || payload.action === "reject";
+  let siblingsBefore = [];
+  if (propagates && !tu.block) {
+    siblingsBefore = await findTusWithSameSource(
+      tu.documentId,
+      tu.srcLiteral,
+      tu.id,
+    ).catch(() => []);
+  }
+  const result = await saveTuStatusUpdate(tu, payload, reviewer);
+  try {
+    const beforeById = new Map(siblingsBefore.map((item) => [item.id, item]));
+    await createTuRevisions(
+      buildTuRevisions({
+        action: payload.action,
+        before: tu,
+        after: result.tu,
+        siblings: (result.alsoUpdated ?? []).map((after) => ({
+          before: beforeById.get(after.id) ?? null,
+          after,
+        })),
+        by: reviewer,
+      }),
+    );
+  } catch (error) {
+    console.error(`[tus] history not written for ${tu.id}:`, error.message);
+  }
+  return result;
+}
+
+async function saveTuStatusUpdate(tu, payload, reviewer = null) {
   const { reviewLiteral, action, levenshteinDistance = null, block } = payload;
 
   // Manual lock/unlock (ADMIN/SUPER only, enforced by the callers): touches
@@ -411,6 +448,28 @@ export async function updateTuStatusService(payload, actorUser) {
     id: actorUser?.id ?? null,
     name: actorUser?.name || actorUser?.email || null,
   });
+}
+
+// Edit history of one segment, newest first (same access rule as editing it).
+export async function listTuRevisionsService(tuId, actorUser) {
+  const tu = await findTuById(tuId);
+  if (!tu) {
+    throw new HttpError(404, "Tu not found");
+  }
+  await assertTuAccessibleByActor(tu, actorUser);
+  return { revisions: await findTuRevisions(tuId) };
+}
+
+export async function listTuRevisionsByShareTokenService(token, tuId) {
+  const document = await findDocumentByTusShareToken(token);
+  if (!document) {
+    throw new HttpError(404, "Document not found");
+  }
+  const tu = await findTuById(tuId);
+  if (!tu || tu.documentId !== document.id) {
+    throw new HttpError(404, "Tu not found");
+  }
+  return { revisions: await findTuRevisions(tuId) };
 }
 
 // Public "share as translator" link consumer: authorization is proving

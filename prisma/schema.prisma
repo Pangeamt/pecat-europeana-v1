@@ -304,6 +304,34 @@ model Tu {
   @@map("tus")
 }
 
+/// Edit history of a segment: one row per saved action (draft, confirm,
+/// reject, lock...), with the text, status and MTQE score before and after.
+/// No foreign key on purpose (plain tuId): written best-effort, and a
+/// re-import that rebuilds the Tus must never be blocked by its history.
+model TuRevision {
+  id               String   @id @default(cuid())
+  tuId             String
+  documentId       String?
+  action           String
+  textBefore       String?  @db.Text
+  textAfter        String?  @db.Text
+  statusBefore     String?
+  statusAfter      String?
+  /// MTQE score (0-1) before and after the action; null when unknown.
+  mtqeBefore       Float?
+  mtqeAfter        Float?
+  /// Set when the row was written because a confirm / reject on ANOTHER
+  /// segment with the same source propagated to this one.
+  propagatedFromId String?
+  byUserId         String?
+  byName           String?
+  createdAt        DateTime @default(now())
+
+  @@index([tuId, createdAt], map: "tu_revisions_tuId_createdAt_idx")
+  @@index([documentId], map: "tu_revisions_documentId_idx")
+  @@map("tu_revisions")
+}
+
 model Tm {
   id              String       @id @default(cuid())
   name            String
