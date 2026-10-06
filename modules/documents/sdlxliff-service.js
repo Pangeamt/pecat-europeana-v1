@@ -3,6 +3,7 @@ import { HttpError } from '../shared/http-error';
 import { pecatTranslate } from '../../lib/daait';
 import { BLOCK_REASON } from './pipeline-constants';
 import { tagIssue } from './tag-check';
+import { needsMachineTranslation } from '../../lib/splice-formats';
 import { readSdlxliffSegments } from './sdlxliff/reader';
 import { writeSdlxliff } from './sdlxliff/writer';
 
@@ -101,7 +102,7 @@ export async function enrichSdlxliffSegments(segments, {
   // machine-translated: their target stays empty and the export fills them
   // back from the source.
   const toTranslate = machineTranslate
-    ? segments.filter((seg) => !seg.locked && !seg.hiddenBy && !seg.target)
+    ? segments.filter(needsMachineTranslation)
     : [];
 
   function applyResult(seg, result) {
@@ -215,6 +216,17 @@ export function buildTusDataFromSdlxliffSegments(segments, documentId, sourceLan
     // Tag types for the chips (glossary, unit, &deg;...), from <tag-defs>.
     tagInfo: seg.tagInfo ?? null,
     levenshteinDistance: seg.levenshteinDistance ?? null,
+    // The segment as the client's file had it: its number in the CAT tool and
+    // its confirmation level / origin (the editor's status column shows them
+    // until the segment is touched here). `fileTarget` tells a target the
+    // client delivered from one PECAT-E's MT filled in.
+    segmentNumber: seg.segmentNumber ?? null,
+    fileConf: seg.conf ?? null,
+    fileOrigin: seg.origin ?? null,
+    filePercent: Number.isFinite(seg.percent) ? Math.round(seg.percent) : null,
+    fileTextMatch: seg.textMatch ?? null,
+    fileLocked: Boolean(seg.locked),
+    fileTarget: Boolean(seg.target) && !seg.machineTranslated,
     visible: !seg.hiddenBy,
     hiddenBy: seg.hiddenBy ?? null,
     block: seg.locked || seg.tmExactMatch === true,

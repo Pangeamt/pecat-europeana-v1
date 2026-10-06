@@ -17,7 +17,7 @@ import {
   Tooltip,
 } from "antd";
 import axios from "axios";
-import { Ban, ChevronDown, ChevronRight, CircleCheck, CircleX, Filter, Hourglass, LoaderCircle, LockIcon, Pencil, Save, Search, UnlockIcon } from "lucide-react";
+import { ChevronDown, ChevronRight, CircleCheck, CircleX, Filter, LoaderCircle, LockIcon, Save, Search, UnlockIcon } from "lucide-react";
 import { useParams } from "next/navigation";
 
 import React, {
@@ -59,6 +59,9 @@ import {
   stripInlineTags,
 } from "@/components/shared/inline-tags";
 import { computeEffort } from "@/lib/effort";
+import { segmentNumberOf } from "@/lib/segment-status";
+import SegmentStatusIcon, { segmentStatusLabel } from "./SegmentStatusIcon";
+import SegmentHistory from "./SegmentHistory";
 import { tagIssue } from "@/modules/documents/tag-check";
 import { isSpliceFormat } from "@/lib/utils";
 
@@ -684,13 +687,13 @@ const TusList = ({ shareToken } = {}) => {
       key: "index",
       width: 50,
       render: (_, record, index) => {
-        // The segment's own number (its order in the document), so it stays
-        // the same whatever filter or sort is applied. Rows without it fall
-        // back to their position in the view.
-        const number =
-          typeof record.count === "number"
-            ? record.count + 1
-            : (page - 1) * pageSize + index + 1;
+        // The segment's own number -- the one the client's CAT tool shows for
+        // it when the file said so, else its order in the document -- so it
+        // stays the same whatever filter or sort is applied.
+        const number = segmentNumberOf(
+          record,
+          (page - 1) * pageSize + index + 1,
+        );
         if (selectedRow && selectedRow.id === record.id) {
           return (
             <div className="absolute top-2 left-2">
@@ -931,7 +934,7 @@ const TusList = ({ shareToken } = {}) => {
       title: "Status",
       dataIndex: "Status",
       key: "status",
-      width: 90,
+      width: 100,
       filters: [
         {
           text: "REJECTED",
@@ -961,37 +964,22 @@ const TusList = ({ shareToken } = {}) => {
             </div>
           );
         }
-        let cpm = (
-          <Hourglass size={18}
-            color="#D97706"
-          />
-        );
-        // Who performed the action, when known ("Edited by María").
-        const by = record.reviewedByName;
-        let tooltip = "Not reviewed";
-        if (text === "REJECTED") {
-          cpm = (
-            <Ban size={18} color="#DC2626" />
-          );
-          tooltip = by ? `Rejected by ${by}` : "Rejected";
-        }
-        if (text === "ACCEPTED") {
-          cpm = (
-            <CircleCheck size={18}
-              color="#4D7C0F"
-            />
-          );
-          tooltip = by ? `Confirmed by ${by}` : "Confirmed";
-        }
-        if (text === "EDITED") {
-          cpm = (
-            <Pencil size={18} color="#2563EB" />
-          );
-          tooltip = by ? `Edited by ${by}` : "Edited";
-        }
+        // Display only, read as in a CAT tool: confirmation level + origin
+        // of the target (see SegmentStatusIcon). Locked segments show the
+        // level the client's file gave them.
+        const hasDraft = drafts[record.id] != null;
+        const by = record.reviewedAt ? record.reviewedByName : null;
+        const tooltip = `${segmentStatusLabel(record, { hasDraft })}${
+          by ? ` — ${by}` : ""
+        }`;
         return (
           <div className="absolute top-2 left-2">
-            <Tooltip title={tooltip}>{cpm}</Tooltip>
+            {/* Hover: the status in words and the segment's edit history. */}
+            <SegmentHistory tu={record} shareToken={shareToken} title={tooltip}>
+              <span>
+                <SegmentStatusIcon tu={record} hasDraft={hasDraft} />
+              </span>
+            </SegmentHistory>
           </div>
         );
       },

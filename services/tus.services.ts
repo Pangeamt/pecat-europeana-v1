@@ -40,6 +40,40 @@ export const evaluateTu = async (payload: {
   });
 };
 
+export interface TuRevision {
+  id: string;
+  tuId: string;
+  action: string;
+  textBefore: string | null;
+  textAfter: string | null;
+  statusBefore: string | null;
+  statusAfter: string | null;
+  mtqeBefore: number | null;
+  mtqeAfter: number | null;
+  propagatedFromId: string | null;
+  byName: string | null;
+  createdAt: string;
+}
+
+export const getTuRevisions = async (
+  tuId: string,
+): Promise<AxiosResponse<{ revisions: TuRevision[] }>> => {
+  return await httpClient({
+    method: "get",
+    url: `/api/tus/${tuId}/revisions`,
+  });
+};
+
+export const getTuRevisionsByShareToken = async (
+  token: string,
+  tuId: string,
+): Promise<AxiosResponse<{ revisions: TuRevision[] }>> => {
+  return await httpClient({
+    method: "get",
+    url: `/api/share/tu/${token}/tus/${tuId}/revisions`,
+  });
+};
+
 export const evaluateTuByShareToken = async (
   token: string,
   payload: { tuId: string; target: string },

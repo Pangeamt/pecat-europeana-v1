@@ -70,6 +70,21 @@ export async function findTusWithSameSource(documentId, srcLiteral, excludedTuId
   });
 }
 
+// Edit history (tu_revisions): written by the save, read by the editor's
+// status popover. Newest first, capped.
+export async function createTuRevisions(rows) {
+  if (!rows?.length) return;
+  await prisma.tuRevision.createMany({ data: rows });
+}
+
+export async function findTuRevisions(tuId, take = 100) {
+  return prisma.tuRevision.findMany({
+    where: { tuId },
+    orderBy: { createdAt: "desc" },
+    take,
+  });
+}
+
 export async function updateTuById(id, data) {
   return prisma.tu.update({
     where: { id },
