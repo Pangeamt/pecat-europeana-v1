@@ -22,7 +22,7 @@ import {
 } from "@/lib/document-status";
 import {
   assignDocumentUser,
-  getDocumentShareLink,
+  getDocumentOriginalLink,
   removeDocument,
   updateDocumentSubmission,
 } from "@/services/document.services";
@@ -31,7 +31,8 @@ import AssignUserModal from "./AssignUserModal";
 import PipelineStageCell from "./PipelineStages";
 import DocumentEdit from "./edit";
 import TranslatorShareModal from "./TranslatorShareModal";
-import { ArrowRight, Download, EllipsisVertical, Link2, Lock, LockOpen, Pencil, Plus, Trash2 } from "lucide-react";
+import { useProcessedDownload } from "./useProcessedDownload";
+import { ArrowRight, Download, EllipsisVertical, FileDown, Link2, Lock, LockOpen, Pencil, Plus, Trash2 } from "lucide-react";
 
 const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -75,18 +76,13 @@ const DocumentList = ({
     return <Tag color={color}>{label}</Tag>;
   };
 
-  const getDownloadLink = async (documentId) => {
-    try {
-      setRequesting(documentId);
-      const shareLink = await getDocumentShareLink(documentId, baseURL);
-      window.location.assign(shareLink);
-    } catch (error) {
-      console.error(error);
-      message.error(t("documents.downloadError"));
-    } finally {
-      setRequesting("");
-    }
-  };
+  // Processed file: only when every segment is locked or confirmed (an admin
+  // may take a partial delivery after confirming) -- see useProcessedDownload.
+  const downloadProcessed = useProcessedDownload(baseURL);
+  const getDownloadLink = (documentId) =>
+    downloadProcessed(documentId, {
+      onBusy: (busy) => setRequesting(busy ? documentId : ""),
+    });
 
   // Submission toggles (ADMIN/SUPER only, from the row dropdown): close or
   // reopen the translator/reviewer editing lock. The editor itself only
@@ -361,9 +357,14 @@ const DocumentList = ({
           menu={{
             items: [
               {
+                key: "download-original",
+                icon: <FileDown size={15} />,
+                label: t("documents.downloadOriginal"),
+              },
+              {
                 key: "download",
                 icon: <Download size={15} />,
-                label: t("documents.downloadTooltip"),
+                label: t("documents.downloadProcessed"),
               },
               {
                 key: "edit",
@@ -417,6 +418,8 @@ const DocumentList = ({
             ],
             onClick: ({ key }) => {
               if (key === "download") getDownloadLink(record.id);
+              else if (key === "download-original")
+                window.location.assign(getDocumentOriginalLink(record.id, baseURL));
               else if (key === "edit") setEditTarget(record);
               else if (key === "share") setShareTarget(record.id);
               else if (key === "submit-translator")

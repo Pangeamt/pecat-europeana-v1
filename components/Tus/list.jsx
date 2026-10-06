@@ -17,7 +17,7 @@ import {
   Tooltip,
 } from "antd";
 import axios from "axios";
-import { ChevronDown, ChevronRight, CircleCheck, CircleX, Filter, LoaderCircle, LockIcon, Redo2, Save, Undo2, Search, UnlockIcon } from "lucide-react";
+import { ChevronDown, ChevronRight, CircleCheck, CircleX, CheckCheck, Download, FileDown, Filter, LoaderCircle, LockIcon, Redo2, Save, Undo2, Search, UnlockIcon } from "lucide-react";
 import { useParams } from "next/navigation";
 
 import React, {
@@ -59,6 +59,9 @@ import {
   stripInlineTags,
 } from "@/components/shared/inline-tags";
 import { computeEffort } from "@/lib/effort";
+import { completionOf, confirmableRows } from "@/lib/document-completion";
+import { useProcessedDownload } from "@/components/Documents/useProcessedDownload";
+import { getDocumentOriginalLink } from "@/services/document.services";
 import {
   actionEntry,
   emptyActionHistory,
@@ -237,6 +240,11 @@ const TusList = ({ shareToken } = {}) => {
     });
   };
   const [saveFailed, setSaveFailed] = useState(false);
+  // "Confirm everything in the filter": { done, total } while it runs.
+  const [bulkProgress, setBulkProgress] = useState(null);
+  const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL;
+  const downloadProcessed = useProcessedDownload(baseURL);
+  const [downloading, setDownloading] = useState(false);
   // Undo / redo (lib/edit-history.js), kept for the session: what was typed
   // in each segment ({ [tuId]: history }) and the saved actions. Refs, because
   // the key handlers outlive a render; the tick re-renders the two buttons.
@@ -1130,7 +1138,15 @@ const TusList = ({ shareToken } = {}) => {
   // Saved actions the reviewer can undo (suggestion bookkeeping is not one).
   const UNDOABLE = ["approve", "reject", "save_draft", "lock", "unlock"];
 
-  const confirm = async ({ tuId, reviewLiteral, action, snapshot, direction }) => {
+  const confirm = async ({
+    tuId,
+    reviewLiteral,
+    action,
+    snapshot,
+    direction,
+    // false: the caller records ONE undo entry for many saves (confirm all).
+    record = true,
+  }) => {
     // Backstop — the backend enforces this too (409 SUBMISSION_LOCKED).
     if (editingLocked) {
       throw new Error("submission locked");
@@ -1149,7 +1165,7 @@ const TusList = ({ shareToken } = {}) => {
       [tu, ...alsoUpdated].map((item) => [item.id, item]),
     );
 
-    if (UNDOABLE.includes(action)) {
+    if (record && UNDOABLE.includes(action)) {
       // `data` here is still the rows as they were before this save.
       const beforeById = new Map(
         data.filter((doc) => updatedById.has(doc.id)).map((doc) => [doc.id, doc]),
@@ -1176,6 +1192,87 @@ const TusList = ({ shareToken } = {}) => {
         ? { ...prev, ...updatedById.get(prev.id) }
         : prev,
     );
+    return [tu, ...alsoUpdated];
+  };
+
+  // How much of the document is done (locked or confirmed): what gates the
+  // processed download and what the bar shows.
+  const completion = useMemo(() => completionOf(data), [data]);
+
+  // The text a confirm would save for a row: what was typed, else what it has.
+  const confirmTextOf = (row) =>
+    draftsRef.current[row.id] ?? row.reviewLiteral ?? row.translatedLiteral ?? "";
+  const bulkTargets = confirmableRows(orderedData, confirmTextOf);
+
+  // Confirms every not-yet-confirmed, unlocked segment of the visible list,
+  // after saying how many they are. One undo entry for the whole run; the
+  // segments the server refuses (tags that do not match the source...) are
+  // counted and left as they were.
+  const confirmAllInFilter = () => {
+    if (editingLocked || bulkProgress) return;
+    const targets = confirmableRows(orderedData, confirmTextOf);
+    if (targets.length === 0) {
+      announce(t("tus.nav.noneLeft"));
+      return;
+    }
+    Modal.confirm({
+      title: t("tus.bulk.title", { count: targets.length }),
+      content: t(listFiltered ? "tus.bulk.contentFiltered" : "tus.bulk.contentAll"),
+      okText: t("tus.bulk.ok", { count: targets.length }),
+      cancelText: t("tus.bulk.cancel"),
+      onOk: async () => {
+        const beforeById = new Map(data.map((doc) => [doc.id, doc]));
+        const after = new Map();
+        let failed = 0;
+        let firstReason = null;
+        setBulkProgress({ done: 0, total: targets.length });
+        for (let index = 0; index < targets.length; index += 1) {
+          const row = targets[index];
+          // Already confirmed by the propagation of an earlier one (same source).
+          if (after.has(row.id) || !beginPending(row.id, "status")) {
+            setBulkProgress({ done: index + 1, total: targets.length });
+            continue;
+          }
+          try {
+            const updated = await confirm({
+              tuId: row.id,
+              reviewLiteral: confirmTextOf(row),
+              action: "approve",
+              record: false,
+            });
+            for (const item of updated) after.set(item.id, item);
+            clearDraft(row.id);
+          } catch (error) {
+            failed += 1;
+            firstReason ??= failureReason(error);
+            console.error(error);
+          } finally {
+            endPending(row.id);
+            setBulkProgress({ done: index + 1, total: targets.length });
+          }
+        }
+        setBulkProgress(null);
+        actionHistoryRef.current = recordAction(
+          actionHistoryRef.current,
+          actionEntry({
+            action: "approve_all",
+            number: after.size,
+            beforeById,
+            after: [...after.values()],
+          }),
+        );
+        touchHistory();
+        if (failed > 0) {
+          messageApi.warning(
+            `${t("tus.bulk.someFailed", { failed, done: after.size })}${
+              firstReason ? ` (${firstReason})` : ""
+            }`,
+          );
+        } else {
+          announce(t("tus.bulk.done", { done: after.size }));
+        }
+      },
+    });
   };
 
   // LLM suggestion lifecycle: applying copies the suggestion into the target
@@ -1564,10 +1661,13 @@ const TusList = ({ shareToken } = {}) => {
     setEditorRefreshKey((prev) => prev + 1);
     const mainId = entry.items[0].id;
     const index = orderedData.findIndex((doc) => doc.id === mainId);
-    const what = t(`tus.undo.${side === "before" ? "undone" : "redone"}`, {
-      action: t(`tus.undo.action.${entry.action}`),
-      number: entry.number ?? "",
-    });
+    const what =
+      entry.action === "approve_all"
+        ? `${t(`tus.undo.${side === "before" ? "undo" : "redo"}`)}: ${t("tus.undo.action.approve_all")} (${entry.items.length})`
+        : t(`tus.undo.${side === "before" ? "undone" : "redone"}`, {
+            action: t(`tus.undo.action.${entry.action}`),
+            number: entry.number ?? "",
+          });
     if (index >= 0) {
       goToRowIndex(index);
       announce(what);
@@ -2067,6 +2167,27 @@ const TusList = ({ shareToken } = {}) => {
                 </span>
               </Tag>
             </Tooltip>
+            <Tooltip
+              title={
+                bulkProgress
+                  ? `${bulkProgress.done}/${bulkProgress.total}`
+                  : t(listFiltered ? "tus.bulk.tooltipFiltered" : "tus.bulk.tooltipAll", {
+                      count: bulkTargets.length,
+                    })
+              }
+            >
+              <Button
+                size="small"
+                icon={<CheckCheck size={13} />}
+                loading={Boolean(bulkProgress)}
+                disabled={bulkTargets.length === 0 || editingLocked}
+                onClick={confirmAllInFilter}
+              >
+                {bulkProgress
+                  ? `${bulkProgress.done}/${bulkProgress.total}`
+                  : `${t("tus.bulk.button")} (${bulkTargets.length})`}
+              </Button>
+            </Tooltip>
             {(() => {
               // Undo / redo: typed text of the selected segment first, then
               // the last saved action (see stepHistory).
@@ -2132,6 +2253,70 @@ const TusList = ({ shareToken } = {}) => {
                 {draftCount > 1 ? `Save (${draftCount})` : "Save"}
               </Button>
             </Tooltip>
+            <Tooltip
+              title={t(
+                completion.complete ? "tus.done.tooltipComplete" : "tus.done.tooltipPending",
+                { pending: completion.pending, rejected: completion.rejected },
+              )}
+            >
+              <Tag
+                bordered={false}
+                color={completion.complete ? "green" : "gold"}
+                className="m-0"
+              >
+                {t("tus.done.label")}{" "}
+                <span className="font-bold tabular-nums">
+                  {completion.done}/{completion.total}
+                </span>
+              </Tag>
+            </Tooltip>
+            {!shareToken ? (
+              <>
+                <Tooltip title={t("documents.downloadOriginalHint")}>
+                  <Button
+                    size="small"
+                    icon={<FileDown size={13} />}
+                    href={getDocumentOriginalLink(projectId, baseURL)}
+                  >
+                    {t("documents.downloadOriginal")}
+                  </Button>
+                </Tooltip>
+                <Tooltip
+                  title={
+                    completion.complete
+                      ? t("documents.downloadProcessedHint")
+                      : t(
+                          completion.rejected
+                            ? "documents.incompleteWithRejected"
+                            : "documents.incomplete",
+                          {
+                            pending: completion.pending,
+                            total: completion.total,
+                            rejected: completion.rejected,
+                          },
+                        )
+                  }
+                >
+                  <Button
+                    size="small"
+                    type={completion.complete ? "primary" : "default"}
+                    icon={<Download size={13} />}
+                    loading={downloading}
+                    // Not complete: only an admin can still take it, as a
+                    // partial delivery, after confirming (see the hook).
+                    disabled={
+                      !completion.complete &&
+                      !["ADMIN", "SUPER"].includes(user?.role)
+                    }
+                    onClick={() =>
+                      downloadProcessed(projectId, { onBusy: setDownloading })
+                    }
+                  >
+                    {t("documents.downloadProcessed")}
+                  </Button>
+                </Tooltip>
+              </>
+            ) : null}
             <Tag bordered={false} color={listFiltered ? "blue" : "default"} className="m-0">
               Segments{" "}
               <span className="font-bold tabular-nums">

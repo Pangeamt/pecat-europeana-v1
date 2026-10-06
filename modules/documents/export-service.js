@@ -3,12 +3,30 @@ import { DOCUMENT_STATUS } from '../../lib/document-status';
 import { findDocumentForActor, findTusByDocumentId } from './repository';
 import { isSpliceFormat } from '../../lib/utils';
 import { exportSdlxliffWithReport, skippedSegments } from './sdlxliff-service';
+import { completionOf, mayDeliver } from '../../lib/document-completion';
+import fs from 'fs';
 
 // Returns { text, skipped }: `skipped` = segments with a translation that were
 // NOT written (tags that do not match the source, rows imported before inline
 // tags existed...). The route sends it as X-Pecat-Skipped-Segments so the UI
 // can tell the reviewer; the gate itself (writer.js) is unchanged.
-export async function exportDocumentAsSdlxliffService(documentId, actorUser) {
+// The file exactly as it was uploaded (the editor's "Download original").
+export async function readOriginalDocumentService(documentId, actorUser) {
+  const document = await findDocumentForActor(documentId, actorUser);
+  if (!document) {
+    throw new HttpError(404, 'Document not found');
+  }
+  try {
+    return {
+      body: await fs.promises.readFile(document.filePath),
+      filename: document.filename,
+    };
+  } catch (error) {
+    throw new HttpError(404, `The original file is not available: ${error.message}`);
+  }
+}
+
+export async function exportDocumentAsSdlxliffService(documentId, actorUser, { partial = false } = {}) {
   if (!documentId) {
     throw new HttpError(400, 'documentId is required');
   }
@@ -35,6 +53,19 @@ export async function exportDocumentAsSdlxliffService(documentId, actorUser) {
   const tus = await findTusByDocumentId(documentId);
   if (!tus || tus.length === 0) {
     throw new HttpError(404, 'No translation units found in document');
+  }
+
+  // Delivered only when every segment is locked or confirmed; an admin may
+  // take a partial delivery (same rule as the download link).
+  const completion = completionOf(tus);
+  const partialLink = partial && ['ADMIN', 'SUPER'].includes(actorUser?.role);
+  if (!mayDeliver(completion, { partialLink })) {
+    throw new HttpError(
+      409,
+      `${completion.pending} of ${completion.total} segments are not confirmed yet`,
+      'DOCUMENT_INCOMPLETE',
+      { total: completion.total, done: completion.done, pending: completion.pending, rejected: completion.rejected },
+    );
   }
 
   try {
