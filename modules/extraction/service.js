@@ -353,7 +353,12 @@ export async function buildProjectDownloadService({ uuid, projectId }) {
       headers: {
         "Content-Type": "application/xml; charset=utf-8",
         // Never the original's own name: the two sit side by side on disk.
-        "Content-Disposition": contentDisposition(processedFilename(project.filename)),
+        "Content-Disposition": contentDisposition(
+          processedFilename(project.filename, {
+            source: project.sourceLanguage,
+            target: project.targetLanguage,
+          }),
+        ),
         // Segments with a translation that were NOT written (tags that do
         // not match the source, rows imported before inline tags existed...).
         "X-Pecat-Skipped-Segments": String(skippedSegments(report)),
@@ -424,8 +429,12 @@ export async function buildProjectDownloadService({ uuid, projectId }) {
     // For PDFs the deliverable is the LibreOffice .docx conversion, so the
     // download name follows the working extension, not the upload one.
     const workingExtension = extname(metadata.workingName).toLowerCase();
-    const stem = basename(project.filename, extname(project.filename));
-    const downloadName = `${stem}-${project.targetLanguage || "translated"}${workingExtension}`;
+    // Same naming as every other processed file: <name>-<source>_<target>.<ext>.
+    const downloadName = processedFilename(project.filename, {
+      source: project.sourceLanguage,
+      target: project.targetLanguage,
+      extension: workingExtension,
+    });
 
     return {
       body,

@@ -54,12 +54,24 @@ test("entrega: completa siempre; incompleta solo con un enlace de entrega parcia
   assert.equal(PARTIAL_LINK_PREFIX, "partial-");
 });
 
-test("nombre del procesado: sufijo .processed antes de la extension, nunca el del original", () => {
+test("nombre del procesado: TODOS los formatos igual, acabado en origen_destino; nunca el del original", () => {
+  const pair = { source: "en-GB", target: "fr-FR" };
+  assert.equal(processedFilename("environment_fr.json.xlf", pair), "environment_fr.json-en-GB_fr-FR.xlf");
+  assert.equal(processedFilename("b27usfrs0c4524a08.xml.sdlxliff", pair), "b27usfrs0c4524a08.xml-en-GB_fr-FR.sdlxliff");
+  assert.equal(processedFilename("Informe final.docx", { source: "es", target: "en" }), "Informe final-es_en.docx");
+  assert.equal(processedFilename("Presentacion.pptx", { source: "es", target: "es" }), "Presentacion-es_es.pptx", "mismo idioma: salen los dos");
+  // un PDF se entrega como .docx: cambia la extension, no el patron
+  assert.equal(processedFilename("contrato.pdf", { ...pair, extension: ".docx" }), "contrato-en-GB_fr-FR.docx");
+  // codigos con guion bajo (como llegan en un .xlf) y caracteres raros
+  assert.equal(processedFilename("a.xlf", { source: "en_GB", target: "fr_FR" }), "a-en-GB_fr-FR.xlf");
+  assert.equal(processedFilename("a.xlf", { source: "en/GB", target: " fr " }), "a-enGB_fr.xlf");
+  assert.equal(processedFilename("sinextension", pair), "sinextension-en-GB_fr-FR");
+});
+
+test("nombre del procesado: sin idiomas conocidos cae al sufijo .processed", () => {
   assert.equal(processedFilename("environment_fr.json.xlf"), "environment_fr.json.processed.xlf");
-  assert.equal(processedFilename("b27usfrs0c4524a08.xml.sdlxliff"), "b27usfrs0c4524a08.xml.processed.sdlxliff");
-  assert.equal(processedFilename("Informe final.docx"), "Informe final.processed.docx");
-  assert.equal(processedFilename("sinextension"), "sinextension.processed");
-  assert.equal(processedFilename(".oculto"), ".oculto.processed");
+  assert.equal(processedFilename("a.docx", { source: "", target: null }), "a.processed.docx");
+  assert.equal(processedFilename("a.docx", { target: "fr" }), "a-fr.docx", "solo destino: el que hay");
   assert.equal(processedFilename(""), "document.processed");
 });
 
