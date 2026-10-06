@@ -236,7 +236,13 @@ export function indexSdlxliff(raw) {
 function segDef(unit, mid) {
   const seg = mid != null ? unit.sdlSegs.get(mid) : undefined;
   if (!seg) {
-    return { locked: isPlainLocked(unit), origin: null, conf: plainState(unit), percent: null };
+    return {
+      locked: isPlainLocked(unit),
+      origin: null,
+      conf: plainState(unit),
+      percent: null,
+      textMatch: null,
+    };
   }
   const percent = seg.attrs.get("percent");
   return {
@@ -244,6 +250,8 @@ function segDef(unit, mid) {
     origin: seg.attrs.get("origin") ?? null,
     conf: seg.attrs.get("conf") ?? null,
     percent: percent !== undefined && percent !== "" ? Number(percent) : null,
+    // "SourceAndTarget" on a 100% TM match = context match (Trados "CM").
+    textMatch: seg.attrs.get("text-match") ?? null,
   };
 }
 
@@ -257,6 +265,10 @@ export function readSdlxliffSegments(raw) {
   const index = indexSdlxliff(raw);
   const tagDefs = parseTagDefs(index.root);
   const segments = [];
+  // The number the CAT tool shows for the segment: its position among the
+  // segments of the translatable units, INCLUDING the ones not imported below
+  // (nothing to translate), so the grid's numbers match the client's.
+  let segmentNumber = 0;
   for (const unit of index.units) {
     // Structural units (translate="no", own or inherited: lockTU definitions,
     // slide metadata...) are not editable. They survive export untouched.
@@ -286,6 +298,7 @@ export function readSdlxliffSegments(raw) {
 
     let segmentIndex = 0;
     for (const part of parts) {
+      segmentNumber += 1;
       // Nothing a human can translate (empty or tags only): not an editable
       // segment, same as before. Its target stays as the client left it.
       if (!visibleText(part.coded).trim()) continue;
@@ -295,6 +308,7 @@ export function readSdlxliffSegments(raw) {
         transUnitId: unit.key,
         mid: part.mid,
         segmentIndex: segmentIndex++,
+        segmentNumber,
         isSegmented: part.mid !== null,
         source: part.coded.trim(),
         target,
