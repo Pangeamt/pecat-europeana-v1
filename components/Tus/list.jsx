@@ -17,7 +17,7 @@ import {
   Tooltip,
 } from "antd";
 import axios from "axios";
-import { ChevronDown, ChevronRight, CircleCheck, CircleX, Filter, LoaderCircle, LockIcon, Save, Search, UnlockIcon } from "lucide-react";
+import { ChevronDown, ChevronRight, CircleCheck, CircleX, Filter, LoaderCircle, LockIcon, Redo2, Save, Undo2, Search, UnlockIcon } from "lucide-react";
 import { useParams } from "next/navigation";
 
 import React, {
@@ -59,6 +59,16 @@ import {
   stripInlineTags,
 } from "@/components/shared/inline-tags";
 import { computeEffort } from "@/lib/effort";
+import {
+  actionEntry,
+  emptyActionHistory,
+  recordAction,
+  recordText,
+  redoAction,
+  redoText,
+  undoAction,
+  undoText,
+} from "@/lib/edit-history";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { segmentNumberOf } from "@/lib/segment-status";
 import SegmentStatusIcon, { segmentStatusLabel } from "./SegmentStatusIcon";
@@ -223,6 +233,14 @@ const TusList = ({ shareToken } = {}) => {
     });
   };
   const [saveFailed, setSaveFailed] = useState(false);
+  // Undo / redo (lib/edit-history.js), kept for the session: what was typed
+  // in each segment ({ [tuId]: history }) and the saved actions. Refs, because
+  // the key handlers outlive a render; the tick re-renders the two buttons.
+  const textHistoryRef = useRef({});
+  const actionHistoryRef = useRef(emptyActionHistory());
+  const undoBusyRef = useRef(false);
+  const [, setHistoryTick] = useState(0);
+  const touchHistory = () => setHistoryTick((tick) => tick + 1);
   // Bumped when an LLM suggestion is applied so the target editor remounts
   // with the new reviewLiteral (Quill/TagEditor only read the initial value).
   const [editorRefreshKey, setEditorRefreshKey] = useState(0);
@@ -855,6 +873,7 @@ const TusList = ({ shareToken } = {}) => {
               ? TagEditor
               : CustomTextArea;
           return (
+            <div onKeyDownCapture={handleHistoryKeys}>
             <Editor
               key={`${record.id}-${editorRefreshKey}`}
               dir={targetDir}
@@ -917,6 +936,7 @@ const TusList = ({ shareToken } = {}) => {
                 }
               }}
             />
+            </div>
           );
         } else {
           const reviewLiteral = getColumnSearchProps("reviewLiteral");
@@ -1102,18 +1122,39 @@ const TusList = ({ shareToken } = {}) => {
     },
   ];
 
-  const confirm = async ({ tuId, reviewLiteral, action }) => {
+  // Saved actions the reviewer can undo (suggestion bookkeeping is not one).
+  const UNDOABLE = ["approve", "reject", "save_draft", "lock", "unlock"];
+
+  const confirm = async ({ tuId, reviewLiteral, action, snapshot }) => {
     // Backstop — the backend enforces this too (409 SUBMISSION_LOCKED).
     if (editingLocked) {
       throw new Error("submission locked");
     }
+    const payload = { tuId, reviewLiteral, action, ...(snapshot ? { snapshot } : {}) };
     const response = shareToken
-      ? await confirmTuByShareToken(shareToken, { tuId, reviewLiteral, action })
-      : await confirmTu({ tuId, reviewLiteral, action });
+      ? await confirmTuByShareToken(shareToken, payload)
+      : await confirmTu(payload);
     const { tu, alsoUpdated = [] } = response.data;
     const updatedById = new Map(
       [tu, ...alsoUpdated].map((item) => [item.id, item]),
     );
+
+    if (UNDOABLE.includes(action)) {
+      // `data` here is still the rows as they were before this save.
+      const beforeById = new Map(
+        data.filter((doc) => updatedById.has(doc.id)).map((doc) => [doc.id, doc]),
+      );
+      actionHistoryRef.current = recordAction(
+        actionHistoryRef.current,
+        actionEntry({
+          action,
+          number: segmentNumberOf(beforeById.get(tu.id)),
+          beforeById,
+          after: [tu, ...alsoUpdated],
+        }),
+      );
+      touchHistory();
+    }
 
     setData((prev) =>
       prev.map((doc) =>
@@ -1453,9 +1494,143 @@ const TusList = ({ shareToken } = {}) => {
     setDrafts(next);
   };
 
+  // A real change of the typed text becomes an undo step of that segment
+  // (cosmetic differences the editors emit on mount are not one).
+  const rememberTyped = (row, next) => {
+    const previous = row.reviewLiteral ?? row.translatedLiteral ?? "";
+    if (normalizeDraft(previous) === normalizeDraft(next)) return;
+    textHistoryRef.current = {
+      ...textHistoryRef.current,
+      [row.id]: recordText(textHistoryRef.current[row.id], previous, Date.now()),
+    };
+    touchHistory();
+  };
+
+  // Puts `text` in the editor of the selected segment (undo / redo of typing):
+  // the editors only read their initial value, so the editor is remounted.
+  const replaceEditorText = (tuId, text) => {
+    setSelectedRow((prev) =>
+      prev?.id === tuId ? { ...prev, reviewLiteral: text } : prev,
+    );
+    markDraft(tuId, text);
+    setEditorRefreshKey((prev) => prev + 1);
+    scheduleLiveEvaluation(tuId, text);
+    // The remounted editor takes the caret back, at the end of the text.
+    setTimeout(() => {
+      const box = document.querySelector(
+        "#tus-list .selected-row .tag-editor, #tus-list .selected-row .ql-editor",
+      );
+      if (!box) return;
+      box.focus({ preventScroll: true });
+      const range = document.createRange();
+      range.selectNodeContents(box);
+      range.collapse(false);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }, 120);
+  };
+
+  // Restores every segment of a saved action to its state before (undo) or
+  // after (redo) it, then shows where it happened. Filters are never changed:
+  // a segment outside the current filter is restored and reported as such.
+  const restoreAction = async (entry, side) => {
+    const items = side === "before" ? [...entry.items].reverse() : entry.items;
+    for (const item of items) {
+      if (!beginPending(item.id, "status")) continue;
+      try {
+        await confirm({ tuId: item.id, action: "restore", snapshot: item[side] });
+        clearDraft(item.id);
+      } finally {
+        endPending(item.id);
+      }
+    }
+    setEditorRefreshKey((prev) => prev + 1);
+    const mainId = entry.items[0].id;
+    const index = orderedData.findIndex((doc) => doc.id === mainId);
+    const what = t(`tus.undo.${side === "before" ? "undone" : "redone"}`, {
+      action: t(`tus.undo.action.${entry.action}`),
+      number: entry.number ?? "",
+    });
+    if (index >= 0) {
+      goToRowIndex(index);
+      announce(what);
+    } else {
+      announce(`${what} ${t("tus.undo.outsideFilter")}`);
+    }
+  };
+
+  // Ctrl+Z / Ctrl+Y (and the two buttons). What was typed in the selected
+  // segment goes first; with nothing typed left, the last saved action.
+  const stepHistory = async (direction) => {
+    if (undoBusyRef.current) return;
+    if (editingLocked) {
+      messageApi.warning("Editing is closed: this work was submitted.");
+      return;
+    }
+    const row = selectedRow;
+    if (row && !isSegmentBlocked(row) && !pendingRef.current[row.id]) {
+      const current = row.reviewLiteral ?? row.translatedLiteral ?? "";
+      const step =
+        direction === "undo"
+          ? undoText(textHistoryRef.current[row.id], current)
+          : redoText(textHistoryRef.current[row.id], current);
+      if (step) {
+        textHistoryRef.current = {
+          ...textHistoryRef.current,
+          [row.id]: step.history,
+        };
+        touchHistory();
+        replaceEditorText(row.id, step.text);
+        return;
+      }
+    }
+    const step =
+      direction === "undo"
+        ? undoAction(actionHistoryRef.current)
+        : redoAction(actionHistoryRef.current);
+    if (!step) {
+      announce(t(`tus.undo.${direction === "undo" ? "nothingToUndo" : "nothingToRedo"}`));
+      return;
+    }
+    undoBusyRef.current = true;
+    const previousHistory = actionHistoryRef.current;
+    actionHistoryRef.current = step.history;
+    touchHistory();
+    try {
+      await restoreAction(step.entry, direction === "undo" ? "before" : "after");
+    } catch (error) {
+      actionHistoryRef.current = previousHistory;
+      touchHistory();
+      const reason = failureReason(error);
+      messageApi.error(
+        reason
+          ? `${t("tus.undo.failed")}: ${reason}`
+          : t("tus.undo.failed"),
+      );
+      console.error(error);
+    } finally {
+      undoBusyRef.current = false;
+    }
+  };
+
+  // Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z typed inside an editor: handled here, in
+  // the capture phase, so both editors (and Quill's own history) behave alike.
+  const handleHistoryKeys = (event) => {
+    if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+    const key = event.key.toLowerCase();
+    const undo = key === "z" && !event.shiftKey;
+    const redo = key === "y" || (key === "z" && event.shiftKey);
+    if (!undo && !redo) return;
+    event.preventDefault();
+    event.stopPropagation();
+    stepHistory(undo ? "undo" : "redo");
+  };
+
   const changeTextInTextarea = (text) => {
     const html = stripHTML(text);
     if (selectedRow && selectedRow.reviewLiteral !== html) {
+      if (!isSegmentBlocked(selectedRow)) rememberTyped(selectedRow, html);
       setSelectedRow((prev) => ({
         ...prev,
         reviewLiteral: html,
@@ -1471,6 +1646,7 @@ const TusList = ({ shareToken } = {}) => {
   // stripHTML here would eat the tags (<g1> parses as an HTML element).
   const changeTextInTagEditor = (text) => {
     if (selectedRow && selectedRow.reviewLiteral !== text) {
+      if (!isSegmentBlocked(selectedRow)) rememberTyped(selectedRow, text);
       setSelectedRow((prev) => ({
         ...prev,
         reviewLiteral: text,
@@ -1594,6 +1770,15 @@ const TusList = ({ shareToken } = {}) => {
   });
   useHotkeys("ctrl+shift+up", () => {
     navigate(-1);
+  });
+  // With the focus outside an editor (inside one: handleHistoryKeys).
+  useHotkeys("ctrl+z", (event) => {
+    event.preventDefault();
+    stepHistory("undo");
+  });
+  useHotkeys("ctrl+y, ctrl+shift+z", (event) => {
+    event.preventDefault();
+    stepHistory("redo");
   });
   useHotkeys(
     "ctrl+s",
@@ -1866,6 +2051,60 @@ const TusList = ({ shareToken } = {}) => {
                 </span>
               </Tag>
             </Tooltip>
+            {(() => {
+              // Undo / redo: typed text of the selected segment first, then
+              // the last saved action (see stepHistory).
+              const typed = selectedRow ? textHistoryRef.current[selectedRow.id] : null;
+              const actions = actionHistoryRef.current;
+              const lastUndo = actions.past[actions.past.length - 1];
+              const lastRedo = actions.future[actions.future.length - 1];
+              const describe = (entry) =>
+                entry
+                  ? `${t(`tus.undo.action.${entry.action}`)} · ${entry.number ?? ""}`
+                  : "";
+              const canUndo = Boolean(typed?.past.length) || actions.past.length > 0;
+              const canRedo = Boolean(typed?.future.length) || actions.future.length > 0;
+              return (
+                <span className="inline-flex items-center">
+                  <Tooltip
+                    title={`${t("tus.undo.undo")} (Ctrl+Z)${
+                      typed?.past.length
+                        ? ` — ${t("tus.undo.typedText")}`
+                        : lastUndo
+                          ? ` — ${describe(lastUndo)}`
+                          : ""
+                    }`}
+                  >
+                    <Button
+                      size="small"
+                      type="text"
+                      aria-label={t("tus.undo.undo")}
+                      icon={<Undo2 size={15} />}
+                      disabled={!canUndo || editingLocked}
+                      onClick={() => stepHistory("undo")}
+                    />
+                  </Tooltip>
+                  <Tooltip
+                    title={`${t("tus.undo.redo")} (Ctrl+Y)${
+                      typed?.future.length
+                        ? ` — ${t("tus.undo.typedText")}`
+                        : lastRedo
+                          ? ` — ${describe(lastRedo)}`
+                          : ""
+                    }`}
+                  >
+                    <Button
+                      size="small"
+                      type="text"
+                      aria-label={t("tus.undo.redo")}
+                      icon={<Redo2 size={15} />}
+                      disabled={!canRedo || editingLocked}
+                      onClick={() => stepHistory("redo")}
+                    />
+                  </Tooltip>
+                </span>
+              );
+            })()}
             <Tooltip title="Save the text you typed without approving it (Ctrl+S)">
               <Button
                 size="small"
