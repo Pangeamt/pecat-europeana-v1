@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  BadgeCheck,
-  BadgeX,
-  Check,
-  CheckCheck,
-  File,
-  Pencil,
-  X,
-} from "lucide-react";
+import { Check, CircleCheck, Lock, Pencil, X } from "lucide-react";
 
 import {
   SEGMENT_STATE,
@@ -17,24 +9,26 @@ import {
   segmentState,
 } from "@/lib/segment-status";
 
-// Status column of the segment grid, read the way Trados Studio's is: one icon
-// for the confirmation level (blank sheet = not translated, blue pencil =
-// draft, green pencil with a tick = translated...) and a badge for the origin
-// of the target (AT, CM, 100%, 87%). Display only -- nothing here is clickable.
-// The rules are in lib/segment-status.js.
+// Status column of the segment grid: one icon for the segment's situation
+// (locked, not reviewed, confirmed, confirmed with changes, rejected) and,
+// where it says something, a badge for the origin of the target (AT, 87%).
+// Display only -- nothing here is clickable. The rules are in
+// lib/segment-status.js; what the exported file says is the writer's business.
 
 const GREEN = "#4D7C0F";
 const BLUE = "#2563EB";
 const RED = "#DC2626";
-const GREY = "#94A3B8";
+const GREY = "#64748B";
+const AMBER = "#D97706";
 
-// A pencil with a small mark at its corner: tick (translated) or cross (rejected).
-const MarkedPencil = ({ color, Mark, markColor }) => (
+// A pencil with a small mark at its corner: padlock (locked), tick (confirmed
+// with changes) or cross (rejected).
+const MarkedPencil = ({ color, Mark, markColor, markSize = 11 }) => (
   <span className="relative inline-block" style={{ width: 20, height: 18 }}>
     <Pencil size={16} color={color} />
     <Mark
-      size={11}
-      strokeWidth={3.5}
+      size={markSize}
+      strokeWidth={3}
       color={markColor}
       className="absolute"
       style={{ right: -1, bottom: -2 }}
@@ -43,22 +37,21 @@ const MarkedPencil = ({ color, Mark, markColor }) => (
 );
 
 const ICONS = {
-  [SEGMENT_STATE.NOT_TRANSLATED]: <File size={17} color={GREY} />,
-  [SEGMENT_STATE.DRAFT]: <Pencil size={17} color={BLUE} />,
-  [SEGMENT_STATE.TRANSLATED]: (
+  [SEGMENT_STATE.LOCKED]: (
+    <MarkedPencil color={GREY} Mark={Lock} markColor={AMBER} markSize={10} />
+  ),
+  [SEGMENT_STATE.PENDING]: <Pencil size={17} color={BLUE} />,
+  [SEGMENT_STATE.CONFIRMED]: <CircleCheck size={18} color={GREEN} />,
+  [SEGMENT_STATE.EDITED]: (
     <MarkedPencil color={GREEN} Mark={Check} markColor={GREEN} />
   ),
-  [SEGMENT_STATE.TRANSLATION_REJECTED]: (
+  [SEGMENT_STATE.REJECTED]: (
     <MarkedPencil color={RED} Mark={X} markColor={RED} />
   ),
-  [SEGMENT_STATE.TRANSLATION_APPROVED]: <CheckCheck size={18} color={GREEN} />,
-  [SEGMENT_STATE.SIGN_OFF_REJECTED]: <BadgeX size={18} color={RED} />,
-  [SEGMENT_STATE.SIGNED_OFF]: <BadgeCheck size={18} color={GREEN} />,
 };
 
 const BADGE = {
   mt: { color: "#1D4ED8", fill: "rgba(37, 99, 235, 0.14)" },
-  exact: { color: "#3F6212", fill: "rgba(77, 124, 15, 0.16)" },
   fuzzy: { color: "#B45309", fill: "rgba(217, 119, 6, 0.16)" },
 };
 
@@ -80,7 +73,7 @@ const SegmentStatusIcon = ({ tu, hasDraft = false }) => {
           className="rounded px-1 text-[10px] font-semibold leading-4 tabular-nums"
           style={{
             color: badge.color,
-            // Untouched = filled; edited = outline only (as in Trados).
+            // Untouched = filled; edited = outline only.
             background: origin.edited ? "transparent" : badge.fill,
             border: `1px solid ${origin.edited ? badge.color : "transparent"}`,
           }}
