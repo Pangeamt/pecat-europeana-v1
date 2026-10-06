@@ -12,7 +12,7 @@ import {
 } from "../documents/pipeline-service";
 import { describeTagIssue, tagIssue } from "../documents/tag-check";
 import { isSpliceFormat } from "../../lib/utils";
-import { buildTuRevisions } from "../../lib/tu-revision";
+import { buildTuRevisions, revisionActionOf } from "../../lib/tu-revision";
 import {
   createTuRevisions,
   findTuRevisions,
@@ -172,7 +172,8 @@ async function applyTuStatusUpdate(tu, payload, reviewer = null) {
     const beforeById = new Map(siblingsBefore.map((item) => [item.id, item]));
     await createTuRevisions(
       buildTuRevisions({
-        action: payload.action,
+        // An undo / redo is recorded as such, not as a plain change.
+        action: revisionActionOf(payload),
         before: tu,
         after: result.tu,
         siblings: (result.alsoUpdated ?? []).map((after) => ({

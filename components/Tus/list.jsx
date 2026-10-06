@@ -1125,12 +1125,17 @@ const TusList = ({ shareToken } = {}) => {
   // Saved actions the reviewer can undo (suggestion bookkeeping is not one).
   const UNDOABLE = ["approve", "reject", "save_draft", "lock", "unlock"];
 
-  const confirm = async ({ tuId, reviewLiteral, action, snapshot }) => {
+  const confirm = async ({ tuId, reviewLiteral, action, snapshot, direction }) => {
     // Backstop — the backend enforces this too (409 SUBMISSION_LOCKED).
     if (editingLocked) {
       throw new Error("submission locked");
     }
-    const payload = { tuId, reviewLiteral, action, ...(snapshot ? { snapshot } : {}) };
+    const payload = {
+      tuId,
+      reviewLiteral,
+      action,
+      ...(snapshot ? { snapshot, direction } : {}),
+    };
     const response = shareToken
       ? await confirmTuByShareToken(shareToken, payload)
       : await confirmTu(payload);
@@ -1539,7 +1544,13 @@ const TusList = ({ shareToken } = {}) => {
     for (const item of items) {
       if (!beginPending(item.id, "status")) continue;
       try {
-        await confirm({ tuId: item.id, action: "restore", snapshot: item[side] });
+        await confirm({
+          tuId: item.id,
+          action: "restore",
+          snapshot: item[side],
+          // Recorded in the segment's history as an undo or a redo.
+          direction: side === "before" ? "undo" : "redo",
+        });
         clearDraft(item.id);
       } finally {
         endPending(item.id);
