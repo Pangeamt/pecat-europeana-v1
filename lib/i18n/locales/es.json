@@ -418,6 +418,24 @@
       "lockedSkipped": "{count} bloqueados saltados",
       "page": "Página {page} de {total}",
       "noneLeft": "No quedan segmentos sin confirmar en este filtro"
+    },
+    "undo": {
+      "undo": "Deshacer",
+      "redo": "Rehacer",
+      "typedText": "texto escrito",
+      "undone": "Deshecho: {action} · segmento {number}",
+      "redone": "Rehecho: {action} · segmento {number}",
+      "outsideFilter": "(fuera del filtro)",
+      "nothingToUndo": "No hay nada que deshacer",
+      "nothingToRedo": "No hay nada que rehacer",
+      "failed": "No se pudo deshacer",
+      "action": {
+        "approve": "confirmar",
+        "reject": "rechazar",
+        "save_draft": "guardar borrador",
+        "lock": "bloquear",
+        "unlock": "desbloquear"
+      }
     }
   },
   "glossaries": {

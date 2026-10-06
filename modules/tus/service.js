@@ -191,6 +191,29 @@ async function applyTuStatusUpdate(tu, payload, reviewer = null) {
 async function saveTuStatusUpdate(tu, payload, reviewer = null) {
   const { reviewLiteral, action, levenshteinDistance = null, block } = payload;
 
+  // Undo / redo of a saved action: the segment goes back to the state the
+  // editor remembers (review text, status, lock, score). Only this TU, never
+  // propagated -- the editor restores each propagated segment on its own.
+  // Who may change a lock is checked by the callers (assertMayRestore).
+  if (action === "restore") {
+    const { snapshot } = payload;
+    const tuUpdated = await updateTuById(tu.id, {
+      reviewLiteral: snapshot.reviewLiteral || null,
+      Status: snapshot.Status,
+      block: snapshot.block,
+      blockReason: snapshot.block
+        ? (snapshot.blockReason ?? BLOCK_REASON.MANUAL)
+        : null,
+      mtqeV2Score:
+        typeof snapshot.mtqeV2Score === "number" ? snapshot.mtqeV2Score : null,
+      // Back to "nobody saved it": the status column shows the file's level.
+      reviewedAt: snapshot.reviewed ? new Date() : null,
+      reviewedById: snapshot.reviewed ? (reviewer?.id ?? null) : null,
+      reviewedByName: snapshot.reviewed ? (reviewer?.name ?? null) : null,
+    });
+    return { tu: tuUpdated, alsoUpdated: [] };
+  }
+
   // Manual lock/unlock (ADMIN/SUPER only, enforced by the callers): touches
   // only this TU and never propagates. Unlock overrides any lock origin
   // (TM match, LLM judge, file-internal); the review status is untouched.
@@ -409,6 +432,10 @@ const LOCK_ACTIONS = ["lock", "unlock"];
 // segment whose tag signature matches the seg-source in order (the same rule
 // module-file-translate enforces with FT-111).
 function assertInlineTagsKept(tu, payload, document) {
+  // A restored text goes through the same gate as a typed one.
+  if (payload.action === "restore") {
+    payload = { action: "approve", reviewLiteral: payload.snapshot?.reviewLiteral };
+  }
   if (!["approve", "save_draft"].includes(payload.action) || !payload.reviewLiteral) return;
   // No early return when the source has no tags: a placeholder typed by hand
   // (e.g. "<x1/>" in the plain Quill editor) would be stored as a real tag and
@@ -422,6 +449,22 @@ function assertInlineTagsKept(tu, payload, document) {
     `The target's inline tags don't match the source's (${describeTagIssue(issue)})`,
     "INLINE_TAGS_MISMATCH",
   );
+}
+
+// "restore" must not become a way around the lock rules: only an admin may
+// restore a state that changes the lock, or touch a segment that is locked.
+function assertMayRestore(tu, payload, isAdmin) {
+  if (payload.action !== "restore" || isAdmin) return;
+  if (Boolean(tu.block) !== payload.snapshot.block) {
+    throw new HttpError(403, "Only admins can lock or unlock segments");
+  }
+  if (tu.block) {
+    throw new HttpError(
+      409,
+      "This segment is locked: unlock it before editing",
+      "SEGMENT_LOCKED",
+    );
+  }
 }
 
 export async function updateTuStatusService(payload, actorUser) {
@@ -438,6 +481,7 @@ export async function updateTuStatusService(payload, actorUser) {
   if (!tu) {
     throw new HttpError(404, "Tu not found");
   }
+  assertMayRestore(tu, payload, ["ADMIN", "SUPER"].includes(actorUser?.role));
 
   const document = await assertTuAccessibleByActor(tu, actorUser);
   assertActorMayEditDocument(document, actorUser);
@@ -502,6 +546,7 @@ export async function updateTuStatusByShareTokenService(token, payload) {
   if (!tu || tu.documentId !== document.id) {
     throw new HttpError(404, "Tu not found");
   }
+  assertMayRestore(tu, payload, false);
 
   // Anonymous link: no user identity — attribute the action to the link.
   assertInlineTagsKept(tu, payload, document);
