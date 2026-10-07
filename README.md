@@ -135,7 +135,7 @@ Las palabras son los tokens separados por espacios del literal origen (mismo cri
 
 ## Despliegue con Docker y persistencia de datos
 
-El despliegue con Docker se hace con `./devops-docker.sh` (`docker compose build` + `up -d`). **Reconstruir la imagen o recrear el contenedor NO borra los archivos subidos**: `docker-compose.yml` guarda los datos en volúmenes con nombre, que viven fuera del contenedor y se vuelven a montar en cada arranque.
+El despliegue con Docker se hace con `./devops-docker.sh [etiqueta]`, que descarga de ECR la imagen publicada con `./devops-build-push.sh` (`docker compose pull` + `up -d`; en el servidor no se construye nada). **Cambiar de imagen o recrear el contenedor NO borra los archivos subidos**: `docker-compose.yml` guarda los datos en volúmenes con nombre, que viven fuera del contenedor y se vuelven a montar en cada arranque.
 
 | Volumen | Punto de montaje | Contenido |
 |---|---|---|
