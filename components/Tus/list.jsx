@@ -59,7 +59,11 @@ import {
   stripInlineTags,
 } from "@/components/shared/inline-tags";
 import { computeEffort } from "@/lib/effort";
-import { completionOf, confirmableRows } from "@/lib/document-completion";
+import {
+  completionOf,
+  confirmableRows,
+  nextPendingIndex,
+} from "@/lib/document-completion";
 import { useProcessedDownload } from "@/components/Documents/useProcessedDownload";
 import { getDocumentOriginalLink } from "@/services/document.services";
 import {
@@ -1413,15 +1417,28 @@ const TusList = ({ shareToken } = {}) => {
   const goToNextUnconfirmed = (fromId) => {
     const currentIndex = orderedData.findIndex((doc) => doc.id === fromId);
     if (currentIndex < 0) return;
-    for (let index = currentIndex + 1; index < orderedData.length; index += 1) {
-      const doc = orderedData[index];
-      if (isSegmentBlocked(doc) || isConfirmed(doc)) continue;
-      if (pendingRef.current[doc.id]) continue;
-      goToRowIndex(index, currentIndex);
+    const next = nextPendingIndex(
+      orderedData,
+      currentIndex,
+      (doc) =>
+        !isSegmentBlocked(doc) && !isConfirmed(doc) && !pendingRef.current[doc.id],
+    );
+    // Nothing left to edit in this filter: stay put and say so.
+    if (!next) {
+      announce(t("tus.nav.noneLeft"));
       return;
     }
-    // Nothing left to confirm below: say so instead of silently staying put.
-    announce(t("tus.nav.noneLeft"));
+    if (!next.wrapped) {
+      goToRowIndex(next.index, currentIndex);
+      return;
+    }
+    // None below, but some were left behind above: go back to the first one.
+    goToRowIndex(next.index);
+    announce(
+      t("tus.nav.wrapped", {
+        number: segmentNumberOf(orderedData[next.index], next.index + 1),
+      }),
+    );
   };
 
   // A failed request brings the reviewer back to its segment (the text typed

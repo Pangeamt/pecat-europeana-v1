@@ -430,7 +430,8 @@
     "nav": {
       "lockedSkipped": "{count} bloqueados saltados",
       "page": "Página {page} de {total}",
-      "noneLeft": "No quedan segmentos sin confirmar en este filtro"
+      "noneLeft": "No hay más segmentos por editar en este filtro",
+      "wrapped": "No hay más por debajo: vuelta al segmento {number}, que seguía pendiente"
     },
     "done": {
       "label": "Terminados",
