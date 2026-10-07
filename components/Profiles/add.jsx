@@ -126,7 +126,14 @@ const ProfileAdd = ({ refetch, cloneOf = null, existingNames = [], onCloneClosed
   // A profile to clone arrived: open the wizard (its form mounts with the
   // clone's values, see initialValues below).
   useEffect(() => {
-    if (cloneOf) showModal();
+    if (!cloneOf) return;
+    showModal();
+    // The form instance outlives the modal and keeps the values of the last
+    // wizard, so the clone's values are set explicitly (initialValues alone
+    // left a second clone with the first one's name).
+    form.setFieldsValue(
+      cloneFormValues(cloneOf, existingNames, t("profiles.copyWord")),
+    );
     // showModal only reads the user's workspace; cloneOf is the trigger.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cloneOf?.id]);
