@@ -17,6 +17,7 @@ import {
   Tooltip,
 } from "antd";
 import axios from "axios";
+import { createPortal } from "react-dom";
 import { ChevronDown, ChevronRight, CircleCheck, CircleX, CheckCheck, Download, FileDown, Filter, LoaderCircle, LockIcon, Redo2, Save, Undo2, Search, UnlockIcon } from "lucide-react";
 import { useParams } from "next/navigation";
 
@@ -44,6 +45,8 @@ import {
   appendTuByShareToken,
   confirmTu,
   confirmTuByShareToken,
+  confirmTusBulk,
+  confirmTusBulkByShareToken,
   evaluateTu,
   evaluateTuByShareToken,
   getTus,
@@ -64,6 +67,7 @@ import {
   confirmableRows,
   nextPendingIndex,
 } from "@/lib/document-completion";
+import { chunksOf } from "@/lib/bulk-confirm";
 import { useProcessedDownload } from "@/components/Documents/useProcessedDownload";
 import { getDocumentOriginalLink } from "@/services/document.services";
 import {
@@ -1233,60 +1237,97 @@ const TusList = ({ shareToken } = {}) => {
       content: t(listFiltered ? "tus.bulk.contentFiltered" : "tus.bulk.contentAll"),
       okText: t("tus.bulk.ok", { count: targets.length }),
       cancelText: t("tus.bulk.cancel"),
-      onOk: async () => {
-        const beforeById = new Map(data.map((doc) => [doc.id, doc]));
-        const after = new Map();
-        let failed = 0;
-        let firstReason = null;
-        setBulkProgress({ done: 0, total: targets.length });
-        for (let index = 0; index < targets.length; index += 1) {
-          const row = targets[index];
-          // Already confirmed by the propagation of an earlier one (same source).
-          if (after.has(row.id) || !beginPending(row.id, "status")) {
-            setBulkProgress({ done: index + 1, total: targets.length });
-            continue;
-          }
-          try {
-            const updated = await confirm({
-              tuId: row.id,
-              reviewLiteral: confirmTextOf(row),
-              action: "approve",
-              record: false,
-            });
-            for (const item of updated) after.set(item.id, item);
-            clearDraft(row.id);
-          } catch (error) {
-            failed += 1;
-            firstReason ??= failureReason(error);
-            console.error(error);
-          } finally {
-            endPending(row.id);
-            setBulkProgress({ done: index + 1, total: targets.length });
-          }
-        }
-        setBulkProgress(null);
-        actionHistoryRef.current = recordAction(
-          actionHistoryRef.current,
-          actionEntry({
-            action: "approve_all",
-            number: after.size,
-            beforeById,
-            after: [...after.values()],
-          }),
-        );
-        touchHistory();
-        if (failed > 0) {
-          messageApi.warning(
-            `${t("tus.bulk.someFailed", { failed, done: after.size })}${
-              firstReason ? ` (${firstReason})` : ""
-            }`,
-          );
-        } else {
-          announce(t("tus.bulk.done", { done: after.size }));
-        }
+      // Not awaited: the dialog closes at once and the editor stays locked
+      // behind the progress panel until the whole list has been answered.
+      onOk: () => {
+        runBulkConfirm(targets);
       },
     });
   };
+
+  // The list goes to the server in requests of many segments (not one call
+  // per segment); each answer confirms its rows in the grid. Meanwhile every
+  // other action is blocked (see the panel and the key guard below).
+  const runBulkConfirm = async (targets) => {
+    const beforeById = new Map(data.map((doc) => [doc.id, doc]));
+    const after = new Map();
+    let failed = 0;
+    let firstReason = null;
+    let done = 0;
+    const items = targets.map((row) => ({
+      tuId: row.id,
+      reviewLiteral: confirmTextOf(row),
+    }));
+    document.activeElement?.blur?.();
+    setBulkProgress({ done: 0, total: items.length });
+    for (const chunk of chunksOf(items)) {
+      // Already confirmed by the propagation of an earlier request (same source).
+      const pending = chunk.filter((item) => !after.has(item.tuId));
+      try {
+        if (pending.length > 0) {
+          const response = shareToken
+            ? await confirmTusBulkByShareToken(shareToken, { items: pending })
+            : await confirmTusBulk({ documentId: projectId, items: pending });
+          const { updated = [], failed: refused = [] } = response.data;
+          const updatedById = new Map(updated.map((item) => [item.id, item]));
+          for (const item of updated) {
+            after.set(item.id, item);
+            clearDraft(item.id);
+          }
+          failed += refused.length;
+          firstReason ??= refused[0]?.message || null;
+          setData((prev) =>
+            prev.map((doc) =>
+              updatedById.has(doc.id) ? { ...doc, ...updatedById.get(doc.id) } : doc,
+            ),
+          );
+          setSelectedRow((prev) =>
+            prev && updatedById.has(prev.id)
+              ? { ...prev, ...updatedById.get(prev.id) }
+              : prev,
+          );
+        }
+      } catch (error) {
+        failed += pending.length;
+        firstReason ??= failureReason(error);
+        console.error(error);
+      }
+      done += chunk.length;
+      setBulkProgress({ done, total: items.length });
+    }
+    setBulkProgress(null);
+    actionHistoryRef.current = recordAction(
+      actionHistoryRef.current,
+      actionEntry({
+        action: "approve_all",
+        number: after.size,
+        beforeById,
+        after: [...after.values()],
+      }),
+    );
+    touchHistory();
+    if (failed > 0) {
+      messageApi.warning(
+        `${t("tus.bulk.someFailed", { failed, done: after.size })}${
+          firstReason ? ` (${firstReason})` : ""
+        }`,
+      );
+    } else {
+      announce(t("tus.bulk.done", { done: after.size }));
+    }
+  };
+
+  // While a bulk confirm runs nothing else may be done: keys are swallowed
+  // here (shortcuts and typing alike) and the panel below takes the clicks.
+  useEffect(() => {
+    if (!bulkProgress) return undefined;
+    const swallow = (event) => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+    window.addEventListener("keydown", swallow, true);
+    return () => window.removeEventListener("keydown", swallow, true);
+  }, [Boolean(bulkProgress)]);
 
   // LLM suggestion lifecycle: applying copies the suggestion into the target
   // editor (the reviewer still confirms), discarding hides it; both persist
@@ -1934,6 +1975,43 @@ const TusList = ({ shareToken } = {}) => {
   return (
     <div>
       {contextHolder}
+      {bulkProgress
+        ? // On <body>, above everything: no ancestor can clip it or sit over it.
+          createPortal(
+        <div
+          className="bulk-lock"
+          role="alertdialog"
+          aria-busy="true"
+          aria-label={t("tus.bulk.running", bulkProgress)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 2000,
+            background: "rgba(15, 23, 42, 0.35)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "progress",
+          }}
+        >
+          <div className="w-[26rem] max-w-[90vw] rounded-lg bg-white p-5 shadow-xl">
+            <div className="text-sm font-semibold text-slate-800">
+              {t("tus.bulk.running", bulkProgress)}
+            </div>
+            <div className="mt-3 h-2 w-full overflow-hidden rounded bg-slate-200">
+              <div
+                className="h-full bg-blue-600 transition-all"
+                style={{
+                  width: `${Math.round((bulkProgress.done / Math.max(1, bulkProgress.total)) * 100)}%`,
+                }}
+              />
+            </div>
+            <div className="mt-3 text-xs text-slate-500">{t("tus.bulk.runningHint")}</div>
+          </div>
+        </div>,
+            document.body,
+          )
+        : null}
       <div
         className="mb-2"
         style={{

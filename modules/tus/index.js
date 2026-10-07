@@ -7,6 +7,8 @@ export {
   listTuRevisionsByShareTokenService,
   updateTuStatusService,
   updateTuStatusByShareTokenService,
+  confirmTusInBulkService,
+  confirmTusInBulkByShareTokenService,
 } from "./service";
 
-export { evaluateTuSchema, updateTuSchema } from "./schemas";
+export { bulkConfirmTusSchema, evaluateTuSchema, updateTuSchema } from "./schemas";

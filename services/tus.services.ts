@@ -157,6 +157,39 @@ export const confirmTuByShareToken = async (
   });
 };
 
+// "Confirm all": a list of segments in one request. Answers the rows as they
+// were left and the ones refused, each with its reason.
+type BulkConfirmItem = { tuId: string; reviewLiteral?: string | null };
+type BulkConfirmResult = {
+  updated: ProjectTu[];
+  failed: { tuId: string; code: string; message: string }[];
+};
+
+export const confirmTusBulk = async (payload: {
+  documentId: string;
+  items: BulkConfirmItem[];
+}): Promise<AxiosResponse<BulkConfirmResult>> => {
+  return await httpClient({
+    method: "post",
+    url: "/api/tus/bulk",
+    data: payload,
+    // A full request of re-scored segments can take well over the default.
+    timeout: 300000,
+  });
+};
+
+export const confirmTusBulkByShareToken = async (
+  token: string,
+  payload: { items: BulkConfirmItem[] },
+): Promise<AxiosResponse<BulkConfirmResult>> => {
+  return await httpClient({
+    method: "post",
+    url: `/api/share/tu/${token}/tus/bulk`,
+    data: payload,
+    timeout: 300000,
+  });
+};
+
 export const appendTuByShareToken = async (
   token: string,
   payload: tuAppendPayload,
