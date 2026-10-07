@@ -291,7 +291,13 @@ export async function exportSdlxliffWithReport(originalFilePath, tus) {
 
 /** Segments we had a translation for but did not write (the reviewer should know). */
 export function skippedSegments(report) {
-  return report.skippedTags + report.skippedLegacy + report.skippedLockTu + report.noPlace;
+  return (
+    report.skippedTags +
+    report.skippedLegacy +
+    report.skippedLockTu +
+    report.noPlace +
+    (report.skippedIncomplete ?? 0)
+  );
 }
 
 export async function exportSdlxliffForDownload(originalFilePath, tus) {
