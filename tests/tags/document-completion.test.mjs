@@ -10,6 +10,7 @@ import {
   confirmableRows,
   isSegmentDone,
   mayDeliver,
+  nextPendingIndex,
   processedFilename,
   wholePercent,
 } from "../../lib/document-completion.js";
@@ -97,4 +98,20 @@ test("progreso de la traduccion: porcentaje entero, redondeado", () => {
   assert.equal(wholePercent(406, 811), 50);
   assert.equal(wholePercent(50, 0), 0, "sin nada que traducir");
   assert.equal(wholePercent(900, 811), 100, "nunca pasa de 100");
+});
+
+test("Ctrl+Enter: va al siguiente pendiente; si no hay por debajo vuelve a los que quedaron arriba", () => {
+  const open = (row) => row === "p";
+  // c = confirmado/bloqueado, p = pendiente
+  assert.deepEqual(nextPendingIndex(["c", "p", "c", "p"], 1, open), { index: 3, wrapped: false });
+  assert.deepEqual(nextPendingIndex(["p", "c", "p", "c"], 2, open), { index: 0, wrapped: true }, "nada por debajo: vuelve arriba");
+  assert.deepEqual(nextPendingIndex(["c", "p", "p", "c"], 3, open), { index: 1, wrapped: true }, "el PRIMERO de los de arriba");
+});
+
+test("Ctrl+Enter: sin pendientes en el filtro no va a ninguna parte", () => {
+  const open = (row) => row === "p";
+  assert.equal(nextPendingIndex(["c", "c", "c"], 2, open), null);
+  assert.equal(nextPendingIndex(["c", "p", "c"], 1, open), null, "el propio segmento no cuenta");
+  assert.equal(nextPendingIndex([], 0, open), null);
+  assert.equal(nextPendingIndex(null, 0, open), null);
 });

@@ -430,7 +430,8 @@
     "nav": {
       "lockedSkipped": "{count} locked skipped",
       "page": "Page {page} of {total}",
-      "noneLeft": "No unconfirmed segments left in this filter"
+      "noneLeft": "No more segments to edit in this filter",
+      "wrapped": "None left below: back to segment {number}, still pending"
     },
     "done": {
       "label": "Done",
