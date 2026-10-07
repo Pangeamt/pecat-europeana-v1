@@ -1,7 +1,7 @@
 "use client";
 
 import { Button, Form, Input, Modal, Select, Steps, Tag, message } from "antd";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { fetchGlossariesRequest } from "@/services/glossary.services";
@@ -10,6 +10,7 @@ import {
   listDaaitPresetsRequest,
 } from "@/services/profiles.services";
 import { fetchTMRequest } from "@/services/tm.services";
+import { cloneFormValues } from "@/lib/profile-clone";
 import { userStore } from "@/store";
 import { ArrowLeft, ArrowRight, Plus } from "lucide-react";
 
@@ -40,7 +41,11 @@ const toAssetOption = (asset) => {
   };
 };
 
-const ProfileAdd = ({ refetch }) => {
+// `cloneOf` (a profile of the list) opens this same wizard pre-filled with
+// everything that profile has -- name "<name> (copy)", details, preset,
+// memories and glossaries -- and every field stays editable. Nothing is
+// created until it is saved; `onCloneClosed` tells the list it is done.
+const ProfileAdd = ({ refetch, cloneOf = null, existingNames = [], onCloneClosed }) => {
   const { t } = useTranslation();
   const [form] = Form.useForm();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -78,6 +83,7 @@ const ProfileAdd = ({ refetch }) => {
   const resetWizard = () => {
     form.resetFields();
     setCurrentStep(0);
+    onCloneClosed?.();
   };
 
   const showModal = () => {
@@ -116,6 +122,37 @@ const ProfileAdd = ({ refetch }) => {
     setIsModalOpen(false);
     resetWizard();
   };
+
+  // A profile to clone arrived: open the wizard (its form mounts with the
+  // clone's values, see initialValues below).
+  useEffect(() => {
+    if (!cloneOf) return;
+    showModal();
+    // The form instance outlives the modal and keeps the values of the last
+    // wizard, so the clone's values are set explicitly (initialValues alone
+    // left a second clone with the first one's name).
+    form.setFieldsValue(
+      cloneFormValues(cloneOf, existingNames, t("profiles.copyWord")),
+    );
+    // showModal only reads the user's workspace; cloneOf is the trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cloneOf?.id]);
+
+  // A memory or glossary of the original that this workspace cannot attach
+  // (still building, failed, or of another workspace) is dropped from the
+  // clone's selection once the selectable ones are known.
+  useEffect(() => {
+    if (!cloneOf || loadingAssets || !isModalOpen) return;
+    const tmAvailable = new Set(tms.map((tm) => tm.id));
+    const glossaryAvailable = new Set(glossaries.map((glossary) => glossary.id));
+    form.setFieldsValue({
+      tmIds: (form.getFieldValue("tmIds") ?? []).filter((id) => tmAvailable.has(id)),
+      glossaryIds: (form.getFieldValue("glossaryIds") ?? []).filter((id) =>
+        glossaryAvailable.has(id),
+      ),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cloneOf?.id, loadingAssets, isModalOpen, tms, glossaries]);
 
   const goNext = async () => {
     if (currentStep === 0) {
@@ -193,7 +230,11 @@ const ProfileAdd = ({ refetch }) => {
         {t("profiles.createProfile")}
       </Button>
       <Modal
-        title={t("profiles.createModalTitle")}
+        title={
+          cloneOf
+            ? t("profiles.cloneModalTitle", { name: cloneOf.name })
+            : t("profiles.createModalTitle")
+        }
         open={isModalOpen}
         onCancel={handleCancel}
         footer={
@@ -265,7 +306,11 @@ const ProfileAdd = ({ refetch }) => {
         <Form
           form={form}
           layout="vertical"
-          initialValues={{ formality: "", tmIds: [], glossaryIds: [] }}
+          initialValues={
+            cloneOf
+              ? cloneFormValues(cloneOf, existingNames, t("profiles.copyWord"))
+              : { formality: "", tmIds: [], glossaryIds: [] }
+          }
           className="max-h-[58vh] overflow-y-auto p-6"
         >
           <section
