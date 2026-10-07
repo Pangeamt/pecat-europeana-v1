@@ -118,7 +118,7 @@
       "error": "Error"
     },
     "downloadTooltip": "Download file",
-    "translating": "Translating {done} of {total} · {percent}%",
+    "translating": "Translating {percent}%",
     "preparing": "Preparing…",
     "downloadOriginal": "Download original",
     "downloadOriginalHint": "The file exactly as it was uploaded",
