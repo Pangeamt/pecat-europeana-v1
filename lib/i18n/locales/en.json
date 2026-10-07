@@ -443,6 +443,10 @@
       "tooltipComplete": "Every segment is locked or confirmed: the processed file can be downloaded",
       "tooltipPending": "{pending} segments still to confirm ({rejected} rejected)"
     },
+    "info": {
+      "filtered": "In the current filter / in the document",
+      "all": "Whole document"
+    },
     "bulk": {
       "button": "Confirm all",
       "tooltipFiltered": "Confirms the {count} unreviewed segments of the current filter",

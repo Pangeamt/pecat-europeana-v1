@@ -18,7 +18,7 @@ import {
 } from "antd";
 import axios from "axios";
 import { createPortal } from "react-dom";
-import { ChevronDown, ChevronRight, CircleCheck, CircleX, CheckCheck, Download, FileDown, Filter, LoaderCircle, LockIcon, Redo2, Save, Undo2, Search, UnlockIcon } from "lucide-react";
+import { ChevronDown, ChevronRight, CircleCheck, CircleX, CheckCheck, Download, FileDown, Filter, Info, LoaderCircle, LockIcon, Redo2, Save, Undo2, Search, UnlockIcon } from "lucide-react";
 import { useParams } from "next/navigation";
 
 import React, {
@@ -2300,21 +2300,25 @@ const TusList = ({ shareToken } = {}) => {
               title={
                 bulkProgress
                   ? `${bulkProgress.done}/${bulkProgress.total}`
-                  : t(listFiltered ? "tus.bulk.tooltipFiltered" : "tus.bulk.tooltipAll", {
-                      count: bulkTargets.length,
-                    })
+                  : `${t("tus.bulk.button")} — ${t(
+                      listFiltered ? "tus.bulk.tooltipFiltered" : "tus.bulk.tooltipAll",
+                      { count: bulkTargets.length },
+                    )}`
               }
             >
               <Button
                 size="small"
-                icon={<CheckCheck size={13} />}
+                aria-label={t("tus.bulk.button")}
+                icon={<CheckCheck size={14} />}
                 loading={Boolean(bulkProgress)}
                 disabled={bulkTargets.length === 0 || editingLocked}
                 onClick={confirmAllInFilter}
               >
-                {bulkProgress
-                  ? `${bulkProgress.done}/${bulkProgress.total}`
-                  : `${t("tus.bulk.button")} (${bulkTargets.length})`}
+                <span className="font-bold tabular-nums">
+                  {bulkProgress
+                    ? `${bulkProgress.done}/${bulkProgress.total}`
+                    : bulkTargets.length}
+                </span>
               </Button>
             </Tooltip>
             {(() => {
@@ -2371,17 +2375,6 @@ const TusList = ({ shareToken } = {}) => {
                 </span>
               );
             })()}
-            <Tooltip title="Save the text you typed without approving it (Ctrl+S)">
-              <Button
-                size="small"
-                icon={<Save size={13} />}
-                loading={savingDrafts}
-                disabled={draftCount === 0 || editingLocked}
-                onClick={saveDrafts}
-              >
-                {draftCount > 1 ? `Save (${draftCount})` : "Save"}
-              </Button>
-            </Tooltip>
             <Tooltip
               title={t(
                 completion.complete ? "tus.done.tooltipComplete" : "tus.done.tooltipPending",
@@ -2401,17 +2394,18 @@ const TusList = ({ shareToken } = {}) => {
             </Tooltip>
             {!shareToken ? (
               <>
-                <Tooltip title={t("documents.downloadOriginalHint")}>
+                <Tooltip
+                  title={`${t("documents.downloadOriginal")} — ${t("documents.downloadOriginalHint")}`}
+                >
                   <Button
                     size="small"
-                    icon={<FileDown size={13} />}
+                    aria-label={t("documents.downloadOriginal")}
+                    icon={<FileDown size={14} />}
                     href={getDocumentOriginalLink(projectId, baseURL)}
-                  >
-                    {t("documents.downloadOriginal")}
-                  </Button>
+                  />
                 </Tooltip>
                 <Tooltip
-                  title={
+                  title={`${t("documents.downloadProcessed")} — ${
                     completion.complete
                       ? t("documents.downloadProcessedHint")
                       : t(
@@ -2424,12 +2418,13 @@ const TusList = ({ shareToken } = {}) => {
                             rejected: completion.rejected,
                           },
                         )
-                  }
+                  }`}
                 >
                   <Button
                     size="small"
                     type={completion.complete ? "primary" : "default"}
-                    icon={<Download size={13} />}
+                    aria-label={t("documents.downloadProcessed")}
+                    icon={<Download size={14} />}
                     loading={downloading}
                     // Not complete: only an admin can still take it, as a
                     // partial delivery, after confirming (see the hook).
@@ -2440,37 +2435,54 @@ const TusList = ({ shareToken } = {}) => {
                     onClick={() =>
                       downloadProcessed(projectId, { onBusy: setDownloading })
                     }
-                  >
-                    {t("documents.downloadProcessed")}
-                  </Button>
+                  />
                 </Tooltip>
               </>
             ) : null}
-            <Tag bordered={false} color={listFiltered ? "blue" : "default"} className="m-0">
-              Segments{" "}
-              <span className="font-bold tabular-nums">
-                {listFiltered
-                  ? `${orderedData.length}/${data.length}`
-                  : data.length}
-              </span>
-            </Tag>
-            <Tag bordered={false} color={listFiltered ? "blue" : "default"} className="m-0">
-              Words{" "}
-              <span className="font-bold tabular-nums">
-                {listFiltered
-                  ? `${filteredWords.toLocaleString()}/${totalWords.toLocaleString()}`
-                  : totalWords.toLocaleString()}
-              </span>
-            </Tag>
-            <Tooltip title="Word-weighted effort of the visible list (see the Effort panel)">
-              <Tag bordered={false} color={listFiltered ? "blue" : "default"} className="m-0">
-                Weighted{" "}
+            <Tooltip
+              title={
+                <div className="text-xs leading-5">
+                  {[
+                    ["Segments", orderedData.length, data.length],
+                    ["Words", filteredWords, totalWords],
+                    ["Weighted", filteredEffort.weightedWords, documentEffort.weightedWords],
+                  ].map(([label, shown, total]) => (
+                    <div key={label} className="flex justify-between gap-4">
+                      <span>{label}</span>
+                      <span className="font-bold tabular-nums">
+                        {listFiltered
+                          ? `${shown.toLocaleString()} / ${total.toLocaleString()}`
+                          : total.toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                  <div className="mt-1 opacity-70">
+                    {listFiltered ? t("tus.info.filtered") : t("tus.info.all")}
+                  </div>
+                </div>
+              }
+            >
+              <Tag
+                bordered={false}
+                color={listFiltered ? "blue" : "default"}
+                className="segment-info m-0 inline-flex cursor-help items-center gap-1"
+              >
+                <Info size={13} />
                 <span className="font-bold tabular-nums">
-                  {listFiltered
-                    ? `${filteredEffort.weightedWords.toLocaleString()}/${documentEffort.weightedWords.toLocaleString()}`
-                    : documentEffort.weightedWords.toLocaleString()}
+                  {listFiltered ? `${orderedData.length}/${data.length}` : data.length}
                 </span>
               </Tag>
+            </Tooltip>
+            <Tooltip title="Save the text you typed without approving it (Ctrl+S)">
+              <Button
+                size="small"
+                icon={<Save size={13} />}
+                loading={savingDrafts}
+                disabled={draftCount === 0 || editingLocked}
+                onClick={saveDrafts}
+              >
+                {draftCount > 1 ? `Save (${draftCount})` : "Save"}
+              </Button>
             </Tooltip>
           </div>
         </div>

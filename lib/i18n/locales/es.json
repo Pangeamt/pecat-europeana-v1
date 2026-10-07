@@ -443,6 +443,10 @@
       "tooltipComplete": "Todos los segmentos están bloqueados o confirmados: ya se puede descargar el procesado",
       "tooltipPending": "Faltan {pending} segmentos por confirmar ({rejected} rechazados)"
     },
+    "info": {
+      "filtered": "Del filtro aplicado / del documento",
+      "all": "Todo el documento"
+    },
     "bulk": {
       "button": "Confirmar todo",
       "tooltipFiltered": "Confirma los {count} segmentos sin revisar del filtro aplicado",
