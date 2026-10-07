@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { DOMParser } from "@xmldom/xmldom";
 import { codeSource, codeTarget, tagSequence, TOKEN_RE } from "./codes.js";
 import { indexSdlxliff, isPlainLocked } from "./reader.js";
+import { isVirtualMid, splitCoded, virtualMid } from "./segmenter.js";
 import { findAll } from "./xmltree.js";
 import { exportTarget, isApproved } from "../export-target.js";
 
@@ -127,6 +128,14 @@ function newTarget(raw, source, inner, state, eol) {
   return `${indent ? eol + indent : ""}<target${attr}>${inner}</target>`;
 }
 
+// A unit cut into sentences has ONE <target>: its state is the least advanced
+// of its sentences' (a rejected one outweighs everything).
+function stateRank(tu) {
+  if (tu.Status === "REJECTED") return 3;
+  if (isReviewed(tu)) return 0;
+  return tu.blockReason === "TM_MATCH" ? 1 : 2;
+}
+
 function isReviewed(tu) {
   return tu.reviewLiteral != null && isApproved(tu);
 }
@@ -241,17 +250,28 @@ export function writeSdlxliff(raw, tus) {
     noPlace: 0,
     lockTuCloned: 0,
     targetCreated: 0,
+    // Sentences of a unit left out because another sentence of it was missing.
+    skippedIncomplete: 0,
   };
   const splices = [];
+  // Units the import cut into sentences (segmenter.js): unit -> mid -> tu.
+  const sentenceUnits = new Map();
 
   for (const tu of tus) {
-    const text = exportTarget(tu).trim();
-    if (!text || !tu.externalId) continue;
+    if (!tu.externalId) continue;
     const sep = tu.externalId.indexOf("::");
     const unitKey = sep === -1 ? tu.externalId : tu.externalId.slice(0, sep);
     // unitById as a fallback: documents imported before multi-<file> keys.
     const unit = index.unitByKey.get(unitKey) ?? index.unitById.get(unitKey);
     const mid = sep === -1 ? null : tu.externalId.slice(sep + 2);
+    if (unit && isVirtualMid(mid) && unit.sourceMrks.size === 0) {
+      // Collected even with no text yet: the unit is written whole or not at all.
+      if (!sentenceUnits.has(unit)) sentenceUnits.set(unit, new Map());
+      sentenceUnits.get(unit).set(mid, tu);
+      continue;
+    }
+    const text = exportTarget(tu).trim();
+    if (!text) continue;
     // Plain XLIFF unit (no <mrk mtype="seg">): the unit IS the segment and its
     // <target> may not exist yet (created below, right after <source>).
     const plain = Boolean(unit) && mid === null && unit.sourceMrks.size === 0;
@@ -381,6 +401,69 @@ export function writeSdlxliff(raw, tus) {
     } else if (plain && changed) {
       report.confirmed++;
     }
+  }
+
+  // Units cut into sentences: their translations go back, in order and with
+  // the whitespace that separated them, into the unit's single <target>.
+  for (const [unit, byMid] of sentenceUnits) {
+    const group = [...byMid.values()];
+    const texts = group.map((tu) => exportTarget(tu).trim()).filter(Boolean);
+    if (texts.length === 0) continue;
+    if (!unit.source) {
+      report.noPlace += texts.length;
+      continue;
+    }
+    if (!unit.translatable || isPlainLocked(unit) || group.some((tu) => tu.blockReason === "INTERNAL")) {
+      report.skippedLocked += texts.length;
+      continue;
+    }
+    const { coded, codes } = codeSource(unit.source);
+    const sentences = splitCoded(coded.trim());
+    const rows = sentences.map((sentence, position) => byMid.get(virtualMid(position)));
+    const translations = rows.map((tu) => (tu ? exportTarget(tu).trim() : ""));
+    // The file changed shape since the import, or a sentence has no
+    // translation: half a unit is never delivered.
+    if (rows.length !== byMid.size || translations.some((text) => !text)) {
+      report.skippedIncomplete += texts.length;
+      continue;
+    }
+    const tagsKept = sentences.every(
+      (sentence, position) =>
+        tagSequence(sentence.text).join("") === tagSequence(translations[position]).join(""),
+    );
+    if (!tagsKept) {
+      report.skippedTags += texts.length;
+      continue;
+    }
+    const { lead, trail } = edges(unit.source);
+    const inner =
+      lead +
+      sentences
+        .map((sentence, position) => sentence.gap + buildInner(translations[position], codes, raw, eol))
+        .join("") +
+      trail;
+    const state = stateFor(rows.reduce((worst, tu) => (stateRank(tu) > stateRank(worst) ? tu : worst)));
+    const target = unit.target;
+    if (!target) {
+      splices.push({
+        start: unit.source.end,
+        end: unit.source.end,
+        text: newTarget(raw, unit.source, inner, state, eol),
+      });
+      report.targetCreated++;
+    } else if (target.selfClosing) {
+      const open = setAttributes(raw.slice(target.start, target.end).replace(/\s*\/>$/, ">"), { state });
+      splices.push({ start: target.start, end: target.end, text: `${open}${inner}</${target.name}>` });
+    } else {
+      splices.push({
+        start: target.start,
+        end: target.openEnd,
+        text: setAttributes(raw.slice(target.start, target.openEnd), { state }),
+      });
+      splices.push({ start: target.openEnd, end: target.closeStart, text: inner });
+    }
+    report.written += rows.length;
+    report.confirmed += rows.length;
   }
 
   // Apply back to front so earlier offsets stay valid.
