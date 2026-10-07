@@ -34,7 +34,15 @@ import TranslatorShareModal from "./TranslatorShareModal";
 import { useProcessedDownload } from "./useProcessedDownload";
 import { ArrowRight, Download, EllipsisVertical, FileDown, Link2, Lock, LockOpen, Pencil, Plus, Trash2 } from "lucide-react";
 
+import { wholePercent } from "@/lib/document-completion";
+
 const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+// The import (extraction + machine translation) has not finished.
+const isProcessing = (record) =>
+  ["UPLOADED", "PROCESSING", "FILE_PROCESSING", "MTQE_PROCESSING"].includes(
+    record?.status,
+  );
 
 const DocumentList = ({
   documents,
@@ -300,7 +308,11 @@ const DocumentList = ({
       key: "segments",
       width: 100,
       align: "right",
-      render: (record) => record.totalCount ?? 0,
+      // While the file is processing its segments are not stored yet: show
+      // how many the file has (known as soon as it is read).
+      render: (record) =>
+        record.totalCount ||
+        (isProcessing(record) ? (record.pipelineStats?.segmentsTotal ?? 0) : 0),
     },
     {
       title: t("table.createdAt"),
@@ -326,7 +338,7 @@ const DocumentList = ({
     {
       title: t("table.progress"),
       key: "progress",
-      width: 120,
+      width: 170,
       render: (record) => {
         // Sum BOTH pending buckets — a document can carry NOT_REVIEWED and
         // TRANSLATED_MT rows at the same time.
@@ -337,6 +349,22 @@ const DocumentList = ({
           )
           .reduce((sum, item) => sum + item._count, 0);
 
+        // Still processing: the progress is the machine translation's, in
+        // words -- "Translating 150 of 811" -- not a review percentage.
+        if (isProcessing(record)) {
+          const stats = record.pipelineStats ?? {};
+          return (
+            <span className="text-xs tabular-nums text-slate-600">
+              {typeof stats.mtTotal === "number" && stats.mtTotal > 0
+                ? t("documents.translating", {
+                    done: stats.mtDone ?? 0,
+                    total: stats.mtTotal,
+                    percent: wholePercent(stats.mtDone ?? 0, stats.mtTotal),
+                  })
+                : t("documents.preparing")}
+            </span>
+          );
+        }
         if (!record.totalCount) {
           return <Progress percent={0} size="small" />;
         }

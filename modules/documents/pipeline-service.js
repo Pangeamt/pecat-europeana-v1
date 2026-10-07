@@ -56,6 +56,18 @@ const normalizeForCompare = (text) =>
  * pipelineStats.stage tracks the scoring: SCORING while queued/running,
  * DONE when finished (no stage at all = QE v2 not configured).
  */
+// Progress of the machine translation while the document is still
+// PROCESSING (its segments are only stored at the end): how many of the
+// segments sent to DAAIT are back, and how many segments the file has. Shown
+// by the documents list ("Translating 150 of 811").
+export async function recordTranslationProgress(documentId, { done, total, segments }) {
+  await mergePipelineStats(documentId, {
+    mtDone: done,
+    mtTotal: total,
+    segmentsTotal: segments,
+  });
+}
+
 export async function releaseDocumentAndScore(documentId) {
   await prisma.document.update({
     where: { id: documentId },
