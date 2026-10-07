@@ -116,14 +116,41 @@ const ProjectList = () => {
     {
       title: t("projects.profileColumn"),
       key: "profile",
-      render: (record) =>
-        record.profileName ? (
-          <Tag color="geekblue" className="rounded-full">
-            {record.profileName}
-          </Tag>
-        ) : (
-          <span className="text-slate-400">-</span>
-        ),
+      render: (record) => {
+        // Every profile assigned to the project, the default one first (it
+        // used to show only the default, hiding the others).
+        const profiles = record.profiles?.length
+          ? [...record.profiles].sort(
+              (a, b) => Number(Boolean(b.isDefault)) - Number(Boolean(a.isDefault)),
+            )
+          : record.profileName
+            ? [{ id: record.profileId, name: record.profileName, isDefault: true }]
+            : [];
+        if (profiles.length === 0) {
+          return <span className="text-slate-400">-</span>;
+        }
+        return (
+          <span className="flex flex-wrap gap-1">
+            {profiles.map((profile) => (
+              <Tooltip
+                key={profile.id}
+                title={
+                  profiles.length > 1 && profile.isDefault
+                    ? t("projects.defaultProfile")
+                    : undefined
+                }
+              >
+                <Tag
+                  color={profile.isDefault || profiles.length === 1 ? "geekblue" : "default"}
+                  className="m-0 rounded-full"
+                >
+                  {profile.name}
+                </Tag>
+              </Tooltip>
+            ))}
+          </span>
+        );
+      },
     },
     {
       title: t("projects.docsColumn"),

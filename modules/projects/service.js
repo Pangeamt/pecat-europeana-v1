@@ -8,6 +8,7 @@ import { findProfileByIdBasic } from "../profiles/repository";
 import {
   countDocumentsInProject,
   createProject,
+  findProfilesOfProjects,
   findProjectForActor,
   getProjectsWithStats,
   updateProjectById,
@@ -120,6 +121,17 @@ function profilesUpdateWrite(defaultProfileId, allProfileIds) {
 
 export async function listProjectsService(actorUser) {
   const rows = await getProjectsWithStats(actorUser);
+  // All the profiles of each project, not only the default one of the row.
+  const profilesByProject = new Map();
+  for (const entry of await findProfilesOfProjects(rows.map((row) => row.id))) {
+    const list = profilesByProject.get(entry.projectId) ?? [];
+    list.push({
+      id: entry.profileId,
+      name: entry.profile?.name ?? null,
+      isDefault: entry.isDefault,
+    });
+    profilesByProject.set(entry.projectId, list);
+  }
 
   return {
     total: rows.length,
@@ -129,6 +141,7 @@ export async function listProjectsService(actorUser) {
       description: row.description,
       profileId: row.profileId,
       profileName: row.profileName,
+      profiles: profilesByProject.get(row.id) ?? [],
       pipeline: resolvePipelineSettings(row.settings),
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
