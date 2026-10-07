@@ -120,15 +120,19 @@ const matchesTextFilter = (dataIndex, value, record) => {
     .includes(value.toString().toLowerCase());
 };
 
+// Lock column filter: "locked" / "open".
+const matchesLockFilter = (value, record) =>
+  value === "locked" ? Boolean(record.block) : !record.block;
+
 const COLUMN_FILTERS = {
   status: matchesStatusFilter,
+  block: matchesLockFilter,
   srcLiteral: (value, record) => matchesTextFilter("srcLiteral", value, record),
   reviewLiteral: (value, record) =>
     matchesTextFilter("reviewLiteral", value, record),
 };
 
 const COLUMN_SORTERS = {
-  block: (a, b) => Number(Boolean(a.block)) - Number(Boolean(b.block)),
   mtqeV2Score: (a, b) => (a.mtqeV2Score ?? -1) - (b.mtqeV2Score ?? -1),
 };
 
@@ -1010,7 +1014,12 @@ const TusList = ({ shareToken } = {}) => {
       width: 80,
       dataIndex: "block",
       key: "block",
-      sorter: COLUMN_SORTERS.block,
+      // Filtered, not sorted: "show me the locked ones" / "the open ones".
+      filters: [
+        { text: t("tus.lock.locked"), value: "locked" },
+        { text: t("tus.lock.open"), value: "open" },
+      ],
+      onFilter: matchesLockFilter,
       render: (value, record) => {
         // Lock/unlock in flight: the spinner replaces the padlock of this row.
         if (pending[record.id] === "lock") {

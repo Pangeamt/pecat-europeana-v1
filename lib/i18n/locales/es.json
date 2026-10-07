@@ -449,6 +449,10 @@
       "done": "{done} segmentos confirmados",
       "someFailed": "{done} confirmados; {failed} no se pudieron confirmar"
     },
+    "lock": {
+      "locked": "Bloqueados",
+      "open": "No bloqueados"
+    },
     "state": {
       "LOCKED": "Bloqueado",
       "PENDING": "Sin revisar",
