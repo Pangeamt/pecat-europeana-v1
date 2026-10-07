@@ -17,6 +17,7 @@ import {
   Tooltip,
 } from "antd";
 import axios from "axios";
+import { createPortal } from "react-dom";
 import { ChevronDown, ChevronRight, CircleCheck, CircleX, CheckCheck, Download, FileDown, Filter, LoaderCircle, LockIcon, Redo2, Save, Undo2, Search, UnlockIcon } from "lucide-react";
 import { useParams } from "next/navigation";
 
@@ -1974,7 +1975,9 @@ const TusList = ({ shareToken } = {}) => {
   return (
     <div>
       {contextHolder}
-      {bulkProgress ? (
+      {bulkProgress
+        ? // On <body>, above everything: no ancestor can clip it or sit over it.
+          createPortal(
         <div
           className="bulk-lock"
           role="alertdialog"
@@ -2005,8 +2008,10 @@ const TusList = ({ shareToken } = {}) => {
             </div>
             <div className="mt-3 text-xs text-slate-500">{t("tus.bulk.runningHint")}</div>
           </div>
-        </div>
-      ) : null}
+        </div>,
+            document.body,
+          )
+        : null}
       <div
         className="mb-2"
         style={{
