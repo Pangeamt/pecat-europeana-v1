@@ -1,8 +1,26 @@
 import Joi from "joi";
+import { BULK_CONFIRM_MAX } from "../../lib/bulk-confirm";
 
 export const evaluateTuSchema = Joi.object({
   tuId: Joi.string().required(),
   target: Joi.string().allow("", null).required(),
+});
+
+// "Confirm all": a list of segments of ONE document, confirmed in a single
+// request. `documentId` names the document for a logged-in user; the share
+// link's token names it instead.
+export const bulkConfirmTusSchema = Joi.object({
+  documentId: Joi.string().optional(),
+  items: Joi.array()
+    .items(
+      Joi.object({
+        tuId: Joi.string().required(),
+        reviewLiteral: Joi.string().allow(null, "").optional(),
+      }),
+    )
+    .min(1)
+    .max(BULK_CONFIRM_MAX)
+    .required(),
 });
 
 export const updateTuSchema = Joi.object({

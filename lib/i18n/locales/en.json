@@ -450,7 +450,9 @@
       "ok": "Confirm {count}",
       "cancel": "Cancel",
       "done": "{done} segments confirmed",
-      "someFailed": "{done} confirmed; {failed} could not be confirmed"
+      "someFailed": "{done} confirmed; {failed} could not be confirmed",
+      "running": "Confirming segments… {done} of {total}",
+      "runningHint": "The editor is locked until it finishes. Do not close the page."
     },
     "lock": {
       "locked": "Locked",

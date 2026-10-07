@@ -13,6 +13,7 @@ import {
 import { describeTagIssue, tagIssue } from "../documents/tag-check";
 import { isSpliceFormat } from "../../lib/utils";
 import { buildTuRevisions, revisionActionOf } from "../../lib/tu-revision";
+import { mapWithLimit, planBulkConfirm } from "../../lib/bulk-confirm";
 import {
   createTuRevisions,
   findTuRevisions,
@@ -500,6 +501,86 @@ export async function updateTuStatusService(payload, actorUser) {
   return applyTuStatusUpdate(tu, payload, {
     id: actorUser?.id ?? null,
     name: actorUser?.name || actorUser?.email || null,
+  });
+}
+
+// Segments confirmed at the same time inside one bulk request: enough to
+// make a long list quick without crowding the database pool.
+const BULK_CONFIRM_CONCURRENCY = 8;
+
+// "Confirm all": confirms a LIST of segments of one document. Each one goes
+// through the very same save as a single confirm (propagation to same-source
+// segments, MTQE re-score when the text changed, history), so the result is
+// what confirming them one by one would leave -- in one request. A segment
+// that cannot be confirmed (locked, tags that do not match...) is reported in
+// `failed` and never stops the rest.
+async function confirmTusInBulk(document, items, reviewer) {
+  const rows = await findTusByDocumentId(document.id);
+  const { jobs, failed } = planBulkConfirm(items, rows, (tu, reviewLiteral) => {
+    try {
+      assertInlineTagsKept(tu, { action: "approve", reviewLiteral }, document);
+      return null;
+    } catch (error) {
+      return { code: error?.code ?? "REFUSED", message: error?.message ?? "" };
+    }
+  });
+
+  const updated = new Map();
+  await mapWithLimit(jobs, BULK_CONFIRM_CONCURRENCY, async ({ tu, reviewLiteral }) => {
+    try {
+      const result = await applyTuStatusUpdate(
+        tu,
+        { tuId: tu.id, action: "approve", reviewLiteral },
+        reviewer,
+      );
+      for (const row of [result.tu, ...(result.alsoUpdated ?? [])]) {
+        updated.set(row.id, row);
+      }
+    } catch (error) {
+      console.error(`[tus] bulk confirm failed for ${tu.id}:`, error?.message ?? error);
+      failed.push({
+        tuId: tu.id,
+        code: error?.code ?? "SAVE_FAILED",
+        message: error?.message ?? "The segment could not be saved",
+      });
+    }
+  });
+
+  return { updated: [...updated.values()], failed };
+}
+
+export async function confirmTusInBulkService(payload, actorUser) {
+  if (!payload.documentId) {
+    throw new HttpError(400, "documentId is required");
+  }
+  const document = await findDocumentForTus(payload.documentId, actorUser);
+  if (!document) {
+    throw new HttpError(404, "Document not found");
+  }
+  assertActorMayEditDocument(document, actorUser);
+  return confirmTusInBulk(document, payload.items, {
+    id: actorUser?.id ?? null,
+    name: actorUser?.name || actorUser?.email || null,
+  });
+}
+
+// Same as above for the public "share as translator" link (the token names
+// the document; closed once the translation was submitted).
+export async function confirmTusInBulkByShareTokenService(token, payload) {
+  const document = await findDocumentByTusShareToken(token);
+  if (!document) {
+    throw new HttpError(404, "Document not found");
+  }
+  if (document.translatorSubmittedAt) {
+    throw new HttpError(
+      409,
+      "Editing is closed: this translation was already submitted. Ask a project manager to reopen it.",
+      "SUBMISSION_LOCKED",
+    );
+  }
+  return confirmTusInBulk(document, payload.items, {
+    id: null,
+    name: "Translator link",
   });
 }
 
