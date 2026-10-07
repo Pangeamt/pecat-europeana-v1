@@ -365,6 +365,22 @@ const DocumentList = ({
             </span>
           );
         }
+        // Ready, and the quality scoring still running in the background:
+        // its progress, the same way ("MTQE 18%").
+        const scoring = record.pipelineStats ?? {};
+        if (
+          scoring.stage === "SCORING" &&
+          typeof scoring.mtqeV2Total === "number" &&
+          scoring.mtqeV2Total > 0
+        ) {
+          return (
+            <span className="text-xs tabular-nums text-slate-600">
+              {t("documents.scoring", {
+                percent: wholePercent(scoring.mtqeV2Done ?? 0, scoring.mtqeV2Total),
+              })}
+            </span>
+          );
+        }
         if (!record.totalCount) {
           return <Progress percent={0} size="small" />;
         }

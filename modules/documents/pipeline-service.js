@@ -159,6 +159,9 @@ export async function handleScoreMtqeV2Job({ projectId: documentId }) {
   const started = Date.now();
   let scored = 0;
   let failed = 0;
+  // How far the scoring is, for the documents list ("MTQE 18%"): segments
+  // handled (scored or failed) over the ones this job has to score.
+  await mergePipelineStats(documentId, { mtqeV2Total: tus.length, mtqeV2Done: 0 });
   for (const batch of chunkSegments(tus)) {
     let scores;
     try {
@@ -174,6 +177,7 @@ export async function handleScoreMtqeV2Job({ projectId: documentId }) {
       });
     } catch (error) {
       failed += batch.length;
+      await mergePipelineStats(documentId, { mtqeV2Done: scored + failed }).catch(() => {});
       console.error(
         `[pipeline] MTQE v2 failed for a batch of ${batch.length} segments (document ${documentId}):`,
         error.message,
@@ -201,6 +205,7 @@ export async function handleScoreMtqeV2Job({ projectId: documentId }) {
       // Progress for the pipeline cell while the stage is still SCORING.
       await mergePipelineStats(documentId, { mtqeV2Scored: scored });
     }
+    await mergePipelineStats(documentId, { mtqeV2Done: scored + failed }).catch(() => {});
   }
 
   const totalOutage = scored === 0 && failed === tus.length;
