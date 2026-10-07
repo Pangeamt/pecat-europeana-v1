@@ -2013,6 +2013,24 @@ const TusList = ({ shareToken } = {}) => {
           />
           <Badge count={tmInfo.length} color="blue" title="TM matches" showZero={false} />
           <Badge count={glossaryInfo.length} color="green" title="Glossary hits" showZero={false} />
+          {/* The document being worked on, at the right end of the row. */}
+          {projectConfig?.filename ? (
+            <span
+              className="ml-auto min-w-0 truncate pl-4 text-xs font-semibold text-slate-700"
+              title={
+                projectConfig.label
+                  ? `${projectConfig.filename} — ${projectConfig.label}`
+                  : projectConfig.filename
+              }
+            >
+              {projectConfig.filename}
+              {projectConfig.label ? (
+                <span className="ml-2 font-normal text-slate-500">
+                  {projectConfig.label}
+                </span>
+              ) : null}
+            </span>
+          ) : null}
         </div>
         {topPanelOpen ? (
         <Tabs
