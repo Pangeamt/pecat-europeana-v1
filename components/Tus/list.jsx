@@ -18,7 +18,7 @@ import {
 } from "antd";
 import axios from "axios";
 import { createPortal } from "react-dom";
-import { ChevronDown, ChevronRight, CircleCheck, CircleX, CheckCheck, Download, FileDown, Filter, LoaderCircle, LockIcon, Redo2, Save, Undo2, Search, UnlockIcon } from "lucide-react";
+import { ChevronDown, ChevronRight, CircleCheck, CircleX, CheckCheck, Download, FileDown, Filter, Info, LoaderCircle, LockIcon, Redo2, Save, Undo2, Search, UnlockIcon } from "lucide-react";
 import { useParams } from "next/navigation";
 
 import React, {
@@ -82,6 +82,8 @@ import {
 } from "@/lib/edit-history";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import {
+  STATUS_FILTER_VALUES,
+  matchesStatusSelection,
   segmentNumberOf,
   segmentOrigin,
   segmentState,
@@ -110,11 +112,6 @@ const qeBandColor = (score) =>
 // Column filters and sorters as plain functions: the table uses them, and so
 // does the "visible list" (navigation and the filter-bar counters), which
 // must show exactly the rows the table shows.
-const matchesStatusFilter = (value, record) =>
-  // NOT_REVIEWED and TRANSLATED_MT both render as "not reviewed".
-  value === "NOT_REVIEWED"
-    ? record.Status === "NOT_REVIEWED" || record.Status === "TRANSLATED_MT"
-    : record.Status === value;
 
 const matchesTextFilter = (dataIndex, value, record) => {
   const fieldValue =
@@ -132,12 +129,19 @@ const matchesTextFilter = (dataIndex, value, record) => {
 const matchesLockFilter = (value, record) =>
   value === "locked" ? Boolean(record.block) : !record.block;
 
+// Each takes the column's WHOLE selection: most columns pass when any of
+// their values matches; the status column reads its selection as two groups
+// (situation and origin, see matchesStatusSelection).
+const anyOf = (match) => (values, record) =>
+  values.some((value) => match(value, record));
+
 const COLUMN_FILTERS = {
-  status: matchesStatusFilter,
-  block: matchesLockFilter,
-  srcLiteral: (value, record) => matchesTextFilter("srcLiteral", value, record),
-  reviewLiteral: (value, record) =>
+  status: (values, record) => matchesStatusSelection(values, record),
+  block: anyOf(matchesLockFilter),
+  srcLiteral: anyOf((value, record) => matchesTextFilter("srcLiteral", value, record)),
+  reviewLiteral: anyOf((value, record) =>
     matchesTextFilter("reviewLiteral", value, record),
+  ),
 };
 
 const COLUMN_SORTERS = {
@@ -633,9 +637,7 @@ const TusList = ({ shareToken } = {}) => {
     for (const [key, values] of Object.entries(tableView.filters ?? {})) {
       const match = COLUMN_FILTERS[key];
       if (!match || !values?.length) continue;
-      rows = rows.filter((record) =>
-        values.some((value) => match(value, record)),
-      );
+      rows = rows.filter((record) => match(values, record));
     }
     const compare = tableView.sorter && COLUMN_SORTERS[tableView.sorter.key];
     if (compare) {
@@ -982,10 +984,15 @@ const TusList = ({ shareToken } = {}) => {
       width: 100,
       // The values are the review status codes; the reviewer reads them in
       // words (and in their language).
-      filters: ["NOT_REVIEWED", "ACCEPTED", "EDITED", "REJECTED"].map(
-        (value) => ({ text: t(`tus.status.${value}`), value }),
-      ),
-      onFilter: matchesStatusFilter,
+      // Everything the column can show: the situation (icon) and the origin
+      // (badge). The table calls onFilter once per chosen value and keeps the
+      // row if any call says yes, so each call judges the whole selection.
+      filters: STATUS_FILTER_VALUES.map((value) => ({
+        text: t(`tus.status.${value}`),
+        value,
+      })),
+      onFilter: (value, record) =>
+        matchesStatusSelection(tableView.filters?.status ?? [value], record),
       render: (text, record) => {
         // Confirm / reject / save in flight: the spinner replaces the status
         // icon of this row only.
@@ -2293,21 +2300,25 @@ const TusList = ({ shareToken } = {}) => {
               title={
                 bulkProgress
                   ? `${bulkProgress.done}/${bulkProgress.total}`
-                  : t(listFiltered ? "tus.bulk.tooltipFiltered" : "tus.bulk.tooltipAll", {
-                      count: bulkTargets.length,
-                    })
+                  : `${t("tus.bulk.button")} — ${t(
+                      listFiltered ? "tus.bulk.tooltipFiltered" : "tus.bulk.tooltipAll",
+                      { count: bulkTargets.length },
+                    )}`
               }
             >
               <Button
                 size="small"
-                icon={<CheckCheck size={13} />}
+                aria-label={t("tus.bulk.button")}
+                icon={<CheckCheck size={14} />}
                 loading={Boolean(bulkProgress)}
                 disabled={bulkTargets.length === 0 || editingLocked}
                 onClick={confirmAllInFilter}
               >
-                {bulkProgress
-                  ? `${bulkProgress.done}/${bulkProgress.total}`
-                  : `${t("tus.bulk.button")} (${bulkTargets.length})`}
+                <span className="font-bold tabular-nums">
+                  {bulkProgress
+                    ? `${bulkProgress.done}/${bulkProgress.total}`
+                    : bulkTargets.length}
+                </span>
               </Button>
             </Tooltip>
             {(() => {
@@ -2364,17 +2375,6 @@ const TusList = ({ shareToken } = {}) => {
                 </span>
               );
             })()}
-            <Tooltip title="Save the text you typed without approving it (Ctrl+S)">
-              <Button
-                size="small"
-                icon={<Save size={13} />}
-                loading={savingDrafts}
-                disabled={draftCount === 0 || editingLocked}
-                onClick={saveDrafts}
-              >
-                {draftCount > 1 ? `Save (${draftCount})` : "Save"}
-              </Button>
-            </Tooltip>
             <Tooltip
               title={t(
                 completion.complete ? "tus.done.tooltipComplete" : "tus.done.tooltipPending",
@@ -2394,17 +2394,18 @@ const TusList = ({ shareToken } = {}) => {
             </Tooltip>
             {!shareToken ? (
               <>
-                <Tooltip title={t("documents.downloadOriginalHint")}>
+                <Tooltip
+                  title={`${t("documents.downloadOriginal")} — ${t("documents.downloadOriginalHint")}`}
+                >
                   <Button
                     size="small"
-                    icon={<FileDown size={13} />}
+                    aria-label={t("documents.downloadOriginal")}
+                    icon={<FileDown size={14} />}
                     href={getDocumentOriginalLink(projectId, baseURL)}
-                  >
-                    {t("documents.downloadOriginal")}
-                  </Button>
+                  />
                 </Tooltip>
                 <Tooltip
-                  title={
+                  title={`${t("documents.downloadProcessed")} — ${
                     completion.complete
                       ? t("documents.downloadProcessedHint")
                       : t(
@@ -2417,12 +2418,13 @@ const TusList = ({ shareToken } = {}) => {
                             rejected: completion.rejected,
                           },
                         )
-                  }
+                  }`}
                 >
                   <Button
                     size="small"
                     type={completion.complete ? "primary" : "default"}
-                    icon={<Download size={13} />}
+                    aria-label={t("documents.downloadProcessed")}
+                    icon={<Download size={14} />}
                     loading={downloading}
                     // Not complete: only an admin can still take it, as a
                     // partial delivery, after confirming (see the hook).
@@ -2433,37 +2435,56 @@ const TusList = ({ shareToken } = {}) => {
                     onClick={() =>
                       downloadProcessed(projectId, { onBusy: setDownloading })
                     }
-                  >
-                    {t("documents.downloadProcessed")}
-                  </Button>
+                  />
                 </Tooltip>
               </>
             ) : null}
-            <Tag bordered={false} color={listFiltered ? "blue" : "default"} className="m-0">
-              Segments{" "}
-              <span className="font-bold tabular-nums">
-                {listFiltered
-                  ? `${orderedData.length}/${data.length}`
-                  : data.length}
-              </span>
-            </Tag>
-            <Tag bordered={false} color={listFiltered ? "blue" : "default"} className="m-0">
-              Words{" "}
-              <span className="font-bold tabular-nums">
-                {listFiltered
-                  ? `${filteredWords.toLocaleString()}/${totalWords.toLocaleString()}`
-                  : totalWords.toLocaleString()}
-              </span>
-            </Tag>
-            <Tooltip title="Word-weighted effort of the visible list (see the Effort panel)">
-              <Tag bordered={false} color={listFiltered ? "blue" : "default"} className="m-0">
-                Weighted{" "}
-                <span className="font-bold tabular-nums">
-                  {listFiltered
-                    ? `${filteredEffort.weightedWords.toLocaleString()}/${documentEffort.weightedWords.toLocaleString()}`
-                    : documentEffort.weightedWords.toLocaleString()}
+            <Tooltip
+              title={
+                <div className="text-xs leading-5">
+                  {[
+                    ["Segments", orderedData.length, data.length],
+                    ["Words", filteredWords, totalWords],
+                    ["Weighted", filteredEffort.weightedWords, documentEffort.weightedWords],
+                  ].map(([label, shown, total]) => (
+                    <div key={label} className="flex justify-between gap-4">
+                      <span>{label}</span>
+                      <span className="font-bold tabular-nums">
+                        {listFiltered
+                          ? `${shown.toLocaleString()} / ${total.toLocaleString()}`
+                          : total.toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                  <div className="mt-1 opacity-70">
+                    {listFiltered ? t("tus.info.filtered") : t("tus.info.all")}
+                  </div>
+                </div>
+              }
+            >
+              <Tag
+                bordered={false}
+                color={listFiltered ? "blue" : "default"}
+                className="segment-info m-0 cursor-help"
+              >
+                <span className="inline-flex items-center gap-1 align-middle">
+                  <Info size={13} />
+                  <span className="font-bold tabular-nums">
+                    {listFiltered ? `${orderedData.length}/${data.length}` : data.length}
+                  </span>
                 </span>
               </Tag>
+            </Tooltip>
+            <Tooltip title="Save the text you typed without approving it (Ctrl+S)">
+              <Button
+                size="small"
+                icon={<Save size={13} />}
+                loading={savingDrafts}
+                disabled={draftCount === 0 || editingLocked}
+                onClick={saveDrafts}
+              >
+                {draftCount > 1 ? `Save (${draftCount})` : "Save"}
+              </Button>
             </Tooltip>
           </div>
         </div>

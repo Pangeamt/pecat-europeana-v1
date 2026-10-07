@@ -427,7 +427,10 @@
       "NOT_REVIEWED": "Not reviewed",
       "ACCEPTED": "Confirmed",
       "EDITED": "Confirmed with changes",
-      "REJECTED": "Rejected"
+      "REJECTED": "Rejected",
+      "LOCKED": "Locked",
+      "ORIGIN_MT": "Origin: machine translation (AT)",
+      "ORIGIN_FUZZY": "Origin: fuzzy memory match (%)"
     },
     "nav": {
       "lockedSkipped": "{count} locked skipped",
@@ -439,6 +442,10 @@
       "label": "Done",
       "tooltipComplete": "Every segment is locked or confirmed: the processed file can be downloaded",
       "tooltipPending": "{pending} segments still to confirm ({rejected} rejected)"
+    },
+    "info": {
+      "filtered": "In the current filter / in the document",
+      "all": "Whole document"
     },
     "bulk": {
       "button": "Confirm all",
