@@ -29,12 +29,21 @@ Siempre desde la rama `stable`.
 
 === "Docker"
 
+    La imagen se construye fuera de producción y se publica en ECR
+    (`566308635108.dkr.ecr.eu-west-1.amazonaws.com/pecat-europeana-v1`); el servidor solo la descarga.
+
     ```bash
-    git fetch origin && git checkout stable && ./devops-docker.sh
+    # 1. Donde haya sitio para construir, en el commit de `stable` a publicar:
+    PUBLIC_URL=https://ai4cpecat.pangeanic.com ./devops-build-push.sh
+    # 2. En el servidor:
+    git fetch origin && git checkout stable && ./devops-docker.sh <commit corto>
     ```
 
-    `devops-docker.sh`: `docker compose build` + `up -d`, espera a que responda el 3000 y limpia imágenes
-    colgantes. El contenedor aplica `prisma migrate deploy` al arrancar.
+    Los dos equipos necesitan sesión en ECR (`aws ecr get-login-password | docker login …`, dura 12 h).
+    `devops-build-push.sh`: `docker build` con la URL pública horneada y `push` de `<commit>` y `latest`.
+    `devops-docker.sh [etiqueta]`: `docker compose pull` + `up -d --no-build`, espera a que responda el 3000
+    y limpia imágenes colgantes; sin etiqueta despliega `latest`, y con la de una versión anterior hace la
+    vuelta atrás. El contenedor aplica `prisma migrate deploy` al arrancar.
 
 Antes de migrar en producción: `prisma migrate status` y un `mysqldump` de las tablas afectadas.
 

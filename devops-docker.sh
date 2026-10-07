@@ -1,10 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Deploys PECAT-E from the image published in ECR. Nothing is built on this
+# host: the image comes from devops-build-push.sh, run wherever there is room
+# to build.
+#
+#   ./devops-docker.sh            # deploys :latest
+#   ./devops-docker.sh b91102a    # deploys that commit (also the way to roll back)
+#
+# The host must be logged in to ECR (the token lasts 12 h):
+#   aws ecr get-login-password --region eu-west-1 | \
+#     docker login --username AWS --password-stdin 566308635108.dkr.ecr.eu-west-1.amazonaws.com
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 
-echo "==> Deploying PECAT-E (Docker) from ${ROOT}"
+export PECAT_IMAGE_TAG="${1:-${PECAT_IMAGE_TAG:-latest}}"
+
+echo "==> Deploying PECAT-E (Docker, image tag ${PECAT_IMAGE_TAG}) from ${ROOT}"
 
 if [[ ! -f .env ]]; then
   echo "ERROR: .env not found. Copy env.example to .env and configure production values."
@@ -16,18 +29,19 @@ if ! docker compose version >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "==> Pulling latest code..."
+echo "==> Pulling latest code (compose file and scripts)..."
 git pull --ff-only
 
-echo "==> Building images..."
-# NEXT_PUBLIC_* args are baked into the client bundle at build time, so a
-# rebuild is required whenever they change (docker-compose.yml forwards them).
-docker compose build
+echo "==> Pulling the image from ECR..."
+if ! docker compose pull app; then
+  echo "ERROR: could not pull the image. Is this host logged in to ECR, and does the tag ${PECAT_IMAGE_TAG} exist?"
+  exit 1
+fi
 
 echo "==> Starting containers..."
 # The app container applies prisma migrate deploy on start (see Dockerfile CMD)
 # before serving, so no separate migration step is needed here.
-docker compose up -d
+docker compose up -d --no-build
 
 echo "==> Waiting for the app to answer on :3000..."
 for i in $(seq 1 60); do
@@ -43,11 +57,8 @@ for i in $(seq 1 60); do
   sleep 2
 done
 
-echo "==> Pruning dangling images and build cache from previous builds..."
+echo "==> Pruning dangling images left by previous versions..."
 docker image prune -f >/dev/null
-# Each build leaves ~1-3GB of layer cache behind; on small disks this fills /
-# after a few deploys (ENOSPC). Keep only the cache of the image just built.
-docker builder prune -f --keep-storage 4GB >/dev/null
 
 echo "==> Deployment complete."
 docker compose ps
