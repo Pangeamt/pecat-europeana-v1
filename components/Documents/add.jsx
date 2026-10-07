@@ -211,17 +211,49 @@ const DocumentAdd = ({ project, refetch }) => {
               {t("documents.add.step1Subtitle")}
             </p>
           </div>
-          <Alert
-            className="mb-4"
-            type="info"
-            showIcon
-            message={t("documents.add.profileInfo", {
-              name:
-                projectProfiles.find((p) => p.id === profileId)?.name ??
-                project?.profileName ??
-                "—",
-            })}
-          />
+          {projectProfiles.length > 1 ? (
+            // Several profiles in the project: the document's profile is
+            // chosen HERE, first thing (it used to sit in step 2 while this
+            // step announced the default one as if it were fixed).
+            <Form.Item
+              label={t("documents.add.profileLabel")}
+              required
+              validateStatus={profileId ? "" : "error"}
+              help={
+                profileId
+                  ? t("documents.add.profileChoiceHint", {
+                      count: projectProfiles.length,
+                    })
+                  : t("documents.add.pickProfileRequired")
+              }
+            >
+              <Select
+                size="large"
+                placeholder={t("documents.add.profilePlaceholder")}
+                optionFilterProp="label"
+                value={profileId ?? undefined}
+                onChange={handleProfileChange}
+                options={projectProfiles.map((p) => ({
+                  value: p.id,
+                  label: `${p.llmPreset ? `${p.name} (${p.llmPreset})` : p.name}${
+                    p.isDefault ? ` · ${t("projects.defaultProfile")}` : ""
+                  }`,
+                }))}
+              />
+            </Form.Item>
+          ) : (
+            <Alert
+              className="mb-4"
+              type="info"
+              showIcon
+              message={t("documents.add.profileInfo", {
+                name:
+                  projectProfiles.find((p) => p.id === profileId)?.name ??
+                  project?.profileName ??
+                  "—",
+              })}
+            />
+          )}
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <Form.Item
               label={t("documents.add.sourceLabel")}
@@ -276,26 +308,15 @@ const DocumentAdd = ({ project, refetch }) => {
             </p>
           </div>
           {projectProfiles.length > 1 ? (
-            <Form.Item
-              label={t("documents.add.profileLabel")}
-              required
-              validateStatus={profileId ? "" : "error"}
-              help={
-                profileId ? undefined : t("documents.add.pickProfileRequired")
-              }
-            >
-              <Select
-                size="large"
-                placeholder={t("documents.add.profilePlaceholder")}
-                optionFilterProp="label"
-                value={profileId ?? undefined}
-                onChange={handleProfileChange}
-                options={projectProfiles.map((p) => ({
-                  value: p.id,
-                  label: p.llmPreset ? `${p.name} (${p.llmPreset})` : p.name,
-                }))}
-              />
-            </Form.Item>
+            // Chosen in step 1; shown here so the resources below read as its.
+            <Alert
+              className="mb-4"
+              type="info"
+              showIcon
+              message={t("documents.add.profileInfo", {
+                name: projectProfiles.find((p) => p.id === profileId)?.name ?? "—",
+              })}
+            />
           ) : null}
 
           <Form.Item label={t("documents.add.matchingTms")}>
