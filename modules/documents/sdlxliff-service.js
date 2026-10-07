@@ -91,6 +91,10 @@ export async function enrichSdlxliffSegments(segments, {
   machineTranslate = true,
   documentId = null,
   filestoreId = null,
+  // Called with { done, total } (segments sent to DAAIT) before the first
+  // batch and after each one: what the documents list shows while the file
+  // is still processing. Its failures never touch the import.
+  onProgress = null,
 } = {}) {
   // The file store's id IS the document's identity for DAAIT: it goes as
   // `document_id` (the key of its volatile memory and of the Langfuse
@@ -184,12 +188,22 @@ export async function enrichSdlxliffSegments(segments, {
     });
   }
 
+  const report = async (done) => {
+    try {
+      await onProgress?.({ done, total: toTranslate.length });
+    } catch (error) {
+      console.error('[SDLXLIFF] progress not recorded:', error.message);
+    }
+  };
+
   const batches = Math.ceil(toTranslate.length / PECAT_BATCH_SIZE);
+  await report(0);
   for (let i = 0; i < batches; i++) {
     await translateBatch(
       toTranslate.slice(i * PECAT_BATCH_SIZE, (i + 1) * PECAT_BATCH_SIZE),
       i === batches - 1,
     );
+    await report(Math.min((i + 1) * PECAT_BATCH_SIZE, toTranslate.length));
     console.log(`[SDLXLIFF] translated batch ${i + 1}/${batches} (document ${daaitDocumentId ?? "-"})`);
   }
 

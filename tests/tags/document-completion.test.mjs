@@ -11,6 +11,7 @@ import {
   isSegmentDone,
   mayDeliver,
   processedFilename,
+  wholePercent,
 } from "../../lib/document-completion.js";
 
 const tu = (over) => ({ Status: "NOT_REVIEWED", block: false, visible: true, ...over });
@@ -87,4 +88,13 @@ test("confirmar todo lo del filtro: solo los pendientes, sin bloquear, con texto
   ];
   assert.deepEqual(confirmableRows(rows, (r) => r.text).map((r) => r.id), ["a", "b"]);
   assert.deepEqual(confirmableRows(null, () => "x"), []);
+});
+
+test("progreso de la traduccion: porcentaje entero, redondeado", () => {
+  assert.equal(wholePercent(150, 811), 18, "150/811*100 = 18,49 -> 18");
+  assert.equal(wholePercent(0, 811), 0);
+  assert.equal(wholePercent(811, 811), 100);
+  assert.equal(wholePercent(406, 811), 50);
+  assert.equal(wholePercent(50, 0), 0, "sin nada que traducir");
+  assert.equal(wholePercent(900, 811), 100, "nunca pasa de 100");
 });

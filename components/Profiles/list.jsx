@@ -22,7 +22,7 @@ import {
 } from "@/services/profiles.services";
 import { userStore } from "@/store";
 import Link from "next/link";
-import { Building2, Database, Pencil, SlidersHorizontal, Trash2 } from "lucide-react";
+import { Building2, Copy, Database, Pencil, SlidersHorizontal, Trash2 } from "lucide-react";
 import ProfileAdd from "./add";
 
 const FORMALITY_TAG_COLORS = {
@@ -41,6 +41,8 @@ const ProfileList = () => {
   // Lower-cased names of the presets DAAIT currently lists: a stored preset
   // that is no longer there is not shown.
   const [presetNames, setPresetNames] = useState(new Set());
+  // Profile being cloned: opens the create wizard pre-filled (see ProfileAdd).
+  const [cloneTarget, setCloneTarget] = useState(null);
 
   const fetchProfiles = useCallback(async () => {
     try {
@@ -219,13 +221,22 @@ const ProfileList = () => {
     {
       title: t("table.actions"),
       key: "actions",
-      width: 120,
+      width: 150,
       render: (record) => (
         <Space size={6}>
           <Tooltip title={t("profiles.editTooltip")}>
             <Link href={`/dashboard/profiles/${record.id}`}>
               <Button icon={<Pencil size={15} />} type="text" size="small" />
             </Link>
+          </Tooltip>
+          <Tooltip title={t("profiles.cloneTooltip")}>
+            <Button
+              icon={<Copy size={15} />}
+              type="text"
+              size="small"
+              aria-label={t("profiles.cloneTooltip")}
+              onClick={() => setCloneTarget(record)}
+            />
           </Tooltip>
           <Popconfirm
             title={t("profiles.deleteTitle")}
@@ -265,7 +276,12 @@ const ProfileList = () => {
               </p>
             </div>
             <Space wrap>
-              <ProfileAdd refetch={fetchProfiles} />
+              <ProfileAdd
+                refetch={fetchProfiles}
+                cloneOf={cloneTarget}
+                existingNames={profiles.map((profile) => profile.name)}
+                onCloneClosed={() => setCloneTarget(null)}
+              />
             </Space>
           </div>
         </div>

@@ -30,7 +30,10 @@ import {
   enrichSdlxliffSegments,
   buildTusDataFromSdlxliffSegments,
 } from "./sdlxliff-service";
-import { releaseDocumentAndScore } from "./pipeline-service";
+import {
+  releaseDocumentAndScore,
+  recordTranslationProgress,
+} from "./pipeline-service";
 import { BLOCK_REASON, profileMatchesLanguagePair } from "./pipeline-constants";
 import { resolveHiddenBy } from "./visibility-rules";
 
@@ -141,6 +144,11 @@ async function processDocumentFile({
 
   if (mt) {
     await enrichSdlxliffSegments(working, {
+      onProgress: (progress) =>
+        recordTranslationProgress(documentId, {
+          ...progress,
+          segments: working.length,
+        }),
       documentId,
       filestoreId: storageId,
       sourceLanguage: src,
@@ -305,6 +313,11 @@ export async function handleSdlxliffImportJob({
   });
 
   const { translated } = await enrichSdlxliffSegments(segments, {
+    onProgress: (progress) =>
+      recordTranslationProgress(documentId, {
+        ...progress,
+        segments: segments.length,
+      }),
     documentId,
     sourceLanguage: normalizedSrc,
     targetLanguage: normalizedTgt,
