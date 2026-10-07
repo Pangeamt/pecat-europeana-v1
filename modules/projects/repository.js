@@ -161,3 +161,19 @@ export async function getProjectsWithStats(actorUser) {
     finishedCount: Number(row.finishedCount),
   }));
 }
+
+// Every profile assigned to each of these projects (the list query above is a
+// raw aggregate and only carries the default one): { projectId, profileId,
+// isDefault, profile: { name } } rows.
+export async function findProfilesOfProjects(projectIds) {
+  if (!projectIds?.length) return [];
+  return prisma.projectProfile.findMany({
+    where: { projectId: { in: projectIds } },
+    select: {
+      projectId: true,
+      profileId: true,
+      isDefault: true,
+      profile: { select: { name: true } },
+    },
+  });
+}
