@@ -2465,11 +2465,13 @@ const TusList = ({ shareToken } = {}) => {
               <Tag
                 bordered={false}
                 color={listFiltered ? "blue" : "default"}
-                className="segment-info m-0 inline-flex cursor-help items-center gap-1"
+                className="segment-info m-0 cursor-help"
               >
-                <Info size={13} />
-                <span className="font-bold tabular-nums">
-                  {listFiltered ? `${orderedData.length}/${data.length}` : data.length}
+                <span className="inline-flex items-center gap-1 align-middle">
+                  <Info size={13} />
+                  <span className="font-bold tabular-nums">
+                    {listFiltered ? `${orderedData.length}/${data.length}` : data.length}
+                  </span>
                 </span>
               </Tag>
             </Tooltip>
