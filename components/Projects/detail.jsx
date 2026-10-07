@@ -154,7 +154,28 @@ const ProjectDetail = ({ projectId }) => {
         <StatCard
           label={t("projects.profileColumn")}
           value={
-            project.profileId ? (
+            (project.profiles?.length ?? 0) > 1 ? (
+              // Several profiles: all of them, the default one first and marked.
+              <span className="flex flex-col gap-0.5">
+                {[...project.profiles]
+                  .sort((a, b) => Number(Boolean(b.isDefault)) - Number(Boolean(a.isDefault)))
+                  .map((profile) => (
+                    <span key={profile.id}>
+                      <Link
+                        href={`/dashboard/profiles/${profile.id}`}
+                        className="hover:text-blue-600"
+                      >
+                        {profile.name}
+                      </Link>
+                      {profile.isDefault ? (
+                        <span className="ml-2 text-xs font-normal text-slate-500">
+                          {t("projects.defaultProfile")}
+                        </span>
+                      ) : null}
+                    </span>
+                  ))}
+              </span>
+            ) : project.profileId ? (
               <Link
                 href={`/dashboard/profiles/${project.profileId}`}
                 className="hover:text-blue-600"
