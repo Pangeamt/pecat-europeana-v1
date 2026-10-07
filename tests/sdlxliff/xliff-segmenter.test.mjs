@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readSdlxliffSegments } from "../../modules/documents/sdlxliff/reader.js";
 import { writeSdlxliff } from "../../modules/documents/sdlxliff/writer.js";
-import { splitCoded } from "../../modules/documents/sdlxliff/segmenter.js";
+import { locateSentences, splitCoded } from "../../modules/documents/sdlxliff/segmenter.js";
 
 const NS = "urn:oasis:names:tc:xliff:document:1.2";
 const wrap = (units) =>
@@ -141,4 +141,82 @@ test("documentos importados antes del corte se exportan igual (externalId sin mi
   const { text, report } = writeSdlxliff(raw, [tu("b", "Premier. Deuxième.")]);
   assert.equal(report.written, 1);
   assert.match(text, /<target state="needs-translation">Premier\. Deuxième\.<\/target>/);
+});
+
+test("regla de corte: abreviaturas de Trados para inglés (y solo con origen en inglés)", () => {
+  for (const whole of [
+    "MHC class I genes (e.g. HLA-B27).",
+    "See Dr. Smith in Fig. 2 of No. 5 vs. Table A etc. Then go.",
+    "Made in the U.S. Army bases.",
+    "Give it at 9 a.m. Then rest.",
+  ]) {
+    assert.deepEqual(texts(whole), [whole], whole);
+  }
+  // No es abreviatura de la lista: corta.
+  assert.deepEqual(texts("Walsh K et al. Journal of Training."), ["Walsh K et al.", "Journal of Training."]);
+  // La abreviatura tiene que ser una palabra entera.
+  assert.deepEqual(texts("He lost his vs. Then left."), ["He lost his vs. Then left."]);
+  assert.deepEqual(texts("Use the canvas. Then paint."), ["Use the canvas.", "Then paint."]);
+  // Otro idioma de origen: sin su lista, la abreviatura inglesa no cuenta.
+  assert.deepEqual(
+    splitCoded("See Dr. Smith.", { language: "fr-FR" }).map((part) => part.text),
+    ["See Dr.", "Smith."],
+  );
+});
+
+test("regla de corte: puntuación de cierre entre el punto y el espacio", () => {
+  assert.deepEqual(texts('He said "Stop." Then he left (at last.) Nobody saw.'), [
+    'He said "Stop."',
+    "Then he left (at last.)",
+    "Nobody saw.",
+  ]);
+  assert.deepEqual(texts("Wait... Then go. Wait... then stay."), ["Wait...", "Then go.", "Wait... then stay."]);
+  assert.deepEqual(texts("Really?! Yes. no, sorry."), ["Really?!", "Yes. no, sorry."]);
+  assert.deepEqual(texts("First, second; Third, Fourth"), ["First, second; Third, Fourth"]);
+});
+
+test("lector: un target con solo un espacio ya no es 'sin traducir' para Trados, y no se parte", () => {
+  const raw = wrap(
+    `      <trans-unit id="a"><source>First one. Second one.</source><target state="new"> </target></trans-unit>
+` +
+      `      <trans-unit id="b"><source>Third one. Fourth one.</source><target></target></trans-unit>
+` +
+      `      <trans-unit id="c"><source>5. Altitude</source><target state="new"><x id="1"/></target></trans-unit>`,
+  );
+  const segments = readSdlxliffSegments(raw).segments;
+  assert.deepEqual(
+    segments.map((s) => [s.transUnitId, s.mid, s.target]),
+    [
+      ["a", null, null],
+      ["b", "~1", null],
+      ["b", "~2", null],
+      // state="new": su contenido es un relleno, no una traducción.
+      ["c", null, null],
+    ],
+  );
+});
+
+test("unir por lo importado: las frases se localizan por su origen guardado", () => {
+  const coded = "<x1/>First part:  <x3/>Second one.<x4/> Third.<x5/>";
+  assert.deepEqual(locateSentences(coded, ["<x1/>First part:", "<x3/>Second one.<x4/>", "Third.<x5/>"]), [
+    { gap: "", text: "<x1/>First part:" },
+    { gap: "  ", text: "<x3/>Second one.<x4/>" },
+    { gap: " ", text: "Third.<x5/>" },
+  ]);
+  assert.equal(locateSentences(coded, ["<x1/>First part:", "Third.<x5/>"]), null, "falta una frase");
+  assert.equal(locateSentences(coded, ["<x3/>Second one.<x4/>", "<x1/>First part:"]), null, "fuera de orden");
+  assert.equal(locateSentences(coded, ["<x1/>First part:", "<x3/>Second one.<x4/>"]), null, "sobra texto al final");
+  assert.equal(locateSentences(coded, [null]), null);
+});
+
+test("escritor: un documento cortado con una regla anterior se sigue pudiendo unir", () => {
+  // Importado cuando "(e.g." aún cortaba: hoy la regla da una sola frase.
+  const raw = wrap(`      <trans-unit id="a"><source>Class I genes (e.g. HLA-B27).</source><target/></trans-unit>`);
+  assert.equal(readSdlxliffSegments(raw).segments.length, 1);
+  const { text, report } = writeSdlxliff(raw, [
+    tu("a::~1", "gènes de classe I (p. ex.", { srcLiteral: "Class I genes (e.g." }),
+    tu("a::~2", "HLA-B27).", { srcLiteral: "HLA-B27)." }),
+  ]);
+  assert.equal(report.written, 2);
+  assert.ok(text.includes('<target state="needs-translation">gènes de classe I (p. ex. HLA-B27).</target>'));
 });
