@@ -118,6 +118,9 @@
       "error": "Error"
     },
     "downloadTooltip": "Download file",
+    "translating": "Translating {percent}%",
+    "preparing": "Preparing…",
+    "scoring": "MTQE {percent}%",
     "downloadOriginal": "Download original",
     "downloadOriginalHint": "The file exactly as it was uploaded",
     "downloadProcessed": "Download processed",
