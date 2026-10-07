@@ -82,6 +82,8 @@ import {
 } from "@/lib/edit-history";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import {
+  STATUS_FILTER_VALUES,
+  matchesStatusSelection,
   segmentNumberOf,
   segmentOrigin,
   segmentState,
@@ -110,11 +112,6 @@ const qeBandColor = (score) =>
 // Column filters and sorters as plain functions: the table uses them, and so
 // does the "visible list" (navigation and the filter-bar counters), which
 // must show exactly the rows the table shows.
-const matchesStatusFilter = (value, record) =>
-  // NOT_REVIEWED and TRANSLATED_MT both render as "not reviewed".
-  value === "NOT_REVIEWED"
-    ? record.Status === "NOT_REVIEWED" || record.Status === "TRANSLATED_MT"
-    : record.Status === value;
 
 const matchesTextFilter = (dataIndex, value, record) => {
   const fieldValue =
@@ -132,12 +129,19 @@ const matchesTextFilter = (dataIndex, value, record) => {
 const matchesLockFilter = (value, record) =>
   value === "locked" ? Boolean(record.block) : !record.block;
 
+// Each takes the column's WHOLE selection: most columns pass when any of
+// their values matches; the status column reads its selection as two groups
+// (situation and origin, see matchesStatusSelection).
+const anyOf = (match) => (values, record) =>
+  values.some((value) => match(value, record));
+
 const COLUMN_FILTERS = {
-  status: matchesStatusFilter,
-  block: matchesLockFilter,
-  srcLiteral: (value, record) => matchesTextFilter("srcLiteral", value, record),
-  reviewLiteral: (value, record) =>
+  status: (values, record) => matchesStatusSelection(values, record),
+  block: anyOf(matchesLockFilter),
+  srcLiteral: anyOf((value, record) => matchesTextFilter("srcLiteral", value, record)),
+  reviewLiteral: anyOf((value, record) =>
     matchesTextFilter("reviewLiteral", value, record),
+  ),
 };
 
 const COLUMN_SORTERS = {
@@ -633,9 +637,7 @@ const TusList = ({ shareToken } = {}) => {
     for (const [key, values] of Object.entries(tableView.filters ?? {})) {
       const match = COLUMN_FILTERS[key];
       if (!match || !values?.length) continue;
-      rows = rows.filter((record) =>
-        values.some((value) => match(value, record)),
-      );
+      rows = rows.filter((record) => match(values, record));
     }
     const compare = tableView.sorter && COLUMN_SORTERS[tableView.sorter.key];
     if (compare) {
@@ -982,10 +984,15 @@ const TusList = ({ shareToken } = {}) => {
       width: 100,
       // The values are the review status codes; the reviewer reads them in
       // words (and in their language).
-      filters: ["NOT_REVIEWED", "ACCEPTED", "EDITED", "REJECTED"].map(
-        (value) => ({ text: t(`tus.status.${value}`), value }),
-      ),
-      onFilter: matchesStatusFilter,
+      // Everything the column can show: the situation (icon) and the origin
+      // (badge). The table calls onFilter once per chosen value and keeps the
+      // row if any call says yes, so each call judges the whole selection.
+      filters: STATUS_FILTER_VALUES.map((value) => ({
+        text: t(`tus.status.${value}`),
+        value,
+      })),
+      onFilter: (value, record) =>
+        matchesStatusSelection(tableView.filters?.status ?? [value], record),
       render: (text, record) => {
         // Confirm / reject / save in flight: the spinner replaces the status
         // icon of this row only.

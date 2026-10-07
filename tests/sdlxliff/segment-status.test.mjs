@@ -198,3 +198,27 @@ test("numero: el de Trados si se guardo; si no, el orden en el documento", () =>
   assert.equal(segmentNumberOf({ segmentNumber: null, count: 1455 }), 1456);
   assert.equal(segmentNumberOf({}, 7), 7);
 });
+
+test("filtro de estado: todo lo que enseña la columna, situación y origen", async () => {
+  const { STATUS_FILTER_VALUES, matchesStatusSelection } = await import("../../lib/segment-status.js");
+  assert.deepEqual(STATUS_FILTER_VALUES, ["NOT_REVIEWED", "ACCEPTED", "EDITED", "REJECTED", "LOCKED", "ORIGIN_MT", "ORIGIN_FUZZY"]);
+  const mtPending = { Status: "TRANSLATED_MT", translatedLiteral: "x", fileTarget: false, block: false };
+  const mtConfirmed = { ...mtPending, Status: "ACCEPTED", reviewLiteral: "x", reviewedAt: new Date() };
+  const fuzzy = { Status: "NOT_REVIEWED", translatedLiteral: "x", fileTarget: true, fileOrigin: "tm", filePercent: 87, block: false };
+  const fileExact = { Status: "NOT_REVIEWED", translatedLiteral: "x", fileTarget: true, fileOrigin: "tm", filePercent: 100, block: false };
+  const locked = { ...mtPending, block: true };
+  const rejected = { ...mtPending, Status: "REJECTED" };
+  const pass = (values, tu) => matchesStatusSelection(values, tu);
+
+  assert.ok([mtPending, mtConfirmed, fuzzy, fileExact, locked, rejected].every((tu) => pass([], tu)), "sin selección pasa todo");
+  assert.deepEqual([mtPending, mtConfirmed, fuzzy, fileExact, locked, rejected].map((tu) => pass(["ORIGIN_MT"], tu)), [true, true, false, false, false, true], "AT: lo traducido por máquina, confirmado o no; un bloqueado no lleva insignia");
+  assert.deepEqual([mtPending, fuzzy, fileExact].map((tu) => pass(["ORIGIN_FUZZY"], tu)), [false, true, false]);
+  assert.deepEqual([mtPending, fuzzy, locked].map((tu) => pass(["NOT_REVIEWED"], tu)), [true, true, false], "un bloqueado no es «sin revisar»");
+  assert.deepEqual([mtPending, locked].map((tu) => pass(["LOCKED"], tu)), [false, true]);
+  // Dentro de un grupo se suman; entre grupos se cruzan.
+  assert.deepEqual([mtPending, mtConfirmed, rejected, locked].map((tu) => pass(["NOT_REVIEWED", "REJECTED"], tu)), [true, false, true, false]);
+  assert.deepEqual([mtPending, mtConfirmed, fuzzy].map((tu) => pass(["NOT_REVIEWED", "ORIGIN_MT"], tu)), [true, false, false], "sin revisar Y de traducción automática");
+  assert.deepEqual([mtPending, fuzzy, fileExact].map((tu) => pass(["ORIGIN_MT", "ORIGIN_FUZZY"], tu)), [true, true, false]);
+  assert.equal(matchesStatusSelection(["NOT_REVIEWED"], mtConfirmed, { hasDraft: true }), true);
+  assert.equal(matchesStatusSelection(["ACCEPTED"], mtConfirmed, { hasDraft: true }), false, "con texto sin guardar vuelve a «sin revisar»");
+});
