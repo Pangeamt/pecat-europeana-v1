@@ -1,4 +1,5 @@
 import { codeSource, codeTarget, visibleText } from "./codes.js";
+import { splitCoded, virtualMid } from "./segmenter.js";
 import { buildTagInfo, parseTagDefs } from "./tagdefs.js";
 import { directChild, elementChildren, findAll, localName, parseXmlTree, textContent } from "./xmltree.js";
 
@@ -288,12 +289,20 @@ export function readSdlxliffSegments(raw) {
       }
     } else if (unit.source) {
       const { coded, codes, byId } = codeSource(unit.source);
-      parts.push({
-        mid: null,
-        coded,
-        tagInfo: buildTagInfo(codes, tagDefs, index.unitById, unit.data),
-        target: unit.target ? codeTarget(unit.target, byId) : null,
-      });
+      const tagInfo = buildTagInfo(codes, tagDefs, index.unitById, unit.data);
+      const target = unit.target ? codeTarget(unit.target, byId) : null;
+      // A 1.2 unit that arrives with no translation is cut into its sentences,
+      // as Trados does with the same file (segmenter.js); the writer puts them
+      // back together in the unit's single <target>. XLIFF 2.x is already
+      // segmented by its own <segment>s and is never cut.
+      const sentences = !unit.v2 && !target?.trim() ? splitCoded(coded.trim()) : [];
+      if (sentences.length > 1) {
+        sentences.forEach((sentence, position) => {
+          parts.push({ mid: virtualMid(position), coded: sentence.text, tagInfo, target: null });
+        });
+      } else {
+        parts.push({ mid: null, coded, tagInfo, target });
+      }
     }
 
     let segmentIndex = 0;
