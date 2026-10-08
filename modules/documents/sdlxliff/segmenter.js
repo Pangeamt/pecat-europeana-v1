@@ -153,6 +153,31 @@ export function splitCoded(coded, { language = "en" } = {}) {
   return parts;
 }
 
+// Standalone codes (<xN/>: <x/>, <ph>, <it>...) at the very start or end of a
+// unit that arrives with no translation are NOT part of its segments: Trados
+// leaves them outside the segment (measured on Studio 2022: in every unit it
+// segments itself, no segment starts or ends with one), so the translator never
+// sees them and the export puts them back around the translation. Paired codes
+// (<gN>, <bN/>/<eN/>) wrap text and stay inside.
+const LEADING_CODES = /^(?:<x\d+\/>\s*)+/;
+const TRAILING_CODES = /(?:\s*<x\d+\/>)+$/;
+
+/**
+ * Splits the coded text of a unit into { lead, core, trail }: `lead` and
+ * `trail` are the edge codes (with the whitespace that separates them from
+ * the text) and `core` is what a human translates. lead + core + trail is the
+ * input, byte for byte. A unit that is nothing but codes is left whole.
+ */
+export function peelEdgeCodes(coded) {
+  const input = String(coded ?? "");
+  const lead = LEADING_CODES.exec(input)?.[0] ?? "";
+  const rest = input.slice(lead.length);
+  const trail = TRAILING_CODES.exec(rest)?.[0] ?? "";
+  const core = rest.slice(0, rest.length - trail.length);
+  if (!core.trim()) return { lead: "", core: input, trail: "" };
+  return { lead, core, trail };
+}
+
 /**
  * Finds the sentences a unit was cut into at import (`sources`, in order)
  * inside its coded text, and returns them as [{ gap, text }] -- or null when

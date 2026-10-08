@@ -19,6 +19,14 @@ import { findProjectWithProfilesForActor } from "../projects/repository";
 import { getProfileDaait } from "../profiles/daait-repository";
 import { resolveDaaitLanguageTag } from "../languages/service";
 import { Prisma } from "@prisma/client";
+import {
+  ImportSupersededError,
+  beginImportRun,
+  endImportRun,
+  isCurrentImportRun,
+  takeOrphanedImport,
+  waitForImportToEnd,
+} from "../../lib/import-runs";
 import { UnrecoverableError } from "bullmq";
 import {
   deleteProjectDocumentService,
@@ -257,6 +265,47 @@ async function resetDocumentTus(documentId) {
   });
 }
 
+// Saves the document's segments in ONE transaction that first removes whatever
+// it had: however many times an import runs, the document ends with one set.
+async function replaceDocumentTus(documentId, tusData) {
+  await prisma.$transaction([
+    prisma.tu.deleteMany({ where: { documentId } }),
+    prisma.tu.createMany({ data: tusData }),
+  ]);
+}
+
+// Runs one execution of a document's import as THE execution that owns it
+// (lib/import-runs.js). `body(stillMine)` does the work and asks `stillMine()`
+// before every step that writes; when a newer execution has taken over, this
+// one ends without touching the document and without failing the job.
+async function runImport(documentId, body) {
+  const run = beginImportRun(documentId);
+  const stillMine = () => isCurrentImportRun(documentId, run);
+  try {
+    await body(stillMine);
+  } catch (error) {
+    if (error instanceof ImportSupersededError || !stillMine()) {
+      console.warn(
+        `[import] execution of document ${documentId} dropped: a newer one took over`,
+      );
+      // It must not go back to the queue before the newer one is done: the
+      // worker would stop renewing that one's lock (see waitForImportToEnd).
+      await waitForImportToEnd(documentId);
+      return;
+    }
+    // The queue had already given this job up as stalled while it was still
+    // running here: nobody else will record the failure.
+    if (takeOrphanedImport(documentId)) {
+      await setDocumentStatus(documentId, resolveDocumentErrorStatus(error)).catch(
+        () => {},
+      );
+    }
+    throw error;
+  } finally {
+    endImportRun(documentId, run);
+  }
+}
+
 // NOTE: the job payload key is still `projectId` (it carries the document row
 // id). Kept for compatibility with jobs already sitting in Redis when this
 // code deploys — do not rename it or the queue/job names.
@@ -278,6 +327,18 @@ export async function handleSdlxliffImportJob({
   profileId,
   workspaceId,
 }) {
+  return runImport(documentId, (stillMine) =>
+    importSdlxliff(
+      { documentId, filePath, src, tgt, tmIds, glossaryIds, profileId, workspaceId },
+      stillMine,
+    ),
+  );
+}
+
+async function importSdlxliff(
+  { documentId, filePath, src, tgt, tmIds, glossaryIds, profileId, workspaceId },
+  stillMine,
+) {
   await resetDocumentTus(documentId);
   await setDocumentStatus(documentId, DOCUMENT_STATUS.PROCESSING);
 
@@ -313,11 +374,14 @@ export async function handleSdlxliffImportJob({
   });
 
   const { translated } = await enrichSdlxliffSegments(segments, {
+    shouldContinue: stillMine,
     onProgress: (progress) =>
-      recordTranslationProgress(documentId, {
-        ...progress,
-        segments: segments.length,
-      }),
+      stillMine()
+        ? recordTranslationProgress(documentId, {
+            ...progress,
+            segments: segments.length,
+          })
+        : undefined,
     documentId,
     sourceLanguage: normalizedSrc,
     targetLanguage: normalizedTgt,
@@ -345,9 +409,8 @@ export async function handleSdlxliffImportJob({
     normalizedTgt,
   );
 
-  await prisma.tu.createMany({
-    data: tusData,
-  });
+  if (!stillMine()) throw new ImportSupersededError(documentId);
+  await replaceDocumentTus(documentId, tusData);
 
   await releaseDocumentAndScore(documentId);
 }
@@ -364,25 +427,26 @@ export async function handleUploadImportJob({
   profileId,
   workspaceId,
 }) {
-  await resetDocumentTus(documentId);
-  await setDocumentStatus(documentId, DOCUMENT_STATUS.FILE_PROCESSING);
-  const result = await processDocumentFile({
-    documentId,
-    filePath,
-    filename,
-    src,
-    tgt,
-    mt,
-    tmIds,
-    glossaryIds,
-    profileId,
-    workspaceId,
-  });
+  return runImport(documentId, async (stillMine) => {
+    await resetDocumentTus(documentId);
+    await setDocumentStatus(documentId, DOCUMENT_STATUS.FILE_PROCESSING);
+    const result = await processDocumentFile({
+      documentId,
+      filePath,
+      filename,
+      src,
+      tgt,
+      mt,
+      tmIds,
+      glossaryIds,
+      profileId,
+      workspaceId,
+    });
 
-  await prisma.tu.createMany({
-    data: toTusData(result, documentId),
+    if (!stillMine()) throw new ImportSupersededError(documentId);
+    await replaceDocumentTus(documentId, toTusData(result, documentId));
+    await releaseDocumentAndScore(documentId);
   });
-  await releaseDocumentAndScore(documentId);
 }
 
 // If Redis is down the job cannot be scheduled: mark the document as failed
