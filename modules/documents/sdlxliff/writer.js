@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { DOMParser } from "@xmldom/xmldom";
 import { codeSource, codeTarget, tagSequence, TOKEN_RE } from "./codes.js";
 import { indexSdlxliff, isPlainLocked } from "./reader.js";
-import { isVirtualMid, splitCoded, virtualMid } from "./segmenter.js";
+import { isVirtualMid, locateSentences, splitCoded, virtualMid } from "./segmenter.js";
 import { findAll } from "./xmltree.js";
 import { exportTarget, isApproved } from "../export-target.js";
 
@@ -418,8 +418,21 @@ export function writeSdlxliff(raw, tus) {
       continue;
     }
     const { coded, codes } = codeSource(unit.source);
-    const sentences = splitCoded(coded.trim());
-    const rows = sentences.map((sentence, position) => byMid.get(virtualMid(position)));
+    // The sentences are the ones the IMPORT cut (each row keeps its source),
+    // found again in the unit; only rows without their source fall back to
+    // cutting the unit anew.
+    const ordered = [...byMid.entries()]
+      .sort((a, b) => Number(a[0].slice(1)) - Number(b[0].slice(1)))
+      .map(([, tu]) => tu);
+    const located = locateSentences(
+      coded.trim(),
+      ordered.map((tu) => tu.srcLiteral),
+    );
+    const sentences =
+      located ?? splitCoded(coded.trim(), { language: index.sourceLanguage });
+    const rows = located
+      ? ordered
+      : sentences.map((sentence, position) => byMid.get(virtualMid(position)));
     const translations = rows.map((tu) => (tu ? exportTarget(tu).trim() : ""));
     // The file changed shape since the import, or a sentence has no
     // translation: half a unit is never delivered.

@@ -17,7 +17,8 @@ import {
   Tooltip,
 } from "antd";
 import axios from "axios";
-import { ChevronDown, ChevronRight, CircleCheck, CircleX, CheckCheck, Download, FileDown, Filter, LoaderCircle, LockIcon, Redo2, Save, Undo2, Search, UnlockIcon } from "lucide-react";
+import { createPortal } from "react-dom";
+import { ChevronDown, ChevronRight, CircleCheck, CircleX, CheckCheck, Download, FileDown, Filter, Info, LoaderCircle, LockIcon, Redo2, Save, Undo2, Search, UnlockIcon } from "lucide-react";
 import { useParams } from "next/navigation";
 
 import React, {
@@ -44,6 +45,8 @@ import {
   appendTuByShareToken,
   confirmTu,
   confirmTuByShareToken,
+  confirmTusBulk,
+  confirmTusBulkByShareToken,
   evaluateTu,
   evaluateTuByShareToken,
   getTus,
@@ -64,6 +67,7 @@ import {
   confirmableRows,
   nextPendingIndex,
 } from "@/lib/document-completion";
+import { chunksOf } from "@/lib/bulk-confirm";
 import { useProcessedDownload } from "@/components/Documents/useProcessedDownload";
 import { getDocumentOriginalLink } from "@/services/document.services";
 import {
@@ -78,6 +82,8 @@ import {
 } from "@/lib/edit-history";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import {
+  STATUS_FILTER_VALUES,
+  matchesStatusSelection,
   segmentNumberOf,
   segmentOrigin,
   segmentState,
@@ -106,11 +112,6 @@ const qeBandColor = (score) =>
 // Column filters and sorters as plain functions: the table uses them, and so
 // does the "visible list" (navigation and the filter-bar counters), which
 // must show exactly the rows the table shows.
-const matchesStatusFilter = (value, record) =>
-  // NOT_REVIEWED and TRANSLATED_MT both render as "not reviewed".
-  value === "NOT_REVIEWED"
-    ? record.Status === "NOT_REVIEWED" || record.Status === "TRANSLATED_MT"
-    : record.Status === value;
 
 const matchesTextFilter = (dataIndex, value, record) => {
   const fieldValue =
@@ -128,12 +129,19 @@ const matchesTextFilter = (dataIndex, value, record) => {
 const matchesLockFilter = (value, record) =>
   value === "locked" ? Boolean(record.block) : !record.block;
 
+// Each takes the column's WHOLE selection: most columns pass when any of
+// their values matches; the status column reads its selection as two groups
+// (situation and origin, see matchesStatusSelection).
+const anyOf = (match) => (values, record) =>
+  values.some((value) => match(value, record));
+
 const COLUMN_FILTERS = {
-  status: matchesStatusFilter,
-  block: matchesLockFilter,
-  srcLiteral: (value, record) => matchesTextFilter("srcLiteral", value, record),
-  reviewLiteral: (value, record) =>
+  status: (values, record) => matchesStatusSelection(values, record),
+  block: anyOf(matchesLockFilter),
+  srcLiteral: anyOf((value, record) => matchesTextFilter("srcLiteral", value, record)),
+  reviewLiteral: anyOf((value, record) =>
     matchesTextFilter("reviewLiteral", value, record),
+  ),
 };
 
 const COLUMN_SORTERS = {
@@ -629,9 +637,7 @@ const TusList = ({ shareToken } = {}) => {
     for (const [key, values] of Object.entries(tableView.filters ?? {})) {
       const match = COLUMN_FILTERS[key];
       if (!match || !values?.length) continue;
-      rows = rows.filter((record) =>
-        values.some((value) => match(value, record)),
-      );
+      rows = rows.filter((record) => match(values, record));
     }
     const compare = tableView.sorter && COLUMN_SORTERS[tableView.sorter.key];
     if (compare) {
@@ -978,10 +984,15 @@ const TusList = ({ shareToken } = {}) => {
       width: 100,
       // The values are the review status codes; the reviewer reads them in
       // words (and in their language).
-      filters: ["NOT_REVIEWED", "ACCEPTED", "EDITED", "REJECTED"].map(
-        (value) => ({ text: t(`tus.status.${value}`), value }),
-      ),
-      onFilter: matchesStatusFilter,
+      // Everything the column can show: the situation (icon) and the origin
+      // (badge). The table calls onFilter once per chosen value and keeps the
+      // row if any call says yes, so each call judges the whole selection.
+      filters: STATUS_FILTER_VALUES.map((value) => ({
+        text: t(`tus.status.${value}`),
+        value,
+      })),
+      onFilter: (value, record) =>
+        matchesStatusSelection(tableView.filters?.status ?? [value], record),
       render: (text, record) => {
         // Confirm / reject / save in flight: the spinner replaces the status
         // icon of this row only.
@@ -1233,60 +1244,97 @@ const TusList = ({ shareToken } = {}) => {
       content: t(listFiltered ? "tus.bulk.contentFiltered" : "tus.bulk.contentAll"),
       okText: t("tus.bulk.ok", { count: targets.length }),
       cancelText: t("tus.bulk.cancel"),
-      onOk: async () => {
-        const beforeById = new Map(data.map((doc) => [doc.id, doc]));
-        const after = new Map();
-        let failed = 0;
-        let firstReason = null;
-        setBulkProgress({ done: 0, total: targets.length });
-        for (let index = 0; index < targets.length; index += 1) {
-          const row = targets[index];
-          // Already confirmed by the propagation of an earlier one (same source).
-          if (after.has(row.id) || !beginPending(row.id, "status")) {
-            setBulkProgress({ done: index + 1, total: targets.length });
-            continue;
-          }
-          try {
-            const updated = await confirm({
-              tuId: row.id,
-              reviewLiteral: confirmTextOf(row),
-              action: "approve",
-              record: false,
-            });
-            for (const item of updated) after.set(item.id, item);
-            clearDraft(row.id);
-          } catch (error) {
-            failed += 1;
-            firstReason ??= failureReason(error);
-            console.error(error);
-          } finally {
-            endPending(row.id);
-            setBulkProgress({ done: index + 1, total: targets.length });
-          }
-        }
-        setBulkProgress(null);
-        actionHistoryRef.current = recordAction(
-          actionHistoryRef.current,
-          actionEntry({
-            action: "approve_all",
-            number: after.size,
-            beforeById,
-            after: [...after.values()],
-          }),
-        );
-        touchHistory();
-        if (failed > 0) {
-          messageApi.warning(
-            `${t("tus.bulk.someFailed", { failed, done: after.size })}${
-              firstReason ? ` (${firstReason})` : ""
-            }`,
-          );
-        } else {
-          announce(t("tus.bulk.done", { done: after.size }));
-        }
+      // Not awaited: the dialog closes at once and the editor stays locked
+      // behind the progress panel until the whole list has been answered.
+      onOk: () => {
+        runBulkConfirm(targets);
       },
     });
   };
+
+  // The list goes to the server in requests of many segments (not one call
+  // per segment); each answer confirms its rows in the grid. Meanwhile every
+  // other action is blocked (see the panel and the key guard below).
+  const runBulkConfirm = async (targets) => {
+    const beforeById = new Map(data.map((doc) => [doc.id, doc]));
+    const after = new Map();
+    let failed = 0;
+    let firstReason = null;
+    let done = 0;
+    const items = targets.map((row) => ({
+      tuId: row.id,
+      reviewLiteral: confirmTextOf(row),
+    }));
+    document.activeElement?.blur?.();
+    setBulkProgress({ done: 0, total: items.length });
+    for (const chunk of chunksOf(items)) {
+      // Already confirmed by the propagation of an earlier request (same source).
+      const pending = chunk.filter((item) => !after.has(item.tuId));
+      try {
+        if (pending.length > 0) {
+          const response = shareToken
+            ? await confirmTusBulkByShareToken(shareToken, { items: pending })
+            : await confirmTusBulk({ documentId: projectId, items: pending });
+          const { updated = [], failed: refused = [] } = response.data;
+          const updatedById = new Map(updated.map((item) => [item.id, item]));
+          for (const item of updated) {
+            after.set(item.id, item);
+            clearDraft(item.id);
+          }
+          failed += refused.length;
+          firstReason ??= refused[0]?.message || null;
+          setData((prev) =>
+            prev.map((doc) =>
+              updatedById.has(doc.id) ? { ...doc, ...updatedById.get(doc.id) } : doc,
+            ),
+          );
+          setSelectedRow((prev) =>
+            prev && updatedById.has(prev.id)
+              ? { ...prev, ...updatedById.get(prev.id) }
+              : prev,
+          );
+        }
+      } catch (error) {
+        failed += pending.length;
+        firstReason ??= failureReason(error);
+        console.error(error);
+      }
+      done += chunk.length;
+      setBulkProgress({ done, total: items.length });
+    }
+    setBulkProgress(null);
+    actionHistoryRef.current = recordAction(
+      actionHistoryRef.current,
+      actionEntry({
+        action: "approve_all",
+        number: after.size,
+        beforeById,
+        after: [...after.values()],
+      }),
+    );
+    touchHistory();
+    if (failed > 0) {
+      messageApi.warning(
+        `${t("tus.bulk.someFailed", { failed, done: after.size })}${
+          firstReason ? ` (${firstReason})` : ""
+        }`,
+      );
+    } else {
+      announce(t("tus.bulk.done", { done: after.size }));
+    }
+  };
+
+  // While a bulk confirm runs nothing else may be done: keys are swallowed
+  // here (shortcuts and typing alike) and the panel below takes the clicks.
+  useEffect(() => {
+    if (!bulkProgress) return undefined;
+    const swallow = (event) => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+    window.addEventListener("keydown", swallow, true);
+    return () => window.removeEventListener("keydown", swallow, true);
+  }, [Boolean(bulkProgress)]);
 
   // LLM suggestion lifecycle: applying copies the suggestion into the target
   // editor (the reviewer still confirms), discarding hides it; both persist
@@ -1934,6 +1982,43 @@ const TusList = ({ shareToken } = {}) => {
   return (
     <div>
       {contextHolder}
+      {bulkProgress
+        ? // On <body>, above everything: no ancestor can clip it or sit over it.
+          createPortal(
+        <div
+          className="bulk-lock"
+          role="alertdialog"
+          aria-busy="true"
+          aria-label={t("tus.bulk.running", bulkProgress)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 2000,
+            background: "rgba(15, 23, 42, 0.35)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "progress",
+          }}
+        >
+          <div className="w-[26rem] max-w-[90vw] rounded-lg bg-white p-5 shadow-xl">
+            <div className="text-sm font-semibold text-slate-800">
+              {t("tus.bulk.running", bulkProgress)}
+            </div>
+            <div className="mt-3 h-2 w-full overflow-hidden rounded bg-slate-200">
+              <div
+                className="h-full bg-blue-600 transition-all"
+                style={{
+                  width: `${Math.round((bulkProgress.done / Math.max(1, bulkProgress.total)) * 100)}%`,
+                }}
+              />
+            </div>
+            <div className="mt-3 text-xs text-slate-500">{t("tus.bulk.runningHint")}</div>
+          </div>
+        </div>,
+            document.body,
+          )
+        : null}
       <div
         className="mb-2"
         style={{
@@ -2215,21 +2300,25 @@ const TusList = ({ shareToken } = {}) => {
               title={
                 bulkProgress
                   ? `${bulkProgress.done}/${bulkProgress.total}`
-                  : t(listFiltered ? "tus.bulk.tooltipFiltered" : "tus.bulk.tooltipAll", {
-                      count: bulkTargets.length,
-                    })
+                  : `${t("tus.bulk.button")} — ${t(
+                      listFiltered ? "tus.bulk.tooltipFiltered" : "tus.bulk.tooltipAll",
+                      { count: bulkTargets.length },
+                    )}`
               }
             >
               <Button
                 size="small"
-                icon={<CheckCheck size={13} />}
+                aria-label={t("tus.bulk.button")}
+                icon={<CheckCheck size={14} />}
                 loading={Boolean(bulkProgress)}
                 disabled={bulkTargets.length === 0 || editingLocked}
                 onClick={confirmAllInFilter}
               >
-                {bulkProgress
-                  ? `${bulkProgress.done}/${bulkProgress.total}`
-                  : `${t("tus.bulk.button")} (${bulkTargets.length})`}
+                <span className="font-bold tabular-nums">
+                  {bulkProgress
+                    ? `${bulkProgress.done}/${bulkProgress.total}`
+                    : bulkTargets.length}
+                </span>
               </Button>
             </Tooltip>
             {(() => {
@@ -2286,17 +2375,6 @@ const TusList = ({ shareToken } = {}) => {
                 </span>
               );
             })()}
-            <Tooltip title="Save the text you typed without approving it (Ctrl+S)">
-              <Button
-                size="small"
-                icon={<Save size={13} />}
-                loading={savingDrafts}
-                disabled={draftCount === 0 || editingLocked}
-                onClick={saveDrafts}
-              >
-                {draftCount > 1 ? `Save (${draftCount})` : "Save"}
-              </Button>
-            </Tooltip>
             <Tooltip
               title={t(
                 completion.complete ? "tus.done.tooltipComplete" : "tus.done.tooltipPending",
@@ -2316,17 +2394,18 @@ const TusList = ({ shareToken } = {}) => {
             </Tooltip>
             {!shareToken ? (
               <>
-                <Tooltip title={t("documents.downloadOriginalHint")}>
+                <Tooltip
+                  title={`${t("documents.downloadOriginal")} — ${t("documents.downloadOriginalHint")}`}
+                >
                   <Button
                     size="small"
-                    icon={<FileDown size={13} />}
+                    aria-label={t("documents.downloadOriginal")}
+                    icon={<FileDown size={14} />}
                     href={getDocumentOriginalLink(projectId, baseURL)}
-                  >
-                    {t("documents.downloadOriginal")}
-                  </Button>
+                  />
                 </Tooltip>
                 <Tooltip
-                  title={
+                  title={`${t("documents.downloadProcessed")} — ${
                     completion.complete
                       ? t("documents.downloadProcessedHint")
                       : t(
@@ -2339,12 +2418,13 @@ const TusList = ({ shareToken } = {}) => {
                             rejected: completion.rejected,
                           },
                         )
-                  }
+                  }`}
                 >
                   <Button
                     size="small"
                     type={completion.complete ? "primary" : "default"}
-                    icon={<Download size={13} />}
+                    aria-label={t("documents.downloadProcessed")}
+                    icon={<Download size={14} />}
                     loading={downloading}
                     // Not complete: only an admin can still take it, as a
                     // partial delivery, after confirming (see the hook).
@@ -2355,37 +2435,56 @@ const TusList = ({ shareToken } = {}) => {
                     onClick={() =>
                       downloadProcessed(projectId, { onBusy: setDownloading })
                     }
-                  >
-                    {t("documents.downloadProcessed")}
-                  </Button>
+                  />
                 </Tooltip>
               </>
             ) : null}
-            <Tag bordered={false} color={listFiltered ? "blue" : "default"} className="m-0">
-              Segments{" "}
-              <span className="font-bold tabular-nums">
-                {listFiltered
-                  ? `${orderedData.length}/${data.length}`
-                  : data.length}
-              </span>
-            </Tag>
-            <Tag bordered={false} color={listFiltered ? "blue" : "default"} className="m-0">
-              Words{" "}
-              <span className="font-bold tabular-nums">
-                {listFiltered
-                  ? `${filteredWords.toLocaleString()}/${totalWords.toLocaleString()}`
-                  : totalWords.toLocaleString()}
-              </span>
-            </Tag>
-            <Tooltip title="Word-weighted effort of the visible list (see the Effort panel)">
-              <Tag bordered={false} color={listFiltered ? "blue" : "default"} className="m-0">
-                Weighted{" "}
-                <span className="font-bold tabular-nums">
-                  {listFiltered
-                    ? `${filteredEffort.weightedWords.toLocaleString()}/${documentEffort.weightedWords.toLocaleString()}`
-                    : documentEffort.weightedWords.toLocaleString()}
+            <Tooltip
+              title={
+                <div className="text-xs leading-5">
+                  {[
+                    ["Segments", orderedData.length, data.length],
+                    ["Words", filteredWords, totalWords],
+                    ["Weighted", filteredEffort.weightedWords, documentEffort.weightedWords],
+                  ].map(([label, shown, total]) => (
+                    <div key={label} className="flex justify-between gap-4">
+                      <span>{label}</span>
+                      <span className="font-bold tabular-nums">
+                        {listFiltered
+                          ? `${shown.toLocaleString()} / ${total.toLocaleString()}`
+                          : total.toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                  <div className="mt-1 opacity-70">
+                    {listFiltered ? t("tus.info.filtered") : t("tus.info.all")}
+                  </div>
+                </div>
+              }
+            >
+              <Tag
+                bordered={false}
+                color={listFiltered ? "blue" : "default"}
+                className="segment-info m-0 cursor-help"
+              >
+                <span className="inline-flex items-center gap-1 align-middle">
+                  <Info size={13} />
+                  <span className="font-bold tabular-nums">
+                    {listFiltered ? `${orderedData.length}/${data.length}` : data.length}
+                  </span>
                 </span>
               </Tag>
+            </Tooltip>
+            <Tooltip title="Save the text you typed without approving it (Ctrl+S)">
+              <Button
+                size="small"
+                icon={<Save size={13} />}
+                loading={savingDrafts}
+                disabled={draftCount === 0 || editingLocked}
+                onClick={saveDrafts}
+              >
+                {draftCount > 1 ? `Save (${draftCount})` : "Save"}
+              </Button>
             </Tooltip>
           </div>
         </div>

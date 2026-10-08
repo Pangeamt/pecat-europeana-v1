@@ -293,9 +293,15 @@ export function readSdlxliffSegments(raw) {
       const target = unit.target ? codeTarget(unit.target, byId) : null;
       // A 1.2 unit that arrives with no translation is cut into its sentences,
       // as Trados does with the same file (segmenter.js); the writer puts them
-      // back together in the unit's single <target>. XLIFF 2.x is already
-      // segmented by its own <segment>s and is never cut.
-      const sentences = !unit.v2 && !target?.trim() ? splitCoded(coded.trim()) : [];
+      // back together in the unit's single <target>. "No translation" is a
+      // target that is missing or has NOTHING in it: Trados leaves alone a
+      // target holding as little as a space (what it writes itself for the
+      // units nobody translated). XLIFF 2.x is already segmented by its own
+      // <segment>s and is never cut.
+      const sentences =
+        !unit.v2 && !target
+          ? splitCoded(coded.trim(), { language: index.sourceLanguage })
+          : [];
       if (sentences.length > 1) {
         sentences.forEach((sentence, position) => {
           parts.push({ mid: virtualMid(position), coded: sentence.text, tagInfo, target: null });

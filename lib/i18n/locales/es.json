@@ -427,7 +427,10 @@
       "NOT_REVIEWED": "Sin revisar",
       "ACCEPTED": "Confirmado",
       "EDITED": "Confirmado con cambios",
-      "REJECTED": "Rechazado"
+      "REJECTED": "Rechazado",
+      "LOCKED": "Bloqueado",
+      "ORIGIN_MT": "Origen: traducción automática (AT)",
+      "ORIGIN_FUZZY": "Origen: coincidencia parcial de memoria (%)"
     },
     "nav": {
       "lockedSkipped": "{count} bloqueados saltados",
@@ -440,6 +443,10 @@
       "tooltipComplete": "Todos los segmentos están bloqueados o confirmados: ya se puede descargar el procesado",
       "tooltipPending": "Faltan {pending} segmentos por confirmar ({rejected} rechazados)"
     },
+    "info": {
+      "filtered": "Del filtro aplicado / del documento",
+      "all": "Todo el documento"
+    },
     "bulk": {
       "button": "Confirmar todo",
       "tooltipFiltered": "Confirma los {count} segmentos sin revisar del filtro aplicado",
@@ -450,7 +457,9 @@
       "ok": "Confirmar {count}",
       "cancel": "Cancelar",
       "done": "{done} segmentos confirmados",
-      "someFailed": "{done} confirmados; {failed} no se pudieron confirmar"
+      "someFailed": "{done} confirmados; {failed} no se pudieron confirmar",
+      "running": "Confirmando segmentos… {done} de {total}",
+      "runningHint": "El editor queda bloqueado hasta que termine. No cierres la página."
     },
     "lock": {
       "locked": "Bloqueados",
