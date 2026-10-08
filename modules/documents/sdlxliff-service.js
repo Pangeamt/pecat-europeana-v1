@@ -4,6 +4,8 @@ import { pecatTranslate } from '../../lib/daait';
 import { BLOCK_REASON } from './pipeline-constants';
 import { tagIssue } from './tag-check';
 import { needsMachineTranslation } from '../../lib/splice-formats';
+import { lockableExactMatch } from '../../lib/tm-matches';
+import { ImportSupersededError } from '../../lib/import-runs';
 import { readSdlxliffSegments } from './sdlxliff/reader';
 import { writeSdlxliff } from './sdlxliff/writer';
 
@@ -95,6 +97,9 @@ export async function enrichSdlxliffSegments(segments, {
   // batch and after each one: what the documents list shows while the file
   // is still processing. Its failures never touch the import.
   onProgress = null,
+  // () => false once a newer execution of this import has started (the queue
+  // relaunched the job): this one stops before sending another batch.
+  shouldContinue = null,
 } = {}) {
   // The file store's id IS the document's identity for DAAIT: it goes as
   // `document_id` (the key of its volatile memory and of the Langfuse
@@ -109,11 +114,17 @@ export async function enrichSdlxliffSegments(segments, {
     ? segments.filter(needsMachineTranslation)
     : [];
 
+  // Sources this run has already translated, in document order: what makes
+  // a hit in the document's own working memory a real repetition.
+  const seenSources = new Set();
+
   function applyResult(seg, result) {
     const tmInfoArray = Array.isArray(result.tm_info) ? result.tm_info : [];
-    const exactTm = tmInfoArray.find(
-      (tm) => tm.tm_match === true && tm.tm_score === 1,
-    );
+    const exactTm = lockableExactMatch(tmInfoArray, {
+      documentMemoryId: daaitDocumentId,
+      seenBefore: seenSources.has(seg.source),
+    });
+    seenSources.add(seg.source);
     // "Fuzzy" = the segment's best TM similarity (tm_score, 0-1), exact or
     // not — storing it only for 100% matches left the Fuzzy column empty
     // for every fuzzy match, which is exactly where it matters.
@@ -199,6 +210,9 @@ export async function enrichSdlxliffSegments(segments, {
   const batches = Math.ceil(toTranslate.length / PECAT_BATCH_SIZE);
   await report(0);
   for (let i = 0; i < batches; i++) {
+    if (shouldContinue && !shouldContinue()) {
+      throw new ImportSupersededError(documentId);
+    }
     await translateBatch(
       toTranslate.slice(i * PECAT_BATCH_SIZE, (i + 1) * PECAT_BATCH_SIZE),
       i === batches - 1,
