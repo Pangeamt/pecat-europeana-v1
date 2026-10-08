@@ -119,9 +119,9 @@ const TmTool = ({ tmInfo }) => {
         <Table
           dataSource={tmInfo}
           columns={columns}
-          rowKey={(record) =>
-            `${record.source}::${record.target ?? ""}::${record.tm_score ?? ""}`
-          }
+          // The list arrives with one entry per source/target pair
+          // (distinctTmMatches), so the pair is a unique key.
+          rowKey={(record) => `${record.source}::${record.target ?? ""}`}
           size="small"
           pagination={false}
           scroll={{ y: tableScrollY }}
