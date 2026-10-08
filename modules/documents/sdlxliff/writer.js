@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { DOMParser } from "@xmldom/xmldom";
 import { codeSource, codeTarget, tagSequence, TOKEN_RE } from "./codes.js";
 import { indexSdlxliff, isPlainLocked } from "./reader.js";
-import { isVirtualMid, locateSentences, splitCoded, virtualMid } from "./segmenter.js";
+import { isVirtualMid, locateSentences, peelEdgeCodes, splitCoded, virtualMid } from "./segmenter.js";
 import { findAll } from "./xmltree.js";
 import { exportTarget, isApproved } from "../export-target.js";
 
@@ -294,13 +294,41 @@ export function writeSdlxliff(raw, tus) {
     const changed = !tgtMrk || text !== codeTarget(tgtMrk, byId).trim();
     const reviewed = isReviewed(tu) || tu.Status === "REJECTED";
     if (!changed && !reviewed) {
-      // The client's own target, untouched: not ours, not reconfirmed -- and
-      // not "skipped" either, whatever its tags are (we write nothing).
+      // A target with no state that the import took as untranslated (a copy
+      // of its source) and the engine gave back just the same: the text stays,
+      // but the file now says it is machine output nobody confirmed -- what
+      // Trados writes for it too.
+      if (
+        plain &&
+        !unit.v2 &&
+        tu.fileTarget === false &&
+        tgtMrk &&
+        !tgtMrk.selfClosing &&
+        !tgtMrk.attrs.has("state")
+      ) {
+        splices.push({
+          start: tgtMrk.start,
+          end: tgtMrk.openEnd,
+          text: setAttributes(raw.slice(tgtMrk.start, tgtMrk.openEnd), { state: stateFor(tu) }),
+        });
+        report.confirmed++;
+      }
+      // Otherwise the client's own target, untouched: not ours, not
+      // reconfirmed -- and not "skipped" either, whatever its tags are.
       report.unchanged++;
       continue;
     }
 
-    const want = tagSequence(srcCoded).join("");
+    // A unit imported without its edge codes (peelEdgeCodes): the segment is
+    // the core, and the codes go back around the translation. Told apart from
+    // documents imported before by the segment's own source.
+    let edge = null;
+    if (plain && !unit.v2 && typeof tu.srcLiteral === "string") {
+      const peeled = peelEdgeCodes(srcCoded.trim());
+      if ((peeled.lead || peeled.trail) && tu.srcLiteral.trim() === peeled.core.trim()) edge = peeled;
+    }
+
+    const want = tagSequence(edge ? edge.core : srcCoded).join("");
     const got = tagSequence(text).join("");
     if (want !== got) {
       if (!got && codes.size) report.skippedLegacy++;
@@ -310,7 +338,12 @@ export function writeSdlxliff(raw, tus) {
 
     if (changed) {
       const { lead, trail } = edges(srcMrk);
-      let inner = lead + buildInner(text, codes, raw, eol) + trail;
+      let inner =
+        lead +
+        (edge ? buildInner(edge.lead, codes, raw, eol) : "") +
+        buildInner(text, codes, raw, eol) +
+        (edge ? buildInner(edge.trail, codes, raw, eol) : "") +
+        trail;
 
       // Rule 5: the copied tags carry the SEG-SOURCE's lockTU xids. Give the
       // target back its own previous xids first; clone a definition for any
@@ -424,10 +457,14 @@ export function writeSdlxliff(raw, tus) {
     const ordered = [...byMid.entries()]
       .sort((a, b) => Number(a[0].slice(1)) - Number(b[0].slice(1)))
       .map(([, tu]) => tu);
-    const located = locateSentences(
-      coded.trim(),
-      ordered.map((tu) => tu.srcLiteral),
-    );
+    const sources = ordered.map((tu) => tu.srcLiteral);
+    // Imported without the unit's edge codes (peelEdgeCodes): the sentences
+    // cover the core and the codes go back around them. Documents imported
+    // before kept those codes inside the first and last sentence.
+    const peeled = peelEdgeCodes(coded.trim());
+    const core = peeled.lead || peeled.trail ? locateSentences(peeled.core, sources) : null;
+    const edge = core ? peeled : { lead: "", trail: "" };
+    const located = core ?? locateSentences(coded.trim(), sources);
     const sentences =
       located ?? splitCoded(coded.trim(), { language: index.sourceLanguage });
     const rows = located
@@ -451,9 +488,11 @@ export function writeSdlxliff(raw, tus) {
     const { lead, trail } = edges(unit.source);
     const inner =
       lead +
+      buildInner(edge.lead, codes, raw, eol) +
       sentences
         .map((sentence, position) => sentence.gap + buildInner(translations[position], codes, raw, eol))
         .join("") +
+      buildInner(edge.trail, codes, raw, eol) +
       trail;
     const state = stateFor(rows.reduce((worst, tu) => (stateRank(tu) > stateRank(worst) ? tu : worst)));
     const target = unit.target;
