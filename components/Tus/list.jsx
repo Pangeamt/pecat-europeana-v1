@@ -68,6 +68,7 @@ import {
   nextPendingIndex,
 } from "@/lib/document-completion";
 import { chunksOf } from "@/lib/bulk-confirm";
+import { distinctTmMatches } from "@/lib/tm-matches";
 import { useProcessedDownload } from "@/components/Documents/useProcessedDownload";
 import { getDocumentOriginalLink } from "@/services/document.services";
 import {
@@ -682,7 +683,9 @@ const TusList = ({ shareToken } = {}) => {
 
   // All TM matches DAAIT returned for the segment, unfiltered.
   const tmInfo = useMemo(
-    () => (Array.isArray(selectedRow?.tmInfo) ? selectedRow.tmInfo : []),
+    // Repeated matches (same pair, same value) once: the tab counts exactly
+    // what the table lists.
+    () => distinctTmMatches(selectedRow?.tmInfo),
     [selectedRow?.tmInfo],
   );
 
