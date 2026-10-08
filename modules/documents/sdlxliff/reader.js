@@ -1,5 +1,5 @@
 import { codeSource, codeTarget, visibleText } from "./codes.js";
-import { splitCoded, virtualMid } from "./segmenter.js";
+import { peelEdgeCodes, splitCoded, virtualMid } from "./segmenter.js";
 import { buildTagInfo, parseTagDefs } from "./tagdefs.js";
 import { directChild, elementChildren, findAll, localName, parseXmlTree, textContent } from "./xmltree.js";
 
@@ -37,6 +37,19 @@ export function isPlainLocked(unit) {
     TRUTHY.has(String(unit.node.attrs.get("approved") ?? "").toLowerCase()) ||
     LOCKED_STATES.has(plainState(unit))
   );
+}
+
+/**
+ * A 1.2 target that carries NO state and is a plain copy of its source is not
+ * a translation either: the client's tool pre-filled it (XTM does it for
+ * placeholders such as {{...}}, and for text it could not leverage). Trados
+ * opens such a unit as "not translated" and sends it to the engine; so do we.
+ * A unit the client signed off is never touched, whatever its target says.
+ */
+export function isUnstatedSourceCopy(unit, codedSource, codedTarget) {
+  if (unit.v2 || isPlainLocked(unit)) return false;
+  if (plainState(unit) !== null) return false;
+  return String(codedTarget ?? "").trim() === String(codedSource ?? "").trim();
 }
 
 /** Whether the unit's state says its target is a placeholder, not a translation. */
@@ -298,14 +311,18 @@ export function readSdlxliffSegments(raw) {
       // target holding as little as a space (what it writes itself for the
       // units nobody translated). XLIFF 2.x is already segmented by its own
       // <segment>s and is never cut.
-      const sentences =
-        !unit.v2 && !target
-          ? splitCoded(coded.trim(), { language: index.sourceLanguage })
-          : [];
-      if (sentences.length > 1) {
-        sentences.forEach((sentence, position) => {
-          parts.push({ mid: virtualMid(position), coded: sentence.text, tagInfo, target: null });
-        });
+      if (!unit.v2 && !target) {
+        // The codes at the very edge of such a unit stay out of its segments
+        // (peelEdgeCodes), as in Trados; the writer puts them back.
+        const { core } = peelEdgeCodes(coded.trim());
+        const sentences = splitCoded(core, { language: index.sourceLanguage });
+        if (sentences.length > 1) {
+          sentences.forEach((sentence, position) => {
+            parts.push({ mid: virtualMid(position), coded: sentence.text, tagInfo, target: null });
+          });
+        } else {
+          parts.push({ mid: null, coded: core, tagInfo, target: null });
+        }
       } else {
         parts.push({ mid: null, coded, tagInfo, target });
       }
@@ -318,7 +335,13 @@ export function readSdlxliffSegments(raw) {
       // segment, same as before. Its target stays as the client left it.
       if (!visibleText(part.coded).trim()) continue;
       let target = part.target?.trim() ? part.target.trim() : null;
-      if (target && part.mid === null && isUntranslatedState(unit)) target = null;
+      if (
+        target &&
+        part.mid === null &&
+        (isUntranslatedState(unit) || isUnstatedSourceCopy(unit, part.coded, target))
+      ) {
+        target = null;
+      }
       segments.push({
         transUnitId: unit.key,
         mid: part.mid,

@@ -4,6 +4,7 @@ import {
   startProjectImportWorker,
 } from "@/lib/queue";
 import { DOCUMENT_STATUS } from "@/lib/document-status";
+import { markImportOrphaned } from "@/lib/import-runs";
 import {
   handleSdlxliffImportJob,
   handleUploadImportJob,
@@ -65,6 +66,16 @@ export function startImportWorker() {
       // failure only lands in pipelineStats — the document is already READY.
       if (job.name === PIPELINE_REVIEW_JOB) {
         await recordReviewFailure(documentId, error);
+        return;
+      }
+
+      // "Stalled" means the queue lost track of the job, not that the import
+      // died: when it is still running in this process, the document is not
+      // failed -- that execution sets the final status when it ends.
+      if (/stalled/i.test(error?.message ?? "") && markImportOrphaned(documentId)) {
+        console.warn(
+          `[import-worker] Document ${documentId} is still being imported here: not flagged as failed`,
+        );
         return;
       }
 
