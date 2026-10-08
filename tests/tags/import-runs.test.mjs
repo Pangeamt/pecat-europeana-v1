@@ -11,6 +11,7 @@ import {
   isImportRunning,
   markImportOrphaned,
   takeOrphanedImport,
+  waitForImportToEnd,
 } from "../../lib/import-runs.js";
 import { lockableExactMatch } from "../../lib/tm-matches.js";
 
@@ -93,4 +94,26 @@ test("lo que no es exacto no bloquea nunca", () => {
   assert.equal(lockableExactMatch([null, undefined], opts), null);
   // Sin saber cuál es la memoria del documento, se comporta como antes.
   assert.equal(lockableExactMatch([exact("doc-1")])?.tm_id, "doc-1");
+});
+
+test("la ejecución relevada espera a que termine la nueva antes de devolver el trabajo a la cola", async () => {
+  const first = beginImportRun("doc-w");
+  const second = beginImportRun("doc-w");
+  let released = false;
+  const waiting = waitForImportToEnd("doc-w", { pollMs: 5 }).then(() => { released = true; });
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.equal(released, false, "la nueva sigue viva: la antigua no sale");
+  endImportRun("doc-w", first);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(released, false, "que acabe la antigua no cuenta");
+  endImportRun("doc-w", second);
+  await waiting;
+  assert.equal(released, true);
+  // Sin nadie importando, no espera nada; y nunca más del máximo.
+  await waitForImportToEnd("doc-w", { pollMs: 5 });
+  const stuck = beginImportRun("doc-w2");
+  const started = Date.now();
+  await waitForImportToEnd("doc-w2", { pollMs: 5, maxMs: 40 });
+  assert.ok(Date.now() - started < 400);
+  endImportRun("doc-w2", stuck);
 });

@@ -25,6 +25,7 @@ import {
   endImportRun,
   isCurrentImportRun,
   takeOrphanedImport,
+  waitForImportToEnd,
 } from "../../lib/import-runs";
 import { UnrecoverableError } from "bullmq";
 import {
@@ -287,6 +288,9 @@ async function runImport(documentId, body) {
       console.warn(
         `[import] execution of document ${documentId} dropped: a newer one took over`,
       );
+      // It must not go back to the queue before the newer one is done: the
+      // worker would stop renewing that one's lock (see waitForImportToEnd).
+      await waitForImportToEnd(documentId);
       return;
     }
     // The queue had already given this job up as stalled while it was still
