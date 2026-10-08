@@ -683,7 +683,8 @@ const TusList = ({ shareToken } = {}) => {
 
   // All TM matches DAAIT returned for the segment, unfiltered.
   const tmInfo = useMemo(
-    // Each distinct match once: the tab counts exactly what the table lists.
+    // Repeated matches (same pair, same value) once: the tab counts exactly
+    // what the table lists.
     () => distinctTmMatches(selectedRow?.tmInfo),
     [selectedRow?.tmInfo],
   );
