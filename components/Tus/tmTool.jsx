@@ -1,6 +1,7 @@
 "use client";
 
 import { Table, Tag, Button, Tooltip } from "antd";
+import { tmMatchKey } from "@/lib/tm-matches";
 import PropTypes from "prop-types";
 import { Resizable } from "re-resizable";
 import { useRef, useState } from "react";
@@ -119,9 +120,9 @@ const TmTool = ({ tmInfo }) => {
         <Table
           dataSource={tmInfo}
           columns={columns}
-          // The list arrives with one entry per source/target pair
-          // (distinctTmMatches), so the pair is a unique key.
-          rowKey={(record) => `${record.source}::${record.target ?? ""}`}
+          // The list arrives without repeated rows (distinctTmMatches), so
+          // pair + value is a unique key.
+          rowKey={tmMatchKey}
           size="small"
           pagination={false}
           scroll={{ y: tableScrollY }}
