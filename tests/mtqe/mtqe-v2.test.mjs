@@ -16,6 +16,7 @@ import {
   buildReferencesBody,
   buildScoreSegmentsBody,
   chunkSegments,
+  glossaryReferences,
   jobDownloadUrl,
   jobStatusUrl,
   mtqeBaseUrl,
@@ -25,9 +26,10 @@ import {
   runReferencesJob,
   scoreResults,
   scoreSegmentsUrl,
-  toReferenceEntries,
+  tmReferences,
   toUnitScores,
 } from "../../lib/mtqe-v2.js";
+import { distinctTmMatches } from "../../lib/tm-matches.js";
 
 const pairs = (n) =>
   Array.from({ length: n }, (_, i) => ({
@@ -246,46 +248,65 @@ test("MTQE v2: MTQE_V2 es la base del servicio; una URL de endpoint antigua sigu
   assert.equal(referencesJobUrl(undefined), "", "sin configurar = sin QE");
 });
 
-test("MTQE v2: las referencias guardadas del segmento viajan como texto, cada pareja una vez", () => {
+// Lo que el revisor ve en las pestanas TMs y Glossaries del editor es lo que se le manda a MTQE:
+// la misma lista, en el mismo orden. PECAT-E no elige ni recorta referencias por su cuenta.
+test("MTQE v2: las memorias que viajan son las filas de la pestana TMs, las mismas y en el mismo orden", () => {
   const tmInfo = [
+    { source: "Close the file.", target: "Cierra el archivo.", tm_score: 0.4, tm_id: "tm1" },
     { source: "Save your work.", target: "Guarda tu trabajo.", tm_score: 0.82, tm_id: "tm1", resource_type: "REFERENCE_FILE" },
-    // La misma pareja desde la memoria de trabajo del documento, con otro valor: gana el mejor.
-    { source: "Save your work.", target: "Guarda tu trabajo.", tm_score: "0.91", tm_id: "doc" },
-    { source: "Close the file.", target: "Cierra el archivo.", tm_score: 0.4 },
-    { source: "Sin target" },
-    { source: "  ", target: "x" },
-    null,
+    // La misma pareja con el mismo valor desde la memoria de trabajo del documento: una sola fila.
+    { source: "Save your work.", target: "Guarda tu trabajo.", tm_score: 0.82, tm_id: "doc", resource_type: "_INTERNAL_USE_ONLY" },
+    // La misma pareja con OTRO valor: el editor la ensena aparte, y aparte viaja.
+    { source: "Save your work.", target: "Guarda tu trabajo.", tm_score: "0.91", tm_id: "tm2" },
   ];
-  assert.deepEqual(toReferenceEntries(tmInfo), [
+  const shown = distinctTmMatches(tmInfo);
+  const sent = tmReferences(tmInfo);
+  assert.deepEqual(sent, [
     { source: "Save your work.", target: "Guarda tu trabajo.", score: 0.91 },
+    { source: "Save your work.", target: "Guarda tu trabajo.", score: 0.82 },
     { source: "Close the file.", target: "Cierra el archivo.", score: 0.4 },
   ]);
-  assert.deepEqual(toReferenceEntries(null), []);
-  assert.deepEqual(toReferenceEntries("no es una lista"), []);
-});
-
-test("MTQE v2: la similitud solo viaja si es un valor de 0 a 1; un glosario puntuado en otra escala va sin ella", () => {
   assert.deepEqual(
-    toReferenceEntries([
-      { source: "valve", target: "válvula", tm_score: 19.13 },
-      { source: "pump", target: "bomba" },
-      { source: "pipe", target: "tubería", score: 1 },
-    ]),
-    [
-      { source: "pipe", target: "tubería", score: 1 },
-      { source: "valve", target: "válvula" },
-      { source: "pump", target: "bomba" },
-    ],
-    "con valor primero; las que no lo tienen, en su orden",
+    sent.map((entry) => [entry.source, entry.target]),
+    shown.map((match) => [match.source, match.target]),
+    "las mismas parejas que las filas de la pestana, en su orden",
   );
+  assert.deepEqual(tmReferences(null), []);
+  assert.deepEqual(tmReferences("no es una lista"), []);
 });
 
-test("MTQE v2: como mucho 5 referencias por segmento y tipo, las mejores", () => {
-  assert.equal(MTQE_V2_MAX_REFERENCES, 5);
-  const many = Array.from({ length: 12 }, (_, i) => ({ source: `s${i}`, target: `t${i}`, tm_score: i / 20 }));
-  const entries = toReferenceEntries(many);
-  assert.equal(entries.length, 5);
-  assert.deepEqual(entries.map((entry) => entry.source), ["s11", "s10", "s9", "s8", "s7"]);
+test("MTQE v2: no hay recorte propio: viajan todas las que ensena el editor (las 5 de DAAIT, o las 15 de un documento antiguo)", () => {
+  assert.equal(MTQE_V2_MAX_REFERENCES, 20, "el tope es el del servicio");
+  const five = Array.from({ length: 5 }, (_, i) => ({ source: `s${i}`, target: `t${i}`, tm_score: (9 - i) / 10 }));
+  assert.equal(tmReferences(five).length, 5);
+  const fifteen = Array.from({ length: 15 }, (_, i) => ({ source: `s${i}`, target: `t${i}`, tm_score: (20 - i) / 20 }));
+  assert.equal(tmReferences(fifteen).length, distinctTmMatches(fifteen).length);
+  assert.equal(tmReferences(fifteen).length, 15);
+  // Mas de lo que el servicio admite por segmento: las 20 primeras, que son las mejores.
+  const many = Array.from({ length: 26 }, (_, i) => ({ source: `s${i}`, target: `t${i}`, tm_score: (30 - i) / 30 }));
+  assert.equal(tmReferences(many).length, 20);
+  assert.equal(tmReferences(many)[0].source, "s0");
+});
+
+test("MTQE v2: los terminos que viajan son las filas de la pestana Glossaries, tal cual y en su orden", () => {
+  const glossaryInfo = [
+    { source: "valve", target: "válvula", tm_score: 19.13 },
+    { source: "pump", target: "bomba" },
+    { source: "pipe", target: "tubería", score: 1 },
+  ];
+  assert.deepEqual(glossaryReferences(glossaryInfo), [
+    // Una puntuacion en otra escala (BM25) no es una similitud de 0 a 1: el termino viaja sin ella.
+    { source: "valve", target: "válvula" },
+    { source: "pump", target: "bomba" },
+    { source: "pipe", target: "tubería", score: 1 },
+  ]);
+  assert.deepEqual(glossaryReferences(null), []);
+});
+
+test("MTQE v2: lo unico que no viaja es lo que el servicio no puede recibir: una entrada sin sus dos textos", () => {
+  const rotas = [{ source: "Sin target" }, { source: "  ", target: "x" }, { target: "sin source" }, null, 7];
+  assert.deepEqual(tmReferences([...rotas, { source: "a", target: "b", tm_score: 1 }]), [{ source: "a", target: "b", score: 1 }]);
+  assert.deepEqual(glossaryReferences([...rotas, { source: "a", target: "b" }]), [{ source: "a", target: "b" }]);
 });
 
 test("MTQE v2: el cuerpo con referencias lleva las instrucciones del perfil como translation_instructions", () => {
