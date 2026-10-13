@@ -75,9 +75,11 @@ Cuerpo de los dos contratos con referencias en texto:
 }
 ```
 
-- **`tm` y `glossary` son las referencias del propio segmento**: las coincidencias de memoria y los términos de glosario que
-  DAAIT devolvió al traducirlo (`Tu.tmInfo` / `Tu.glossaryInfo`). Cada pareja una vez, la mejor primero y 5 como mucho por
-  tipo. `score` (similitud de 0 a 1) solo viaja cuando lo es. Un segmento sin referencias manda las dos listas vacías.
+- **`tm` y `glossary` son exactamente las referencias que el editor enseña para ese segmento**: las filas de su pestaña
+  «TMs» (`distinctTmMatches` sobre `Tu.tmInfo`: una pareja repetida con el mismo valor, una vez; la mejor primero) y las de su
+  pestaña «Glossaries» (`Tu.glossaryInfo` tal cual). Son las que DAAIT devolvió al traducirlo, incluida la memoria de trabajo
+  del documento. PECAT-E no elige ni recorta: el único tope es el del servicio (20 por tipo y segmento). `score`
+  (similitud de 0 a 1) solo viaja cuando lo es. Un segmento sin referencias manda las dos listas vacías.
 - **`translation_instructions`** (en `score-segments` el campo se llama `instructions`) son las «Instrucciones» del perfil
   con el que se subió el documento (`Document.profileId`), un solo
   texto por petición; se omite si el perfil no tiene. Va en los tres contratos. 🔴 A 2026-10-13 ninguno de los dos
