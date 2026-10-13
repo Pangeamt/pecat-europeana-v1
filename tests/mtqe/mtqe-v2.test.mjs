@@ -318,9 +318,21 @@ test("MTQE v2: el cuerpo del trabajo lleva las referencias por segmento y las in
     source_language: "en-gb",
     target_language: "es-es",
     ape: false,
+    daait: true,
     instructions: "Tutea al lector.",
   });
   assert.equal("tm_id" in body, false, "en este contrato no viajan ids");
+});
+
+test("MTQE v2: con referencias en texto se dice siempre que la traduccion es de DAAIT (daait: true)", () => {
+  const lang = { sourceLanguage: "en", targetLanguage: "es" };
+  assert.equal(buildReferencesBody({ segments: pairs(1), ...lang }).daait, true);
+  assert.equal(buildReferencesBody({ segments: pairs(3), ...lang, instructions: "Tutea." }).daait, true);
+  assert.equal(
+    "daait" in buildScoreSegmentsBody({ segments: pairs(1), ...lang }),
+    false,
+    "el contrato de ids no cambia",
+  );
 });
 
 test("MTQE v2: el trabajo sin instrucciones no manda el campo; y admite de 1 a 50 segmentos", () => {

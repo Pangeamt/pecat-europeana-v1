@@ -70,6 +70,7 @@ Cuerpo de los dos contratos con referencias en texto:
   "source_language": "en-us",
   "target_language": "es-es",
   "ape": false,
+  "daait": true,
   "instructions": "<instrucciones del perfil del documento>"
 }
 ```
@@ -80,6 +81,8 @@ Cuerpo de los dos contratos con referencias en texto:
 - **`instructions`** son las «Instrucciones» del perfil con el que se subió el documento (`Document.profileId`), un solo
   texto por petición; se omite si el perfil no tiene. Va en los tres contratos. 🔴 A 2026-10-13 ninguno de los dos
   servicios la usa todavía: la aceptan y la ignoran.
+- **`daait: true`** dice que la traducción que se puntúa la hizo DAAIT (PECAT-E no tiene otro motor). Va siempre en los dos
+  contratos con referencias en texto, para que el servicio lo sepa; a 2026-10-13 no lo usa (lo ignora).
 - En `score-segments` los segmentos van sin referencias dentro y el cuerpo lleva `tm_id` / `glossary_id` (se omiten si el
   documento no tiene memorias o glosarios).
 - **Trabajo asíncrono, esperas acotadas:** 330 s por trabajo; uno que sigue en `pending` a los 120 s se da por parado y el
