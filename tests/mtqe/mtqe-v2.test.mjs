@@ -13,7 +13,7 @@ import {
   MTQE_V2_MAX_REFERENCES,
   MTQE_V2_MAX_SEGMENTS,
   MtqeJobError,
-  buildReferencesJobBody,
+  buildReferencesBody,
   buildScoreSegmentsBody,
   chunkSegments,
   jobDownloadUrl,
@@ -21,7 +21,9 @@ import {
   mtqeBaseUrl,
   mtqeEndpoint,
   referencesJobUrl,
+  referencesUrl,
   runReferencesJob,
+  scoreResults,
   scoreSegmentsUrl,
   toReferenceEntries,
   toUnitScores,
@@ -188,14 +190,41 @@ test("MTQE v2: una respuesta que no trae una nota por segmento se rechaza entera
 // pregunta por el hasta "done" y se descargan las notas, una por segmento y en orden.
 const BASE = "http://host:8800/mtqe/v2";
 
-test("MTQE v2: por defecto se usa el trabajo con referencias; score-segments solo si se pide", () => {
-  assert.equal(MTQE_V2_ENDPOINTS.REFERENCES_JOB, "jobs/score-with-references");
-  for (const raw of [undefined, null, "", "jobs/score-with-references", "/jobs/score-with-references/", "otra-cosa"]) {
-    assert.equal(mtqeEndpoint(raw), MTQE_V2_ENDPOINTS.REFERENCES_JOB, `valor ${JSON.stringify(raw)}`);
+test("MTQE v2: por defecto score-segments (lo que ya corria); los otros dos contratos solo si se piden", () => {
+  assert.deepEqual(MTQE_V2_ENDPOINTS, {
+    SEGMENTS: "score-segments",
+    REFERENCES: "score-with-references",
+    REFERENCES_JOB: "jobs/score-with-references",
+  });
+  for (const raw of [undefined, null, "", "score-segments", " /Score-Segments/ ", "otra-cosa", "score"]) {
+    assert.equal(mtqeEndpoint(raw), "score-segments", `valor ${JSON.stringify(raw)}`);
   }
-  for (const raw of ["score-segments", " /Score-Segments/ "]) {
-    assert.equal(mtqeEndpoint(raw), MTQE_V2_ENDPOINTS.SEGMENTS, `valor ${JSON.stringify(raw)}`);
+  for (const raw of ["score-with-references", "/score-with-references/", " Score-With-References "]) {
+    assert.equal(mtqeEndpoint(raw), "score-with-references", `valor ${JSON.stringify(raw)}`);
   }
+  for (const raw of ["jobs/score-with-references", "/jobs/score-with-references/"]) {
+    assert.equal(mtqeEndpoint(raw), "jobs/score-with-references", `valor ${JSON.stringify(raw)}`);
+  }
+});
+
+// service-mtqe 2.0 (leido de su openapi el 2026-10-13): POST <base>/score-with-references,
+// sincrono, de 1 a 50 segmentos con sus referencias; las notas vienen dentro de `results`.
+test("MTQE v2: /score-with-references sincrono cuelga de la base, tambien con el prefijo /service/mtqe/v2", () => {
+  const base = "http://host:7000/service/mtqe/v2";
+  assert.equal(referencesUrl(base), `${base}/score-with-references`);
+  assert.equal(referencesUrl(`${base}/score-with-references`), `${base}/score-with-references`);
+  assert.equal(referencesUrl(`${base}/`), `${base}/score-with-references`);
+  assert.equal(referencesUrl(""), "");
+});
+
+test("MTQE v2: las notas se leen igual vengan en una lista o dentro de results", () => {
+  const rows = [{ score: 100 }, { score: null, error: "upstream" }];
+  assert.deepEqual(toUnitScores(scoreResults(rows), 2), [1, null]);
+  assert.deepEqual(
+    toUnitScores(scoreResults({ request_id: "r1", chars: 80, words: 14, results: rows }), 2),
+    [1, null],
+  );
+  assert.throws(() => toUnitScores(scoreResults({ detail: "Invalid or missing API key" }), 2), /no results for 2 segments/);
 });
 
 test("MTQE v2: MTQE_V2 es la base del servicio; una URL de endpoint antigua sigue valiendo", () => {
@@ -260,7 +289,7 @@ test("MTQE v2: como mucho 5 referencias por segmento y tipo, las mejores", () =>
 });
 
 test("MTQE v2: el cuerpo del trabajo lleva las referencias por segmento y las instrucciones del perfil", () => {
-  const body = buildReferencesJobBody({
+  const body = buildReferencesBody({
     segments: [
       {
         source: "Open the Smart Valve.",
@@ -289,19 +318,31 @@ test("MTQE v2: el cuerpo del trabajo lleva las referencias por segmento y las in
     source_language: "en-gb",
     target_language: "es-es",
     ape: false,
+    daait: true,
     instructions: "Tutea al lector.",
   });
   assert.equal("tm_id" in body, false, "en este contrato no viajan ids");
 });
 
+test("MTQE v2: con referencias en texto se dice siempre que la traduccion es de DAAIT (daait: true)", () => {
+  const lang = { sourceLanguage: "en", targetLanguage: "es" };
+  assert.equal(buildReferencesBody({ segments: pairs(1), ...lang }).daait, true);
+  assert.equal(buildReferencesBody({ segments: pairs(3), ...lang, instructions: "Tutea." }).daait, true);
+  assert.equal(
+    "daait" in buildScoreSegmentsBody({ segments: pairs(1), ...lang }),
+    false,
+    "el contrato de ids no cambia",
+  );
+});
+
 test("MTQE v2: el trabajo sin instrucciones no manda el campo; y admite de 1 a 50 segmentos", () => {
   const lang = { sourceLanguage: "en", targetLanguage: "es" };
   for (const instructions of [undefined, null, "", "  \n "]) {
-    assert.equal("instructions" in buildReferencesJobBody({ segments: pairs(1), ...lang, instructions }), false);
+    assert.equal("instructions" in buildReferencesBody({ segments: pairs(1), ...lang, instructions }), false);
   }
-  assert.equal(buildReferencesJobBody({ segments: pairs(50), ...lang }).segments.length, 50);
-  assert.throws(() => buildReferencesJobBody({ segments: pairs(51), ...lang }), /1 to 50 segments/);
-  assert.throws(() => buildReferencesJobBody({ segments: [], ...lang }), /1 to 50 segments/);
+  assert.equal(buildReferencesBody({ segments: pairs(50), ...lang }).segments.length, 50);
+  assert.throws(() => buildReferencesBody({ segments: pairs(51), ...lang }), /1 to 50 segments/);
+  assert.throws(() => buildReferencesBody({ segments: [], ...lang }), /1 to 50 segments/);
 });
 
 // Un servicio de mentira: contesta a cada consulta de estado con el siguiente de `states`
@@ -326,7 +367,7 @@ function fakeService({ states, results, jobId = "job-1" }) {
     },
   };
 }
-const jobBody = () => buildReferencesJobBody({ segments: pairs(2), sourceLanguage: "en", targetLanguage: "es" });
+const jobBody = () => buildReferencesBody({ segments: pairs(2), sourceLanguage: "en", targetLanguage: "es" });
 
 test("MTQE v2 trabajo: crea, pregunta hasta done y devuelve una nota 0-1 por segmento, en orden", async () => {
   const service = fakeService({
