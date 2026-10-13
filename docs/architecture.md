@@ -71,14 +71,15 @@ Cuerpo de los dos contratos con referencias en texto:
   "target_language": "es-es",
   "ape": false,
   "daait_pre_translation": true,
-  "instructions": "<instrucciones del perfil del documento>"
+  "translation_instructions": "<instrucciones del perfil del documento>"
 }
 ```
 
 - **`tm` y `glossary` son las referencias del propio segmento**: las coincidencias de memoria y los términos de glosario que
   DAAIT devolvió al traducirlo (`Tu.tmInfo` / `Tu.glossaryInfo`). Cada pareja una vez, la mejor primero y 5 como mucho por
   tipo. `score` (similitud de 0 a 1) solo viaja cuando lo es. Un segmento sin referencias manda las dos listas vacías.
-- **`instructions`** son las «Instrucciones» del perfil con el que se subió el documento (`Document.profileId`), un solo
+- **`translation_instructions`** (en `score-segments` el campo se llama `instructions`) son las «Instrucciones» del perfil
+  con el que se subió el documento (`Document.profileId`), un solo
   texto por petición; se omite si el perfil no tiene. Va en los tres contratos. 🔴 A 2026-10-13 ninguno de los dos
   servicios la usa todavía: la aceptan y la ignoran.
 - **`daait_pre_translation: true`** dice que la traducción que se puntúa la hizo DAAIT (PECAT-E no tiene otro motor). Va siempre en los dos
