@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fichero de ejemplo del manual de PECAT-E. XLIFF 1.2 sin segmentar, inglés a español.
+     Cada unidad cubre una situación distinta; el comentario dice cuál. -->
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+  <file original="ejemplo-tienda.json" source-language="en" target-language="es" datatype="plaintext">
+    <body>
+      <!-- 1. Sin destino: sin traducir. Se envía a traducir. -->
+      <trans-unit id="u1">
+        <source>Your order has been confirmed.</source>
+      </trans-unit>
+      <!-- 2. Destino vacío y dos frases: sin traducir. La unidad se parte en dos segmentos. -->
+      <trans-unit id="u2">
+        <source>We have received your payment. Your order will be shipped within two working days.</source>
+        <target/>
+      </trans-unit>
+      <!-- 3. Ya traducida por el cliente (state="translated"): se conserva y queda sin revisar. -->
+      <trans-unit id="u3">
+        <source>Order number</source>
+        <target state="translated">Número de pedido</target>
+      </trans-unit>
+      <!-- 4. Marcada como pendiente (state="needs-translation") con una copia del origen: sin traducir. -->
+      <trans-unit id="u4">
+        <source>Delivery address</source>
+        <target state="needs-translation">Delivery address</target>
+      </trans-unit>
+      <!-- 5. Destino sin estado que copia el origen: tampoco es una traducción. -->
+      <trans-unit id="u5">
+        <source>Track your order</source>
+        <target>Track your order</target>
+      </trans-unit>
+      <!-- 6. Aprobada por el cliente (state="signed-off"): bloqueada. -->
+      <trans-unit id="u6">
+        <source>Terms and conditions</source>
+        <target state="signed-off">Términos y condiciones</target>
+      </trans-unit>
+      <!-- 7. Aprobada por el cliente (approved="yes"): bloqueada. -->
+      <trans-unit id="u7" approved="yes">
+        <source>Privacy policy</source>
+        <target state="translated">Política de privacidad</target>
+      </trans-unit>
+      <!-- 8. Definitiva (state="final"): bloqueada. -->
+      <trans-unit id="u8">
+        <source>Contact us</source>
+        <target state="final">Contacte con nosotros</target>
+      </trans-unit>
+      <!-- 9. No traducible (translate="no"): no aparece en el editor y sale intacta. -->
+      <trans-unit id="u9" translate="no">
+        <source>SHOP-2026</source>
+      </trans-unit>
+      <!-- 10. Con etiquetas de formato en medio del texto, sin traducir. -->
+      <trans-unit id="u10">
+        <source>Click <g id="1" ctype="bold">Download invoice</g> to save a copy.</source>
+      </trans-unit>
+      <!-- 11. Con códigos al principio y al final, sin traducir: los códigos de borde quedan fuera del segmento. -->
+      <trans-unit id="u11">
+        <source><x id="2" ctype="x-html-p"/>Thank you for shopping with us.<x id="3" ctype="x-html-p"/></source>
+        <target/>
+      </trans-unit>
+      <!-- 12. Mismo texto que la unidad 1: una repetición. -->
+      <trans-unit id="u12">
+        <source>Your order has been confirmed.</source>
+      </trans-unit>
+      <!-- 13. Traducida por el cliente y con etiquetas: se conserva con sus etiquetas. -->
+      <trans-unit id="u13">
+        <source>Need help? Visit our <g id="4" ctype="link">help centre</g>.</source>
+        <target state="translated">¿Necesita ayuda? Visite nuestro <g id="4" ctype="link">centro de ayuda</g>.</target>
+      </trans-unit>
+      <!-- 14. Traducida pero pendiente de revisión (state="needs-review-translation"). -->
+      <trans-unit id="u14">
+        <source>Return policy</source>
+        <target state="needs-review-translation">Política de devolución</target>
+      </trans-unit>
+    </body>
+  </file>
+</xliff>

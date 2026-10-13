@@ -8,5 +8,12 @@ nav:
   - Desarrollo: development.md
   - Operación y despliegue: operations.md
   - Variables de entorno: secrets.md
+  - Manual de usuario:
+      - Presentación: manual/index.md
+      - Acceso y cuenta: manual/acceso.md
+      - Administrador: manual/administrador.md
+      - Usuario: manual/usuario.md
+      - El editor: manual/editor.md
+      - Formatos y ejemplos: manual/formatos.md
 plugins:
   - techdocs-core
