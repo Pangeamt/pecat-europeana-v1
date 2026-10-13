@@ -94,6 +94,29 @@ test("MTQE v2: sin recursos no se mandan tm_id ni glossary_id", () => {
   assert.equal("glossary_id" in body, false);
 });
 
+test("MTQE v2: las instrucciones del perfil viajan como instructions, un texto para toda la tanda", () => {
+  const body = buildScoreSegmentsBody({
+    segments: pairs(2),
+    sourceLanguage: "en",
+    targetLanguage: "es",
+    tmIds: ["tm1"],
+    instructions: "  Tutea al lector.\nNo traduzcas «Smart Valve».  ",
+  });
+  assert.equal(body.instructions, "Tutea al lector.\nNo traduzcas «Smart Valve».");
+  assert.equal(body.segments.length, 2);
+  assert.deepEqual(Object.keys(body.segments[0]), ["source", "target"], "no van dentro de cada segmento");
+  assert.deepEqual(body.tm_id, ["tm1"], "lo demas no cambia");
+});
+
+test("MTQE v2: sin instrucciones (perfil sin ellas, documento sin perfil) el campo no se manda", () => {
+  const base = { segments: pairs(1), sourceLanguage: "en", targetLanguage: "es", glossaryIds: ["g1"] };
+  for (const instructions of [undefined, null, "", "   \n\t ", 42, {}]) {
+    const body = buildScoreSegmentsBody({ ...base, instructions });
+    assert.equal("instructions" in body, false, `valor ${JSON.stringify(instructions)}`);
+    assert.deepEqual(body, buildScoreSegmentsBody(base), "el cuerpo es el de siempre");
+  }
+});
+
 test("MTQE v2: 50 segmentos caben en una peticion; 51 y 0 no", () => {
   assert.equal(MTQE_V2_MAX_SEGMENTS, 50);
   const lang = { sourceLanguage: "en", targetLanguage: "es" };
@@ -217,4 +240,10 @@ test("EN VIVO: sin `ape` responde 422 y sin clave 401", live, async () => {
   assert.equal(noApe.status, 422);
   const noKey = await post(pairs(1), {}, false);
   assert.equal(noKey.status, 401);
+});
+
+test("EN VIVO: con instructions responde 200 y una nota por segmento (un servicio anterior al campo lo ignora)", live, async () => {
+  const response = await post(pairs(2), { instructions: "Address the reader informally (tú, never usted)." });
+  assert.equal(response.status, 200);
+  assert.equal(toUnitScores(await response.json(), 2).length, 2);
 });
