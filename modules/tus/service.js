@@ -7,7 +7,7 @@ import {
   profileMatchesLanguagePair,
 } from "../documents/pipeline-constants";
 import {
-  findQeResourceIds,
+  findQeContext,
   reviewDraftSegment,
 } from "../documents/pipeline-service";
 import { describeTagIssue, tagIssue } from "../documents/tag-check";
@@ -137,13 +137,14 @@ async function rescoreReviewedPair(tu, target) {
 
   try {
     const rescore = async () => {
-      const { tmIds, glossaryIds } = await findQeResourceIds(tu.documentId);
+      const { tmIds, glossaryIds, instructions } = await findQeContext(tu.documentId);
       return postMTQEv2Segments({
         segments: [{ source: tu.srcLiteral, target }],
         sourceLanguage: tu.sourceLanguage,
         targetLanguage: tu.targetLanguage,
         tmIds,
         glossaryIds,
+        instructions,
         timeout: RESCORE_TIMEOUT_MS,
       });
     };

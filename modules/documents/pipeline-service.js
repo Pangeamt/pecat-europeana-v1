@@ -98,11 +98,13 @@ export async function releaseDocumentAndScore(documentId) {
 }
 
 /**
- * The document's translation memories and glossaries (DAAIT resource ids, the
- * ones linked at upload): what MTQE v2 takes its references from.
+ * What MTQE v2 scores a document against: its translation memories and
+ * glossaries (DAAIT resource ids, the ones linked at upload), which it takes
+ * its references from, and the instructions of the document's OWN profile
+ * (the one chosen at upload) -- the brief DAAIT translated it with.
  */
-export async function findQeResourceIds(documentId) {
-  const [tms, glossaries] = await Promise.all([
+export async function findQeContext(documentId) {
+  const [tms, glossaries, document] = await Promise.all([
     prisma.documentTm.findMany({
       where: { documentId },
       select: { tmId: true },
@@ -111,10 +113,15 @@ export async function findQeResourceIds(documentId) {
       where: { documentId },
       select: { glossaryId: true },
     }),
+    prisma.document.findUnique({
+      where: { id: documentId },
+      select: { profile: { select: { instructions: true } } },
+    }),
   ]);
   return {
     tmIds: tms.map((row) => row.tmId),
     glossaryIds: glossaries.map((row) => row.glossaryId),
+    instructions: document?.profile?.instructions ?? null,
   };
 }
 
@@ -134,7 +141,7 @@ export async function handleScoreMtqeV2Job({ projectId: documentId }) {
     select: { id: true, sourceLanguage: true, targetLanguage: true },
   });
   if (!document) return;
-  const { tmIds, glossaryIds } = await findQeResourceIds(documentId);
+  const { tmIds, glossaryIds, instructions } = await findQeContext(documentId);
 
   const tus = await prisma.tu.findMany({
     where: {
@@ -174,6 +181,7 @@ export async function handleScoreMtqeV2Job({ projectId: documentId }) {
         targetLanguage: document.targetLanguage,
         tmIds,
         glossaryIds,
+        instructions,
       });
     } catch (error) {
       failed += batch.length;
