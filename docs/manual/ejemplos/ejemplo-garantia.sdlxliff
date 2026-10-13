@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xliff xmlns:sdl="http://sdl.com/FileTypes/SdlXliff/1.0" xmlns="urn:oasis:names:tc:xliff:document:1.2" version="1.2" sdl:version="1.0">
+  <file original="ejemplo-garantia.docx" datatype="x-sdlfilterframework2" source-language="en-US" target-language="es-ES">
+    <header>
+      <tag-defs xmlns="http://sdl.com/FileTypes/SdlXliff/1.0">
+        <tag id="5">
+          <bpt name="cf" word-end="false" can-hide="true">&lt;cf bold="True"&gt;</bpt>
+          <ept name="cf" word-end="false" can-hide="true">&lt;/cf&gt;</ept>
+        </tag>
+      </tag-defs>
+    </header>
+    <body>
+      <trans-unit id="t1">
+        <source>Warranty conditions</source>
+        <seg-source><mrk mtype="seg" mid="1">Warranty conditions</mrk></seg-source>
+        <target><mrk mtype="seg" mid="1">Condiciones de la garantía</mrk></target>
+        <sdl:seg-defs><sdl:seg id="1" conf="ApprovedTranslation" origin="interactive"/></sdl:seg-defs>
+      </trans-unit>
+      <trans-unit id="t2">
+        <source>The warranty covers manufacturing defects for two years.</source>
+        <seg-source><mrk mtype="seg" mid="2">The warranty covers manufacturing defects for two years.</mrk></seg-source>
+        <target><mrk mtype="seg" mid="2"/></target>
+        <sdl:seg-defs><sdl:seg id="2"/></sdl:seg-defs>
+      </trans-unit>
+      <trans-unit id="t3">
+        <source>Keep your receipt as proof of purchase.</source>
+        <seg-source><mrk mtype="seg" mid="3">Keep your receipt as proof of purchase.</mrk></seg-source>
+        <target><mrk mtype="seg" mid="3">Conserve su recibo como prueba de compra.</mrk></target>
+        <sdl:seg-defs><sdl:seg id="3" conf="Draft" origin="mt"/></sdl:seg-defs>
+      </trans-unit>
+      <trans-unit id="t4">
+        <source>Contact our support team to request a repair.</source>
+        <seg-source><mrk mtype="seg" mid="4">Contact our support team to request a repair.</mrk></seg-source>
+        <target><mrk mtype="seg" mid="4">Póngase en contacto con nuestro equipo de soporte para solicitar una reparación.</mrk></target>
+        <sdl:seg-defs><sdl:seg id="4" conf="Translated" origin="interactive"/></sdl:seg-defs>
+      </trans-unit>
+      <trans-unit id="t5">
+        <source>Repairs are <g id="5">free of charge</g> during the warranty period.</source>
+        <seg-source><mrk mtype="seg" mid="5">Repairs are <g id="5">free of charge</g> during the warranty period.</mrk></seg-source>
+        <target><mrk mtype="seg" mid="5"/></target>
+        <sdl:seg-defs><sdl:seg id="5"/></sdl:seg-defs>
+      </trans-unit>
+      <trans-unit id="t6">
+        <source>Register your product online. It only takes two minutes.</source>
+        <seg-source><mrk mtype="seg" mid="6">Register your product online.</mrk> <mrk mtype="seg" mid="7">It only takes two minutes.</mrk></seg-source>
+        <target><mrk mtype="seg" mid="6"/> <mrk mtype="seg" mid="7"/></target>
+        <sdl:seg-defs><sdl:seg id="6"/><sdl:seg id="7"/></sdl:seg-defs>
+      </trans-unit>
+      <trans-unit id="t7">
+        <source>The warranty does not cover accidental damage.</source>
+        <seg-source><mrk mtype="seg" mid="8">The warranty does not cover accidental damage.</mrk></seg-source>
+        <target><mrk mtype="seg" mid="8">La garantía no cubre daños accidentales.</mrk></target>
+        <sdl:seg-defs><sdl:seg id="8" conf="Draft" origin="tm" percent="85"/></sdl:seg-defs>
+      </trans-unit>
+      <trans-unit id="t8">
+        <source>All rights reserved.</source>
+        <seg-source><mrk mtype="seg" mid="9">All rights reserved.</mrk></seg-source>
+        <target><mrk mtype="seg" mid="9">Todos los derechos reservados.</mrk></target>
+        <sdl:seg-defs><sdl:seg id="9" conf="Translated" origin="tm" percent="100"/></sdl:seg-defs>
+      </trans-unit>
+      <trans-unit id="t9">
+        <source>Example Company Ltd.</source>
+        <seg-source><mrk mtype="seg" mid="10">Example Company Ltd.</mrk></seg-source>
+        <target><mrk mtype="seg" mid="10">Example Company Ltd.</mrk></target>
+        <sdl:seg-defs><sdl:seg id="10" conf="Translated" origin="interactive" locked="true"/></sdl:seg-defs>
+      </trans-unit>
+    </body>
+  </file>
+</xliff>

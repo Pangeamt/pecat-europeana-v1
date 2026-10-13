@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tmx version="1.4">
+  <header creationtool="manual-pecat-e" creationtoolversion="1.0" segtype="sentence" o-tmf="tmx" adminlang="en" srclang="en" datatype="plaintext"/>
+  <body>
+    <tu><tuv xml:lang="en"><seg>Thank you for choosing our services.</seg></tuv><tuv xml:lang="es"><seg>Gracias por elegir nuestros servicios.</seg></tuv></tu>
+    <tu><tuv xml:lang="en"><seg>Our support team is available from Monday to Friday.</seg></tuv><tuv xml:lang="es"><seg>Nuestro equipo de soporte está disponible de lunes a viernes.</seg></tuv></tu>
+    <tu><tuv xml:lang="en"><seg>Verify your email address.</seg></tuv><tuv xml:lang="es"><seg>Verifique su dirección de correo electrónico.</seg></tuv></tu>
+    <tu><tuv xml:lang="en"><seg>Create your account.</seg></tuv><tuv xml:lang="es"><seg>Cree su cuenta.</seg></tuv></tu>
+    <tu><tuv xml:lang="en"><seg>Download your invoice.</seg></tuv><tuv xml:lang="es"><seg>Descargue su factura.</seg></tuv></tu>
+    <tu><tuv xml:lang="en"><seg>Welcome to our company.</seg></tuv><tuv xml:lang="es"><seg>Bienvenido a nuestra empresa.</seg></tuv></tu>
+    <tu><tuv xml:lang="en"><seg>Getting started</seg></tuv><tuv xml:lang="es"><seg>Primeros pasos</seg></tuv></tu>
+    <tu><tuv xml:lang="en"><seg>Need help?</seg></tuv><tuv xml:lang="es"><seg>¿Necesita ayuda?</seg></tuv></tu>
+    <tu><tuv xml:lang="en"><seg>Your order has been shipped.</seg></tuv><tuv xml:lang="es"><seg>Su pedido se ha enviado.</seg></tuv></tu>
+    <tu><tuv xml:lang="en"><seg>We have received your payment.</seg></tuv><tuv xml:lang="es"><seg>Hemos recibido su pago.</seg></tuv></tu>
+  </body>
+</tmx>
