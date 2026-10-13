@@ -27,5 +27,6 @@
 | `MTQE_V2`, `MTQE_V2_API_KEY` | — | Puntuación QE v2, único score (sin ellas no se puntúa). `MTQE_V2` es la URL del servicio (`…/mtqe/v2`); se llama a su `/score-segments`. `MTQE_V1*` / `MTQE` / `MTQE_API_KEY` ya no se leen (QE v1 retirado) |
 | `DAAIT_CONTENT_TIMEOUT_MS`, `DAAIT_EXPORT_TIMEOUT_MS`, `DAAIT_LIST_TIMEOUT_MS` | 300000 / 55000 / 10000 | Timeouts de las llamadas a DAAIT |
 | `TIKAL_TIMEOUT_MS`, `TIKAL_MAX_CONCURRENCY`, `SOFFICE_TIMEOUT_MS` | — | Límites de Okapi Tikal y LibreOffice |
+| `PROFILE_INSTRUCTIONS_MAX` | 5000 | Máximo de caracteres de las «Instrucciones» de un perfil (`lib/profile-limits.js`). Tope 65535: la columna es un `TEXT` de MySQL. Se lee al arrancar: cambiarla exige reiniciar el contenedor, no reconstruir |
 
 `env.example` aún lista `NEXRELAY_*`, pero el código ya no las lee: la traducción va por DAAIT.
