@@ -28,6 +28,7 @@ Repo: [`Pangeamt/pecat-europeana-v1`](https://github.com/Pangeamt/pecat-european
 
 ## Páginas
 
+- [Manual de usuario](manual/index.md): cómo se usa la aplicación, por rol (Administrador y Usuario), con capturas.
 - [Arquitectura](architecture.md): módulos, colas y modelo de datos.
 - [Desarrollo](development.md): puesta en marcha en local y ramas.
 - [Operación y despliegue](operations.md): entornos, despliegue y comandos peligrosos.
