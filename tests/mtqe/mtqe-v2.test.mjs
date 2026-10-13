@@ -288,7 +288,7 @@ test("MTQE v2: como mucho 5 referencias por segmento y tipo, las mejores", () =>
   assert.deepEqual(entries.map((entry) => entry.source), ["s11", "s10", "s9", "s8", "s7"]);
 });
 
-test("MTQE v2: el cuerpo del trabajo lleva las referencias por segmento y las instrucciones del perfil", () => {
+test("MTQE v2: el cuerpo con referencias lleva las instrucciones del perfil como translation_instructions", () => {
   const body = buildReferencesBody({
     segments: [
       {
@@ -319,9 +319,10 @@ test("MTQE v2: el cuerpo del trabajo lleva las referencias por segmento y las in
     target_language: "es-es",
     ape: false,
     daait_pre_translation: true,
-    instructions: "Tutea al lector.",
+    translation_instructions: "Tutea al lector.",
   });
   assert.equal("tm_id" in body, false, "en este contrato no viajan ids");
+  assert.equal("instructions" in body, false, "ese nombre es el del contrato de ids");
 });
 
 test("MTQE v2: con referencias en texto se dice siempre que la traduccion es de DAAIT (daait_pre_translation: true)", () => {
@@ -338,7 +339,9 @@ test("MTQE v2: con referencias en texto se dice siempre que la traduccion es de 
 test("MTQE v2: el trabajo sin instrucciones no manda el campo; y admite de 1 a 50 segmentos", () => {
   const lang = { sourceLanguage: "en", targetLanguage: "es" };
   for (const instructions of [undefined, null, "", "  \n "]) {
-    assert.equal("instructions" in buildReferencesBody({ segments: pairs(1), ...lang, instructions }), false);
+    const body = buildReferencesBody({ segments: pairs(1), ...lang, instructions });
+    assert.equal("translation_instructions" in body, false);
+    assert.equal("instructions" in body, false);
   }
   assert.equal(buildReferencesBody({ segments: pairs(50), ...lang }).segments.length, 50);
   assert.throws(() => buildReferencesBody({ segments: pairs(51), ...lang }), /1 to 50 segments/);
