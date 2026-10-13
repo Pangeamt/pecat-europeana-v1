@@ -1,6 +1,25 @@
 import Joi from "joi";
+import {
+  fitsInstructionsColumn,
+  instructionsMax,
+} from "../../lib/profile-limits.js";
 
 export const FORMALITY_VALUES = ["FORMAL", "NEUTRO", "INFORMAL"];
+
+// The longest "instructions" a profile takes: PROFILE_INSTRUCTIONS_MAX in the
+// .env, 5,000 characters without it (lib/profile-limits.js).
+const INSTRUCTIONS_MAX = instructionsMax(process.env.PROFILE_INSTRUCTIONS_MAX);
+
+const instructionsSchema = Joi.string()
+  .trim()
+  .max(INSTRUCTIONS_MAX)
+  .custom((value, helpers) =>
+    fitsInstructionsColumn(value)
+      ? value
+      : helpers.message("{{#label}} is too long to be stored"),
+  )
+  .optional()
+  .allow("", null);
 
 export const createProfileSchema = Joi.object({
   name: Joi.string().trim().min(1).max(191).required(),
@@ -11,7 +30,7 @@ export const createProfileSchema = Joi.object({
     .valid(...FORMALITY_VALUES)
     .optional()
     .allow("", null),
-  instructions: Joi.string().trim().max(5000).optional().allow("", null),
+  instructions: instructionsSchema,
   domain: Joi.string().trim().max(191).optional().allow("", null),
   // Profiles are language-agnostic: the pair always comes from the document
   // upload. (Legacy profiles may still carry a stored pair, which the
@@ -35,7 +54,7 @@ export const updateProfileSchema = Joi.object({
     .valid(...FORMALITY_VALUES)
     .optional()
     .allow("", null),
-  instructions: Joi.string().trim().max(5000).optional().allow("", null),
+  instructions: instructionsSchema,
   domain: Joi.string().trim().max(191).optional().allow("", null),
   // The language pair is immutable after creation (the DAAIT mirror cannot
   // change it via PATCH), so it is deliberately absent here.
