@@ -1,6 +1,6 @@
 import { HttpError } from "../shared/http-error";
 import { DOCUMENT_STATUS } from "../../lib/document-status";
-import { isMtqeV2Configured, postMTQEv2Segments } from "../../lib/utils";
+import { isMtqeV2Configured, scoreMtqeV2 } from "../../lib/utils";
 import {
   BLOCK_REASON,
   SUGGESTION_STATUS,
@@ -121,9 +121,11 @@ export async function listTusByShareTokenService(token) {
 }
 
 // Best-effort QE v2 re-score of the reviewed pair (same references as the
-// pipeline: the document's memories and glossaries): the stored score
-// follows each edit. Returns 0-1 or null. Never blocks the save.
+// pipeline: the segment's own memory matches and glossary terms, and the
+// profile's instructions): the stored score follows each edit. Returns 0-1 or
+// null. Never blocks the save.
 const RESCORE_TIMEOUT_MS = 8_000;
+const RESCORE_POLL_MS = 500;
 
 async function rescoreReviewedPair(tu, target) {
   const text = typeof target === "string" ? target.trim() : "";
@@ -138,14 +140,23 @@ async function rescoreReviewedPair(tu, target) {
   try {
     const rescore = async () => {
       const { tmIds, glossaryIds, instructions } = await findQeContext(tu.documentId);
-      return postMTQEv2Segments({
-        segments: [{ source: tu.srcLiteral, target }],
+      return scoreMtqeV2({
+        segments: [
+          {
+            source: tu.srcLiteral,
+            target,
+            tmInfo: tu.tmInfo,
+            glossaryInfo: tu.glossaryInfo,
+          },
+        ],
         sourceLanguage: tu.sourceLanguage,
         targetLanguage: tu.targetLanguage,
         tmIds,
         glossaryIds,
         instructions,
         timeout: RESCORE_TIMEOUT_MS,
+        // One segment and someone waiting for it: ask often.
+        pollMs: RESCORE_POLL_MS,
       });
     };
     const scores = await Promise.race([rescore(), timeout]);

@@ -39,40 +39,59 @@ Todos los jobs: **3 intentos** con backoff exponencial desde 5 s. Solo la fase d
 documento en error (`FILE_ERROR` / `MTQE_ERROR`); lo posterior degrada sin bloquear la revisión.
 Los usuarios `SUPER` tienen un monitor de colas en `/dashboard/queues`.
 
-### Contrato con MTQE v2 (`/score-segments`)
+### Contrato con MTQE v2 (`/jobs/score-with-references`)
 
-Verificado 2026-10-05 contra `mtqe-v2-api` 2.6.5 · Fuente: `lib/mtqe-v2.js`, `tests/mtqe/mtqe-v2.test.mjs`.
+Verificado 2026-10-13 contra el openapi de `mtqe-v2-api` 2.6.5 de producción · Fuente: `lib/mtqe-v2.js`, `lib/utils.js`
+(`scoreMtqeV2`), `tests/mtqe/mtqe-v2.test.mjs`.
 
-`MTQE_V2` es la URL del servicio (`http://<host>:8800/mtqe/v2`); PECAT-E llama siempre a su
-`POST /score-segments` con la cabecera `X-API-Key` (`MTQE_V2_API_KEY`).
+`MTQE_V2` es la **base** del servicio (`http://<host>:8800/mtqe/v2`); todas las llamadas llevan la cabecera `X-API-Key`
+(`MTQE_V2_API_KEY`). PECAT-E puntúa con el **trabajo asíncrono que recibe las referencias en texto**:
+
+1. `POST /jobs/score-with-references` crea el trabajo y devuelve su `job_id` (`status: "pending"`).
+2. `GET /jobs/<job_id>` se consulta hasta que `status` es `done` (o `error`).
+3. `GET /jobs/<job_id>/download?format=json` devuelve las notas.
 
 ```json
 {
-  "segments": [{ "source": "...", "target": "..." }],
+  "segments": [
+    {
+      "source": "...",
+      "target": "...",
+      "tm": [{ "source": "...", "target": "...", "score": 0.82 }],
+      "glossary": [{ "source": "...", "target": "..." }]
+    }
+  ],
   "source_language": "en-us",
   "target_language": "es-es",
   "ape": false,
-  "tm_id": ["<id de memoria>"],
-  "glossary_id": ["<id de glosario>"],
   "instructions": "<instrucciones del perfil del documento>"
 }
 ```
 
-- **De 1 a 50 segmentos por petición** (51 → `422`). Un documento se parte en tandas de 50, una detrás de otra.
+- **De 1 a 50 segmentos por trabajo.** Un documento se parte en tandas de 50, una detrás de otra.
 - **`ape` es obligatorio** (sin él → `422`); PECAT-E solo puntúa, así que va siempre a `false`.
-- `tm_id` / `glossary_id` son las memorias y glosarios del documento (ids de DAAIT); el servicio busca él
-  las referencias de cada segmento. Se omiten si el documento no tiene. Un id que no existe no rompe la llamada.
-- `instructions` son las «Instrucciones» del perfil con el que se subió el documento (`Document.profileId`), un
-  solo texto para toda la tanda (añadido 2026-10-13). El servicio se las pasa a DAAIT en la post-edición de
-  referencia y a su juez, para puntuar la traducción contra lo que se le pidió. Se omite si el perfil no tiene.
-  Va en las tres llamadas: al importar, al confirmar un segmento y en la evaluación en vivo. Un servicio
-  anterior al campo lo ignora sin error.
-- Respuesta: una entrada por segmento **en el mismo orden**, con `score` de 0 a 100 (se guarda de 0 a 1) o
-  `score: null` + `error` si ese segmento no se pudo puntuar. Sin clave → `401`.
-- **El servicio no tiene callback.** Lo asíncrono lo pone PECAT-E: el documento ya está en `READY`, el job
-  `score-mtqe-v2` guarda las notas de cada tanda en cuanto responde, y el editor abierto las recoge cada 5 s
-  mientras `pipelineStats.stage` es `SCORING`.
-- Las mismas llamadas (con un solo segmento) sirven para repuntuar al guardar un borrador y al aprobar.
+- **`tm` y `glossary` son las referencias del propio segmento, en texto**: las coincidencias de memoria y los términos
+  de glosario que DAAIT devolvió al traducirlo (`Tu.tmInfo` / `Tu.glossaryInfo`). Cada pareja una vez, la mejor
+  primero y 5 como mucho por tipo. `score` (similitud de 0 a 1) solo viaja cuando lo es. Un segmento sin referencias
+  manda las dos listas vacías. No viajan ids de memoria ni de glosario: el servicio no busca nada.
+- **`instructions`** son las «Instrucciones» del perfil con el que se subió el documento (`Document.profileId`), un solo
+  texto para todo el trabajo; se omite si el perfil no tiene. 🔴 El servicio 2.6.5 acepta el campo y **lo ignora**
+  (comprobado 2026-10-13); empezará a usarlo cuando lo admita en este endpoint.
+- Respuesta de la descarga: una entrada por segmento **en el mismo orden**, con `score` de 0 a 100 (se guarda de 0 a 1)
+  o `score: null` si ese segmento no se pudo puntuar. Sin clave → `401`.
+- **Esperas acotadas.** Cada trabajo tiene 330 s. Un trabajo que sigue en `pending` a los 120 s se da por parado
+  (el servicio no está procesando trabajos) y **el resto del documento no se envía**: el motivo queda en
+  `pipelineStats.mtqeV2Error`. 🔴 El 2026-10-13 el servicio de producción dejaba los trabajos en `pending`
+  indefinidamente (su worker no consume la cola `jobs`); mientras siga así, usar `MTQE_V2_ENDPOINT=score-segments`.
+- **Lo asíncrono de cara al usuario lo pone PECAT-E**, como antes: el documento ya está en `READY`, el job
+  `score-mtqe-v2` guarda las notas de cada tanda en cuanto llegan, y el editor abierto las recoge cada 5 s mientras
+  `pipelineStats.stage` es `SCORING`.
+- El mismo flujo, con un solo segmento y 8 s de tope, repuntúa al guardar un borrador, al aprobar y en la evaluación en
+  vivo.
+
+**Contrato anterior, elegible con `MTQE_V2_ENDPOINT=score-segments`:** `POST /score-segments`, síncrono, con los mismos
+`segments` sin referencias dentro y las memorias y glosarios del documento como ids (`tm_id` / `glossary_id`), que el
+servicio busca por su cuenta; también lleva `instructions`. Es el que usaba PECAT-E del 2026-10-05 al 2026-10-13.
 
 Prueba contra el servicio real: `MTQE_V2_LIVE=http://<host>:8800/mtqe/v2 MTQE_V2_LIVE_KEY=<clave> npm test`.
 

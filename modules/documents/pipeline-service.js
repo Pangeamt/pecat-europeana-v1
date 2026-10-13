@@ -2,7 +2,7 @@ import prisma from "../../lib/prisma";
 import {
   isMtqeV2Configured,
   isSpliceFormat,
-  postMTQEv2Segments,
+  scoreMtqeV2,
 } from "../../lib/utils";
 import { chunkSegments } from "../../lib/mtqe-v2";
 import { postEditContent } from "../../lib/daait";
@@ -155,6 +155,10 @@ export async function handleScoreMtqeV2Job({ projectId: documentId }) {
       id: true,
       srcLiteral: true,
       translatedLiteral: true,
+      // The segment's own references (what DAAIT returned for it): they go to
+      // the service as text.
+      tmInfo: true,
+      glossaryInfo: true,
     },
     orderBy: { count: "asc" },
   });
@@ -166,16 +170,19 @@ export async function handleScoreMtqeV2Job({ projectId: documentId }) {
   const started = Date.now();
   let scored = 0;
   let failed = 0;
+  let lastError = null;
   // How far the scoring is, for the documents list ("MTQE 18%"): segments
   // handled (scored or failed) over the ones this job has to score.
   await mergePipelineStats(documentId, { mtqeV2Total: tus.length, mtqeV2Done: 0 });
   for (const batch of chunkSegments(tus)) {
     let scores;
     try {
-      scores = await postMTQEv2Segments({
+      scores = await scoreMtqeV2({
         segments: batch.map((tu) => ({
           source: tu.srcLiteral,
           target: tu.translatedLiteral,
+          tmInfo: tu.tmInfo,
+          glossaryInfo: tu.glossaryInfo,
         })),
         sourceLanguage: document.sourceLanguage,
         targetLanguage: document.targetLanguage,
@@ -185,11 +192,20 @@ export async function handleScoreMtqeV2Job({ projectId: documentId }) {
       });
     } catch (error) {
       failed += batch.length;
-      await mergePipelineStats(documentId, { mtqeV2Done: scored + failed }).catch(() => {});
+      lastError = error.message;
       console.error(
         `[pipeline] MTQE v2 failed for a batch of ${batch.length} segments (document ${documentId}):`,
         error.message,
       );
+      if (error.notStarted) {
+        // The service did not even pick the job up: it is not processing any.
+        // The rest of the document would only queue more jobs and wait for
+        // each of them, so it is given up here, all at once.
+        failed = tus.length - scored;
+        await mergePipelineStats(documentId, { mtqeV2Done: scored + failed }).catch(() => {});
+        break;
+      }
+      await mergePipelineStats(documentId, { mtqeV2Done: scored + failed }).catch(() => {});
       continue;
     }
 
@@ -228,7 +244,9 @@ export async function handleScoreMtqeV2Job({ projectId: documentId }) {
   });
 
   if (totalOutage) {
-    throw new Error("MTQE v2 unavailable: no segment could be scored");
+    throw new Error(
+      `MTQE v2 unavailable: no segment could be scored${lastError ? ` (${lastError})` : ""}`,
+    );
   }
 }
 
