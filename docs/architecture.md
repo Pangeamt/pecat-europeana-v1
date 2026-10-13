@@ -53,7 +53,8 @@ Verificado 2026-10-05 contra `mtqe-v2-api` 2.6.5 · Fuente: `lib/mtqe-v2.js`, `t
   "target_language": "es-es",
   "ape": false,
   "tm_id": ["<id de memoria>"],
-  "glossary_id": ["<id de glosario>"]
+  "glossary_id": ["<id de glosario>"],
+  "instructions": "<instrucciones del perfil del documento>"
 }
 ```
 
@@ -61,6 +62,11 @@ Verificado 2026-10-05 contra `mtqe-v2-api` 2.6.5 · Fuente: `lib/mtqe-v2.js`, `t
 - **`ape` es obligatorio** (sin él → `422`); PECAT-E solo puntúa, así que va siempre a `false`.
 - `tm_id` / `glossary_id` son las memorias y glosarios del documento (ids de DAAIT); el servicio busca él
   las referencias de cada segmento. Se omiten si el documento no tiene. Un id que no existe no rompe la llamada.
+- `instructions` son las «Instrucciones» del perfil con el que se subió el documento (`Document.profileId`), un
+  solo texto para toda la tanda (añadido 2026-10-13). El servicio se las pasa a DAAIT en la post-edición de
+  referencia y a su juez, para puntuar la traducción contra lo que se le pidió. Se omite si el perfil no tiene.
+  Va en las tres llamadas: al importar, al confirmar un segmento y en la evaluación en vivo. Un servicio
+  anterior al campo lo ignora sin error.
 - Respuesta: una entrada por segmento **en el mismo orden**, con `score` de 0 a 100 (se guarda de 0 a 1) o
   `score: null` + `error` si ese segmento no se pudo puntuar. Sin clave → `401`.
 - **El servicio no tiene callback.** Lo asíncrono lo pone PECAT-E: el documento ya está en `READY`, el job
