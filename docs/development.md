@@ -9,7 +9,7 @@ Gestor de paquetes: **pnpm 10.20.0** (fijado en `packageManager`).
 ```bash
 cp env.example .env                     # y rellenar valores (ver secrets.md)
 pnpm install
-mkdir -p public/files && chmod -R 755 public/files
+mkdir -p uploads                        # originales subidos (UPLOADS_DIR), fuera de public/
 pnpm exec prisma generate --schema=./prisma/schema.prisma
 pnpm exec prisma migrate deploy --schema=./prisma/schema.prisma
 pnpm dev                                # Next.js con Turbopack, puerto 3000

@@ -15,11 +15,14 @@ services:
       # Inside the compose network Redis is reachable by service name.
       REDIS_URL: redis://redis:6379
       STORAGE_DIR: /app/storage
+      UPLOADS_DIR: /app/uploads
     ports:
       - '3000:3000'
     volumes:
       - storage:/app/storage
-      - uploads:/app/public/files
+      # The uploaded originals, outside public/ so Next never serves them (the
+      # same volume that was mounted at /app/public/files: nothing is copied).
+      - uploads:/app/uploads
     depends_on:
       redis:
         condition: service_healthy

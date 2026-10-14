@@ -24,6 +24,7 @@
 | `TIKAL_BIN` | `tikal` | Okapi Tikal |
 | `SOFFICE_BIN` | `soffice` | LibreOffice (solo PDF) |
 | `STORAGE_DIR` | `./storage` | Carpetas de trabajo de los documentos |
+| `UPLOADS_DIR` | `./uploads` | Originales subidos, fuera de `public/` (en Docker: `/app/uploads`) |
 | `MTQE_V2`, `MTQE_V2_API_KEY` | — | Puntuación QE v2, único score (sin ellas no se puntúa). `MTQE_V2` es la **base** del servicio (`…/mtqe/v2`), no un endpoint; una URL de endpoint de versiones anteriores sigue valiendo. `MTQE_V1*` / `MTQE` / `MTQE_API_KEY` ya no se leen (QE v1 retirado) |
 | `MTQE_V2_ENDPOINT` | `score-segments` | Contrato con el que se puntúa: `score-segments` (síncrono, memorias y glosarios como ids), `score-with-references` (síncrono, las referencias de cada segmento en texto; `service-mtqe` 2.0) o `jobs/score-with-references` (lo mismo como trabajo asíncrono). Ver «Contratos con MTQE v2» en `architecture.md` |
 | `DAAIT_CONTENT_TIMEOUT_MS`, `DAAIT_EXPORT_TIMEOUT_MS`, `DAAIT_LIST_TIMEOUT_MS` | 300000 / 55000 / 10000 | Timeouts de las llamadas a DAAIT |
