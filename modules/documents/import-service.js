@@ -181,16 +181,14 @@ async function processDocumentFile({
     daaitStatus: segment.tagMismatch ? "VALIDATION_FAILED" : null,
     visible: !segment.hiddenBy,
     hiddenBy: segment.hiddenBy ?? null,
-    block: segment.locked || segment.tmExactMatch === true,
-    blockReason: segment.locked
-      ? BLOCK_REASON.INTERNAL
-      : segment.tmExactMatch === true
-        ? BLOCK_REASON.TM_MATCH
-        : null,
+    // Only what the file locks starts locked: PECAT-E never locks on its own
+    // (an exact memory match from DAAIT is machine translation to review).
+    block: Boolean(segment.locked),
+    blockReason: segment.locked ? BLOCK_REASON.INTERNAL : null,
     sourceLanguage: src ?? "",
     targetLanguage: tgt ?? "",
     Status:
-      segment.locked || segment.tmExactMatch === true
+      segment.locked
         ? "ACCEPTED"
         : segment.machineTranslated
           ? "TRANSLATED_MT"

@@ -4,7 +4,6 @@ import { pecatTranslate } from '../../lib/daait';
 import { BLOCK_REASON } from './pipeline-constants';
 import { tagIssue } from './tag-check';
 import { needsMachineTranslation } from '../../lib/splice-formats';
-import { lockableExactMatch } from '../../lib/tm-matches';
 import { ImportSupersededError } from '../../lib/import-runs';
 import { readSdlxliffSegments } from './sdlxliff/reader';
 import { writeSdlxliff } from './sdlxliff/writer';
@@ -114,17 +113,8 @@ export async function enrichSdlxliffSegments(segments, {
     ? segments.filter(needsMachineTranslation)
     : [];
 
-  // Sources this run has already translated, in document order: what makes
-  // a hit in the document's own working memory a real repetition.
-  const seenSources = new Set();
-
   function applyResult(seg, result) {
     const tmInfoArray = Array.isArray(result.tm_info) ? result.tm_info : [];
-    const exactTm = lockableExactMatch(tmInfoArray, {
-      documentMemoryId: daaitDocumentId,
-      seenBefore: seenSources.has(seg.source),
-    });
-    seenSources.add(seg.source);
     // "Fuzzy" = the segment's best TM similarity (tm_score, 0-1), exact or
     // not — storing it only for 100% matches left the Fuzzy column empty
     // for every fuzzy match, which is exactly where it matters.
@@ -147,11 +137,11 @@ export async function enrichSdlxliffSegments(segments, {
       Boolean(seg.target) && !tagIssue(seg.source, seg.target, { ordered: orderedTags }).ok;
     seg.tmInfo = result.tm_info ?? null;
     seg.glossaryInfo = result.glossary_info ?? null;
+    // Whatever DAAIT answered -- the LLM, an exact memory match or a hit in
+    // the document's working memory -- is DAAIT's translation: it starts as
+    // machine translation for the reviewer. PECAT-E never locks or accepts a
+    // segment on its own; only the client's file can come locked.
     seg.machineTranslated = true;
-    // An exact TM match is auto-locked -- unless its tags do not match the
-    // source: locked, nobody could fix it and the export would skip it
-    // (revisions-pangeanic-local does not auto-lock a tagged 100% either).
-    seg.tmExactMatch = Boolean(exactTm) && !seg.tagMismatch;
     seg.levenshteinDistance = bestScore;
   }
 
@@ -228,7 +218,7 @@ export async function enrichSdlxliffSegments(segments, {
 // SDLXLIFF segments. externalId keeps the identity needed for a lossless
 // export: "<trans-unit id>::<mrk mid>" (or just the trans-unit id when
 // unsegmented). Locked segments (<sdl:seg locked="true">) are blocked from
-// editing, and so are exact TM matches (tm_score === 1).
+// editing; nothing else is (an exact TM match is machine translation to review).
 export function buildTusDataFromSdlxliffSegments(segments, documentId, sourceLanguage, targetLanguage) {
   return segments.map((seg, index) => ({
     externalId: seg.mid != null ? `${seg.transUnitId}::${seg.mid}` : seg.transUnitId,
@@ -257,16 +247,13 @@ export function buildTusDataFromSdlxliffSegments(segments, documentId, sourceLan
     fileTarget: Boolean(seg.target) && !seg.machineTranslated,
     visible: !seg.hiddenBy,
     hiddenBy: seg.hiddenBy ?? null,
-    block: seg.locked || seg.tmExactMatch === true,
-    blockReason: seg.locked
-      ? BLOCK_REASON.INTERNAL
-      : seg.tmExactMatch === true
-        ? BLOCK_REASON.TM_MATCH
-        : null,
+    // Only what the file locks starts locked (see applyResult).
+    block: Boolean(seg.locked),
+    blockReason: seg.locked ? BLOCK_REASON.INTERNAL : null,
     sourceLanguage: sourceLanguage || '',
     targetLanguage: targetLanguage || '',
     ...(seg.tagMismatch ? { daaitStatus: 'VALIDATION_FAILED' } : {}),
-    Status: seg.locked || seg.tmExactMatch === true
+    Status: seg.locked
       ? 'ACCEPTED'
       : seg.machineTranslated || seg.origin === 'mt'
         ? 'TRANSLATED_MT'
