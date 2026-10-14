@@ -66,7 +66,7 @@ Antes de migrar en producción: `prisma migrate status` y un `mysqldump` de las 
 | Volumen | Montaje | Contenido |
 |---|---|---|
 | `storage` | `/app/storage` | Carpetas de trabajo de los documentos |
-| `uploads` | `/app/public/files` | Ficheros subidos |
+| `uploads` | `/app/public/files` | Ficheros subidos (en `/files/…` solo con sesión, por `proxy.js`) |
 | `redis-data` | `/data` | Colas BullMQ (AOF) |
 
 La MySQL es externa y ningún comando de Docker la toca.
