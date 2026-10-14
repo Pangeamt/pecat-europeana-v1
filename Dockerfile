@@ -28,14 +28,27 @@ FROM node:22-bookworm-slim
 ARG OKAPI_VERSION=1.47.0
 
 # libreoffice-writer + -draw: PDF -> docx conversion (draw provides PDF import)
+# `apt-get upgrade` brings the Debian security updates the base image has not
+# picked up yet (its tag is rebuilt less often than Debian publishes them).
 RUN apt-get update \
+    && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends default-jre-headless wget unzip \
        libreoffice-writer libreoffice-draw \
     && rm -rf /var/lib/apt/lists/*
 
+# The container only runs `prisma` and `next` from /app/node_modules: npm and
+# corepack (and the packages they bundle) are not needed at runtime.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+       /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
+
+# Jackson is dropped from Okapi's lib: only its Microsoft MT connector uses it
+# (net.sf.okapi.connectors.microsoft), Tikal's extract and merge never load it,
+# and the bundled 2.16.0 has known vulnerabilities.
 RUN wget -q "https://okapiframework.org/binaries/main/${OKAPI_VERSION}/okapi-apps_gtk2-linux-x86_64_${OKAPI_VERSION}.zip" -O /tmp/okapi.zip \
     && unzip -q /tmp/okapi.zip -d /opt/okapi \
     && rm /tmp/okapi.zip \
+    && rm -f /opt/okapi/lib/jackson-annotations-*.jar /opt/okapi/lib/jackson-core-*.jar \
+       /opt/okapi/lib/jackson-databind-*.jar \
     && printf '#!/bin/sh\nexec /opt/okapi/tikal.sh "$@"\n' > /usr/local/bin/tikal \
     && chmod +x /usr/local/bin/tikal /opt/okapi/tikal.sh
 
