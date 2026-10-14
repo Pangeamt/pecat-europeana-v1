@@ -1,6 +1,5 @@
-// The import queue: which execution of a document's import counts, and which
-// exact memory match is worth locking a segment on (lib/import-runs.js,
-// lib/tm-matches.js). node --test "tests/**/*.test.mjs"
+// The import queue: which execution of a document's import counts
+// (lib/import-runs.js). node --test "tests/**/*.test.mjs"
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -13,7 +12,6 @@ import {
   takeOrphanedImport,
   waitForImportToEnd,
 } from "../../lib/import-runs.js";
-import { lockableExactMatch } from "../../lib/tm-matches.js";
 
 test("la última ejecución en empezar es la dueña del documento; la anterior deja de serlo", () => {
   const first = beginImportRun("doc-a");
@@ -64,36 +62,6 @@ test("el error de ejecución relevada dice qué documento", () => {
   assert.equal(error.name, "ImportSupersededError");
   assert.match(error.message, /doc-e/);
   assert.ok(error instanceof Error);
-});
-
-const exact = (tm_id, extra = {}) => ({ tm_id, tm_match: true, tm_score: 1, source: "x", target: "y", ...extra });
-
-test("coincidencia exacta de una memoria del perfil: se puede bloquear", () => {
-  const match = lockableExactMatch([exact("tm-cliente")], { documentMemoryId: "doc-1", seenBefore: false });
-  assert.equal(match?.tm_id, "tm-cliente");
-});
-
-test("eco de un intento anterior: la memoria del propio documento devuelve una frase que aún no había salido", () => {
-  assert.equal(lockableExactMatch([exact("doc-1")], { documentMemoryId: "doc-1", seenBefore: false }), null);
-  // Si además hay una memoria de verdad con la frase, esa sí vale.
-  const match = lockableExactMatch([exact("doc-1"), exact("tm-cliente")], { documentMemoryId: "doc-1", seenBefore: false });
-  assert.equal(match?.tm_id, "tm-cliente");
-});
-
-test("repetición de verdad: la frase ya salió antes en el documento", () => {
-  const match = lockableExactMatch([exact("doc-1")], { documentMemoryId: "doc-1", seenBefore: true });
-  assert.equal(match?.tm_id, "doc-1");
-});
-
-test("lo que no es exacto no bloquea nunca", () => {
-  const opts = { documentMemoryId: "doc-1", seenBefore: true };
-  assert.equal(lockableExactMatch([exact("tm", { tm_score: 0.99 })], opts), null);
-  assert.equal(lockableExactMatch([exact("tm", { tm_match: false })], opts), null);
-  assert.equal(lockableExactMatch([], opts), null);
-  assert.equal(lockableExactMatch(null, opts), null);
-  assert.equal(lockableExactMatch([null, undefined], opts), null);
-  // Sin saber cuál es la memoria del documento, se comporta como antes.
-  assert.equal(lockableExactMatch([exact("doc-1")])?.tm_id, "doc-1");
 });
 
 test("la ejecución relevada espera a que termine la nueva antes de devolver el trabajo a la cola", async () => {

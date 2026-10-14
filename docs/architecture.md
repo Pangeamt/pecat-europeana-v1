@@ -35,6 +35,12 @@ import-upload / import-sdlxliff   [project-import]  → READY
         └──► score-mtqe-v2   (QE v2)      [mtqe-v2]
 ```
 
+**PECAT-E no bloquea ni acepta nada por su cuenta al importar** (desde 2026-10-14). Todo lo que traduce DAAIT
+—con el LLM, con una coincidencia exacta de memoria o con la memoria de trabajo del documento— entra como
+`TRANSLATED_MT` («AT» en el editor), sin bloquear y con nota de MTQE. Solo empieza bloqueado (`ACCEPTED`,
+motivo `INTERNAL`) lo que el fichero del cliente trae bloqueado. Los documentos importados antes pueden tener
+segmentos bloqueados con motivo `TM_MATCH`: el editor y el export los siguen tratando como siempre.
+
 Todos los jobs: **3 intentos** con backoff exponencial desde 5 s. Solo la fase de import puede dejar un
 documento en error (`FILE_ERROR` / `MTQE_ERROR`); lo posterior degrada sin bloquear la revisión.
 Los usuarios `SUPER` tienen un monitor de colas en `/dashboard/queues`.
@@ -142,7 +148,7 @@ motivó está en `documentacion/pecat-e/COMPARATIVA-SDLXLIFF-PECATE-VS-MFT.md`.
 - **Etiquetas en el orden del origen** (`modules/documents/tag-check.js`, `tagIssue`): una sola comprobación para el
   servidor y el editor. En SDLXLIFF exige el mismo conjunto **y el mismo orden**; en los demás formatos, el conjunto.
   - al importar, una MT con etiquetas que faltan, sobran o están **reordenadas** queda en `VALIDATION_FAILED`
-    (no se autobloquea con TM ni pasa por el juez LLM) y el editor lo avisa;
+    (no pasa por el juez LLM) y el editor lo avisa;
   - guardar da 422 `INLINE_TAGS_MISMATCH` con el motivo;
   - el export no escribe un segmento cuyas etiquetas no coinciden (la puerta de `writer.js`, igual que el MFT);
   - **«Fix tags»** (`TagEditor/tag-rules.js`, `fixTags`): propone el destino con las etiquetas del origen, en su

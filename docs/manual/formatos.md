@@ -42,9 +42,9 @@ no se pierde: viaja en forma de etiquetas dentro de cada segmento y se repone al
 Lo que se ve en el ejemplo:
 
 - **Cada frase es un segmento**, también cada celda de la tabla y cada elemento de la lista.
-- Los segmentos cuya frase estaba **exactamente en la memoria** llegan ya **bloqueados** y con la traducción de la
-  memoria. En el ejemplo son cinco, entre ellos «Thank you for choosing our services.».
-- El resto llega con la traducción automática, marcada `AT`, sin revisar.
+- Todos los segmentos llegan con la traducción automática, marcada `AT`, sin revisar. También los cuya frase estaba
+  **exactamente en la memoria** (en el ejemplo, cinco, entre ellos «Thank you for choosing our services.»): llegan con
+  la traducción de la memoria, pero la plataforma no los bloquea ni los da por buenos; se revisan como los demás.
 - La frase con negrita y cursiva lleva dos parejas de etiquetas, `b1 … e1` y `b2 … e2`.
 
 Al descargar, el documento conserva su diseño con el texto traducido.
@@ -77,8 +77,8 @@ Tres reglas resumen la tabla:
 - **Lo que viene traducido se conserva** y queda pendiente de que alguien lo confirme.
 - **Solo lo que viene sin traducir se manda a traducir.** Una copia del original no cuenta como traducción.
 
-En el ejemplo, la primera frase de `u2`, «We have received your payment.», estaba en la memoria: su segmento llegó
-bloqueado por coincidencia exacta.
+En el ejemplo, la primera frase de `u2`, «We have received your payment.», estaba en la memoria: su segmento llegó con
+la traducción de la memoria, como traducción automática (`AT`) sin revisar.
 
 Así queda `u2` en el fichero descargado, con sus dos frases de vuelta en un solo destino:
 
