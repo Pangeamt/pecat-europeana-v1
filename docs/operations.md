@@ -47,6 +47,20 @@ Siempre desde la rama `stable`.
 
 Antes de migrar en producción: `prisma migrate status` y un `mysqldump` de las tablas afectadas.
 
+### Qué lleva y qué no lleva la imagen
+
+> **Verificado 2026-10-13** · Fuente: `Dockerfile` y análisis de Snyk de la imagen `421a374`.
+
+- Al construir se aplican las actualizaciones de seguridad de Debian (`apt-get upgrade`), sin esperar a que
+  la imagen base de Node las traiga.
+- **Sin npm ni corepack:** el contenedor solo ejecuta `prisma` y `next` desde `/app/node_modules`. Para
+  lanzar algo dentro, `docker exec <contenedor> node …`, no `npm` ni `npx`.
+- **Okapi sin Jackson:** se borran `jackson-*.jar` de `/opt/okapi/lib`. Solo los usa el conector de
+  Microsoft MT de Okapi, que PECAT-E no invoca; extraer y reconstruir no los cargan. Si algún día se usa
+  ese conector, hay que devolverlos (en una versión sin vulnerabilidades conocidas).
+- Las dependencias de la aplicación se analizan con `snyk test` sobre `pnpm-lock.yaml`; `snyk container
+  test` no las ve, porque el lockfile no se copia a la imagen.
+
 ## Datos persistentes (Docker)
 
 | Volumen | Montaje | Contenido |
