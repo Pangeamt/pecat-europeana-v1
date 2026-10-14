@@ -66,7 +66,7 @@ Antes de migrar en producción: `prisma migrate status` y un `mysqldump` de las 
 | Volumen | Montaje | Contenido |
 |---|---|---|
 | `storage` | `/app/storage` | Carpetas de trabajo de los documentos |
-| `uploads` | `/app/public/files` | Ficheros subidos (en `/files/…` solo con sesión, por `proxy.js`) |
+| `uploads` | `/app/uploads` | Originales subidos. Fuera de `public/`: ninguna URL los sirve; se descargan solo por las rutas con permiso (`/api/documents/<id>/original`, `/api/file`). Hasta 2026-10 se montaba en `/app/public/files`: los documentos de antes guardan esa ruta y se leen desde aquí (`lib/uploads.js`) |
 | `redis-data` | `/data` | Colas BullMQ (AOF) |
 
 La MySQL es externa y ningún comando de Docker la toca.

@@ -24,8 +24,14 @@ echo "==> Running database migrations..."
 pnpm exec prisma migrate deploy --schema=./prisma/schema.prisma
 
 echo "==> Ensuring upload directory..."
-mkdir -p public/files
-chmod -R 755 public/files 2>/dev/null || true
+# Uploaded originals live in uploads/, outside public/ (lib/uploads.js). Files
+# left in public/files by an older version are moved there (never overwritten);
+# their database paths keep working.
+mkdir -p uploads
+if [ -d public/files ]; then
+  find public/files -maxdepth 1 -type f -exec mv -n {} uploads/ \;
+fi
+chmod -R 755 uploads 2>/dev/null || true
 
 echo "==> Building application..."
 pnpm build

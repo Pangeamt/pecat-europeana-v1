@@ -4,6 +4,7 @@ import { findDocumentForActor, findTusByDocumentId } from './repository';
 import { isSpliceFormat } from '../../lib/utils';
 import { exportSdlxliffWithReport, skippedSegments } from './sdlxliff-service';
 import { completionOf, mayDeliver } from '../../lib/document-completion';
+import { resolveUploadPath } from '../../lib/uploads';
 import fs from 'fs';
 
 // Returns { text, skipped }: `skipped` = segments with a translation that were
@@ -18,7 +19,7 @@ export async function readOriginalDocumentService(documentId, actorUser) {
   }
   try {
     return {
-      body: await fs.promises.readFile(document.filePath),
+      body: await fs.promises.readFile(resolveUploadPath(document.filePath)),
       filename: document.filename,
     };
   } catch (error) {
@@ -69,7 +70,7 @@ export async function exportDocumentAsSdlxliffService(documentId, actorUser, { p
   }
 
   try {
-    const { text, report } = await exportSdlxliffWithReport(document.filePath, tus);
+    const { text, report } = await exportSdlxliffWithReport(resolveUploadPath(document.filePath), tus);
     return { text, skipped: skippedSegments(report) };
   } catch (error) {
     if (error instanceof HttpError) {
