@@ -416,7 +416,7 @@ otra vez lo quita.
 
 ![Candado cerrado de un segmento con el motivo Locked manually](img/admin-editor-candado-puesto.png)
 
-Desbloquear vale para cualquier bloqueo, también el de una coincidencia exacta de memoria o el que traía el fichero.
+Desbloquear vale para cualquier bloqueo, también el que traía el fichero o, en documentos subidos antes del 14-10-2026, el de una coincidencia exacta de memoria. Desde esa fecha PECAT-E no bloquea nada por su cuenta: una coincidencia exacta entra como traducción automática para revisar.
 
 ## Entregas
 

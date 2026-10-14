@@ -66,7 +66,7 @@ Junto al icono puede haber una etiqueta con el **origen** de la traducción:
 |---|---|
 | `AT` | La tradujo la plataforma (traducción automática) |
 | Un porcentaje, como `85%` | Venía en el fichero como coincidencia parcial de memoria |
-| Sin etiqueta | Venía traducida en el fichero, o es una coincidencia exacta |
+| Sin etiqueta | Venía traducida en el fichero (en documentos subidos antes del 14-10-2026, también una coincidencia exacta de memoria) |
 
 La etiqueta va rellena mientras el texto es el que produjo ese origen, y queda solo con el borde cuando alguien lo
 ha cambiado.
@@ -145,7 +145,7 @@ candado para ver el motivo, que sale en inglés:
 
 | Motivo | Significado |
 |---|---|
-| TM exact match | Coincidencia exacta con una memoria: se da por buena |
+| TM exact match | Coincidencia exacta con una memoria, en documentos subidos antes del 14-10-2026 (desde entonces una coincidencia exacta llega como `AT`, sin bloquear) |
 | Locked in the source file | Venía bloqueado o aprobado en el fichero del cliente |
 | Locked manually | Lo bloqueó un Administrador |
 

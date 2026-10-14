@@ -43,7 +43,8 @@ import { exportTarget, isApproved } from "../export-target.js";
 //   confirmed as DAAIT left it                Translated, origin mt (Trados "AT")
 //   confirmed as the client's file had it     Translated, its own origin kept
 //   rejected                                  RejectedTranslation
-//   exact memory match (auto-locked)          Translated, origin tm, 100
+//   exact memory match (auto-locked; only in
+//   documents imported before 2026-10-14)     Translated, origin tm, 100
 //   DAAIT's, nobody confirmed it              Draft, origin mt
 //   untouched client target / locked          not written at all
 export const CONF = {
