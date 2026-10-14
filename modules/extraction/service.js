@@ -5,6 +5,7 @@ import { uid } from "uid";
 import contentDisposition from "content-disposition";
 import { HttpError } from "@/modules/shared";
 import { isSpliceFormat } from "@/lib/utils";
+import { resolveUploadPath } from "@/lib/uploads";
 import { exportTarget } from "@/modules/documents/export-target";
 import {
   PARTIAL_LINK_PREFIX,
@@ -347,7 +348,7 @@ export async function buildProjectDownloadService({ uuid, projectId }) {
   // externalId, review over MT, inline tags restored), everything else
   // byte-identical -- see modules/documents/sdlxliff/writer.js.
   if (isSpliceFormat(project.extension)) {
-    const { text, report } = await exportSdlxliffWithReport(project.filePath, tus);
+    const { text, report } = await exportSdlxliffWithReport(resolveUploadPath(project.filePath), tus);
     return {
       body: Buffer.from(text, "utf8"),
       headers: {

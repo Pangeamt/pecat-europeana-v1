@@ -24,7 +24,7 @@ This project is managed with **pnpm** (version pinned to `10.20.0` in `packageMa
 ### Setup for local development
 
 1. Copy `env.example` to `.env` and fill values
-2. Create upload directory: `mkdir -p public/files && chmod -R 755 public/files`
+2. Create upload directory: `mkdir -p uploads` (`UPLOADS_DIR`; uploaded originals live outside `public/`, see `lib/uploads.js`)
 3. Run Prisma generate, then migrations
 4. `pnpm dev` (app runs on `NEXTAUTH_URL`, default 3000)
 

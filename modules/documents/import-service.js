@@ -1,11 +1,11 @@
 import fs from "fs";
 import { pipeline } from "stream";
-import { uid } from "uid";
 import { promisify } from "util";
 import prisma from "../../lib/prisma";
 import { checkFile, isSpliceFormat, translatesEmptiesOnImport } from "../../lib/utils";
 import { enqueueProjectImport } from "../../lib/queue";
 import { DOCUMENT_STATUS } from "../../lib/document-status";
+import { newUploadPath, resolveUploadPath, uploadsDir } from "../../lib/uploads";
 import { HttpError } from "../shared/http-error";
 import { assertWorkspaceAssetAccess } from "../shared/roles";
 import {
@@ -117,7 +117,7 @@ async function processDocumentFile({
   let extraction;
   try {
     extraction = await extractDocumentSegmentsService({
-      filePath,
+      filePath: resolveUploadPath(filePath),
       filename,
       sourceLang: src || "en",
       targetLang: tgt || undefined,
@@ -343,7 +343,7 @@ async function importSdlxliff(
   await setDocumentStatus(documentId, DOCUMENT_STATUS.PROCESSING);
 
   const { sourceLanguage, targetLanguage, segments } =
-    await parseSdlxliffFile(filePath);
+    await parseSdlxliffFile(resolveUploadPath(filePath));
 
   // The upload form already carries DAAIT catalog codes; a language taken from
   // the file header is turned into one (exact, DAAIT equivalent, or primary).
@@ -612,7 +612,9 @@ export async function importDocumentsService({
       throw new HttpError(400, "The file type is not allowed");
     }
 
-    const filePath = `./public/files/${uid()}_${file.name}`;
+    // Outside public/: see lib/uploads.js.
+    const filePath = newUploadPath(file.name);
+    await fs.promises.mkdir(uploadsDir(), { recursive: true });
     await pump(file.stream(), fs.createWriteStream(filePath));
 
     const createdDocument = await prisma.document.create({

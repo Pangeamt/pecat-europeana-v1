@@ -61,17 +61,19 @@ COPY --from=build /app/okapi ./okapi
 COPY --from=build /app/package.json /app/next.config.mjs /app/instrumentation.js ./
 
 # storage/: one working folder per document (original + XLIFF), must persist.
-# public/files: uploaded project files.
-RUN mkdir -p /app/storage /app/public/files && chown -R node:node /app
+# uploads/: the uploaded originals, outside public/ so they are never served
+# by URL (lib/uploads.js).
+RUN mkdir -p /app/storage /app/uploads && chown -R node:node /app
 USER node
 
 ENV NODE_ENV=production \
     TIKAL_BIN=tikal \
     SOFFICE_BIN=soffice \
     STORAGE_DIR=/app/storage \
+    UPLOADS_DIR=/app/uploads \
     PORT=3000
 
-VOLUME ["/app/storage", "/app/public/files"]
+VOLUME ["/app/storage", "/app/uploads"]
 EXPOSE 3000
 
 # Apply pending migrations, then serve (the BullMQ worker starts with the
