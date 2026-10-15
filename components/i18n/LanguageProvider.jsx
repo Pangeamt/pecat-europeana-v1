@@ -1,6 +1,7 @@
 "use client";
 
 import { ConfigProvider } from "antd";
+import { useSession } from "next-auth/react";
 import enUS from "antd/locale/en_US";
 import esES from "antd/locale/es_ES";
 import {
@@ -51,6 +52,7 @@ export const LanguageProvider = ({ children }) => {
   const [localLanguage, setLocalLanguage] = useState(readStoredLanguage);
   const user = userStore((state) => state.user);
   const saveUserToStore = userStore((state) => state.save);
+  const { update: updateSession } = useSession();
 
   // The account value is authoritative once the user is known: after login the
   // language always follows the preference saved on the account (the database).
@@ -65,15 +67,18 @@ export const LanguageProvider = ({ children }) => {
       persistStoredLanguage(normalized);
 
       // Persist the preference on the account so it follows the user across
-      // devices and future logins.
+      // devices and future logins, and in the session token: the store is
+      // seeded from it on every page load (see lib/auth.js).
       if (user?.id && normalized !== normalizeLanguage(user.language)) {
         saveUserToStore({ ...user, language: normalized });
-        saveUser({ userId: user.id, language: normalized }).catch((error) => {
-          console.error("Failed to persist language preference", error);
-        });
+        saveUser({ userId: user.id, language: normalized })
+          .then(() => updateSession({ language: normalized }))
+          .catch((error) => {
+            console.error("Failed to persist language preference", error);
+          });
       }
     },
-    [user, saveUserToStore],
+    [user, saveUserToStore, updateSession],
   );
 
   const t = useCallback(

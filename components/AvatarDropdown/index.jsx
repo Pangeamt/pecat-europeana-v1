@@ -61,11 +61,19 @@ const AvatarDropdown = () => {
     if (!session?.user) return undefined;
 
     let cancelled = false;
+    // NextAuth hands back a new session every time the tab regains focus. Its
+    // user is the copy taken at sign-in: seed the store with it (and show the
+    // skeleton) only for a user the store does not hold yet. For the same user
+    // it would put back stale fields -- the language among them -- until the
+    // fresh copy arrives, and the interface flipped language for a moment.
+    const known = userStore.getState().user?.id === session.user.id;
 
     const loadUser = async () => {
       try {
-        setRequesting(true);
-        save(session.user);
+        if (!known) {
+          setRequesting(true);
+          save(session.user);
+        }
         const { data } = await getUser(session.user.id);
         if (cancelled) return;
         save(data.user);
