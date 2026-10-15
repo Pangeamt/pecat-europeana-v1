@@ -147,8 +147,10 @@ Menú **Glosarios**. Un glosario es una lista de términos con la traducción qu
 3. **Destino**.
 4. Suelta el fichero. La subida empieza sola.
 
-**Formato del fichero.** Usa **CSV o TSV** con dos columnas, término de origen y término de destino, sin fila de
-cabecera. El separador puede ser coma, tabulador o punto y coma. Ejemplo:
+**Formato del fichero.** Se admiten **CSV, TSV y TBX**, los mismos que acepta el motor de traducción.
+
+**CSV o TSV:** dos columnas, término de origen y término de destino, sin fila de cabecera. El separador puede ser
+coma, tabulador o punto y coma. Ejemplo:
 
 ```text
 invoice,factura
@@ -156,8 +158,12 @@ customer account,cuenta de cliente
 help centre,centro de ayuda
 ```
 
-La ventana menciona también TXT y TBX, pero en esta versión el servidor los rechaza con el aviso «The file type is
-not allowed. Use TMX, CSV or TSV.» (comprobado el 2026-10-13).
+**TBX:** vale tanto el formato antiguo (`<martif>`) como el que exporta SDL/Trados MultiTerm (`<tbx>`). De cada
+entrada se toma como origen el primer idioma y como destino el siguiente idioma distinto. Si el TBX tiene más de dos
+idiomas, o el destino va delante, los términos pueden entrar con el par cruzado.
+
+Otros formatos, como TXT o TMX, no se pueden elegir. Si llegan, el servidor los rechaza con el aviso «The file type is
+not allowed. Use CSV, TSV or TBX.».
 
 ### Consultar, exportar o eliminar
 
