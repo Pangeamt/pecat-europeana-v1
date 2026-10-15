@@ -7,7 +7,9 @@ import {
   updateGlossaryStatusRecord,
 } from "./prisma-repository";
 
-const ALLOWED_IMPORT_EXTENSIONS = ["tmx", "csv", "tsv"];
+// Exactly what DAAIT imports for a glossary (CSV/TSV with two columns, TBX v2
+// or v3): any other extension would be refused there.
+const ALLOWED_IMPORT_EXTENSIONS = ["csv", "tsv", "tbx"];
 
 export async function importGlossaryFromFilesService({
   files,
@@ -23,7 +25,7 @@ export async function importGlossaryFromFilesService({
     if (!ALLOWED_IMPORT_EXTENSIONS.includes(fileExtension)) {
       throw new HttpError(
         400,
-        "The file type is not allowed. Use TMX, CSV or TSV.",
+        "The file type is not allowed. Use CSV, TSV or TBX.",
       );
     }
 

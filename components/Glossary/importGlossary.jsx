@@ -9,7 +9,9 @@ import { Book, Plus, Upload as UploadIcon } from "lucide-react";
 
 const { Dragger } = Upload;
 
-const ALLOWED_IMPORT_EXTENSIONS = ["txt", "csv", "tsv", "tbx"];
+// The formats DAAIT imports for a glossary (glossary_service ALLOWED_IMPORT_EXTENSIONS):
+// offering anything else only fails later, on the server or in DAAIT.
+const ALLOWED_IMPORT_EXTENSIONS = ["csv", "tsv", "tbx"];
 
 const checkFile = (file) => {
   const fileName = file.name.trim().replace(/\s+/g, "");
@@ -54,7 +56,7 @@ const ImportGlossaryButton = ({ refetch }) => {
     multiple: false,
     name: "file",
     action: "/api/glossaries/import",
-    accept: ".txt,.csv,.tsv,.tbx",
+    accept: ".csv,.tsv,.tbx",
     data: () => ({
       glossary: 0,
       name: form.getFieldValue("name"),
