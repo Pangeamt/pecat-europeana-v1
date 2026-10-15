@@ -549,7 +549,7 @@
     "import": {
       "button": "Importar glosario",
       "title": "Importar glosario",
-      "subtitle": "Define los metadatos y sube un archivo TXT, CSV, TSV o TBX.",
+      "subtitle": "Define los metadatos y sube un archivo CSV, TSV o TBX.",
       "detailsTitle": "Detalles del glosario",
       "detailsSubtitle": "Nombre, contexto y metadatos opcionales.",
       "nameLabel": "Nombre",
@@ -566,8 +566,8 @@
       "targetPlaceholder": "Selecciona el destino",
       "targetRequired": "Selecciona un idioma de destino",
       "targetDiffers": "El destino debe ser distinto del origen",
-      "dropText": "Suelta un archivo TXT, CSV, TSV o TBX, o examina",
-      "dropHint": "Solo TXT, CSV, TSV y TBX. Tamaño máximo 100 MB.",
+      "dropText": "Suelta un archivo CSV, TSV o TBX, o examina",
+      "dropHint": "Solo CSV, TSV y TBX. Tamaño máximo 100 MB.",
       "completeText": "Completa los campos obligatorios para subir",
       "completeHint": "Nombre, origen y destino son obligatorios (y deben diferir).",
       "uploadSuccess": "Archivo {name} subido correctamente",
@@ -575,7 +575,7 @@
       "validateFields": "Completa nombre, origen y destino antes de subir.",
       "sameLanguage": "El origen y el destino deben ser distintos.",
       "tooLarge": "Los archivos deben ser menores de 100 MB",
-      "invalidType": "Solo se admiten archivos TXT, CSV, TSV y TBX"
+      "invalidType": "Solo se admiten archivos CSV, TSV y TBX"
     }
   },
   "profiles": {
