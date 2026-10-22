@@ -23,6 +23,18 @@ export const bulkConfirmTusSchema = Joi.object({
     .required(),
 });
 
+// "Lock / unlock the filtered segments": a list of segments of ONE document
+// (admins only; never through the share link).
+export const bulkLockTusSchema = Joi.object({
+  documentId: Joi.string().required(),
+  action: Joi.string().valid("lock", "unlock").required(),
+  items: Joi.array()
+    .items(Joi.object({ tuId: Joi.string().required() }))
+    .min(1)
+    .max(BULK_CONFIRM_MAX)
+    .required(),
+});
+
 export const updateTuSchema = Joi.object({
   tuId: Joi.string().required(),
   reviewLiteral: Joi.string().allow(null, "").optional(),

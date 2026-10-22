@@ -190,6 +190,20 @@ export const confirmTusBulkByShareToken = async (
   });
 };
 
+// "Lock / unlock the filtered segments" (admins): a list in one request.
+export const lockTusBulk = async (payload: {
+  documentId: string;
+  action: "lock" | "unlock";
+  items: { tuId: string }[];
+}): Promise<AxiosResponse<BulkConfirmResult & { skipped: number }>> => {
+  return await httpClient({
+    method: "post",
+    url: "/api/tus/bulk-lock",
+    data: payload,
+    timeout: 300000,
+  });
+};
+
 export const appendTuByShareToken = async (
   token: string,
   payload: tuAppendPayload,

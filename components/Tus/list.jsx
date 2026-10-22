@@ -51,6 +51,7 @@ import {
   evaluateTuByShareToken,
   getTus,
   getTusByShareToken,
+  lockTusBulk,
 } from "@/services/tus.services";
 import { userStore } from "@/store";
 import { getTextDirection } from "@/lib/locale-direction";
@@ -68,7 +69,7 @@ import {
   confirmableRows,
   nextPendingIndex,
 } from "@/lib/document-completion";
-import { chunksOf } from "@/lib/bulk-confirm";
+import { chunksOf, lockableInBulk } from "@/lib/bulk-confirm";
 import { distinctTmMatches } from "@/lib/tm-matches";
 import { useProcessedDownload } from "@/components/Documents/useProcessedDownload";
 import { getDocumentOriginalLink } from "@/services/document.services";
@@ -1386,6 +1387,108 @@ const TusList = ({ shareToken } = {}) => {
     }
   };
 
+  // "Lock / unlock the filtered segments", as Trados does (filter, select
+  // what is shown, Ctrl+L): exactly the rows of the visible list that would
+  // change. Same progress panel and one undo entry, like "Confirm all".
+  const lockTargets = canToggleLock
+    ? orderedData.filter((row) => lockableInBulk(row, "lock"))
+    : [];
+  const unlockTargets = canToggleLock
+    ? orderedData.filter((row) => lockableInBulk(row, "unlock"))
+    : [];
+
+  const lockAllInFilter = (action) => {
+    if (!canToggleLock || editingLocked || bulkProgress) return;
+    const targets = orderedData.filter((row) => lockableInBulk(row, action));
+    if (targets.length === 0) {
+      announce(t(`tus.lockBulk.${action}.none`));
+      return;
+    }
+    Modal.confirm({
+      title: t(`tus.lockBulk.${action}.title`, { count: targets.length }),
+      content: t(
+        listFiltered ? `tus.lockBulk.${action}.contentFiltered` : `tus.lockBulk.${action}.contentAll`,
+      ),
+      okText: t(`tus.lockBulk.${action}.ok`, { count: targets.length }),
+      cancelText: t("tus.bulk.cancel"),
+      onOk: () => {
+        runBulkLock(action, targets);
+      },
+    });
+  };
+
+  const runBulkLock = async (action, targets) => {
+    const beforeById = new Map(data.map((doc) => [doc.id, doc]));
+    const after = new Map();
+    let failed = 0;
+    let firstReason = null;
+    let done = 0;
+    const items = targets.map((row) => ({ tuId: row.id }));
+    document.activeElement?.blur?.();
+    setBulkProgress({ done: 0, total: items.length });
+    for (const chunk of chunksOf(items)) {
+      try {
+        const response = await lockTusBulk({ documentId: projectId, action, items: chunk });
+        const { updated = [], failed: refused = [] } = response.data;
+        const updatedById = new Map(updated.map((item) => [item.id, item]));
+        for (const item of updated) after.set(item.id, item);
+        failed += refused.length;
+        firstReason ??= refused[0]?.message || null;
+        setData((prev) =>
+          prev.map((doc) =>
+            updatedById.has(doc.id) ? { ...doc, ...updatedById.get(doc.id) } : doc,
+          ),
+        );
+        setSelectedRow((prev) =>
+          prev && updatedById.has(prev.id)
+            ? { ...prev, ...updatedById.get(prev.id) }
+            : prev,
+        );
+      } catch (error) {
+        failed += chunk.length;
+        firstReason ??= failureReason(error);
+        console.error(error);
+      }
+      done += chunk.length;
+      setBulkProgress({ done, total: items.length });
+    }
+    setBulkProgress(null);
+    if (after.size > 0) {
+      actionHistoryRef.current = recordAction(
+        actionHistoryRef.current,
+        actionEntry({
+          action: `${action}_all`,
+          number: after.size,
+          beforeById,
+          after: [...after.values()],
+        }),
+      );
+      touchHistory();
+    }
+    if (failed > 0) {
+      messageApi.warning(
+        `${t(`tus.lockBulk.${action}.someFailed`, { failed, done: after.size })}${
+          firstReason ? ` (${firstReason})` : ""
+        }`,
+      );
+    } else {
+      announce(t(`tus.lockBulk.${action}.done`, { done: after.size }));
+    }
+  };
+
+  // Ctrl+L locks / unlocks the selected segment, as in Trados (admins only).
+  useEffect(() => {
+    if (!canToggleLock || editingLocked || bulkProgress || !selectedRow) return undefined;
+    const onKeyDown = (event) => {
+      if (event.ctrlKey && !event.shiftKey && !event.altKey && (event.key === "l" || event.key === "L")) {
+        event.preventDefault();
+        toggleLock(selectedRow);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
+
   // While a bulk confirm runs nothing else may be done: keys are swallowed
   // here (shortcuts and typing alike) and the panel below takes the clicks.
   useEffect(() => {
@@ -1798,8 +1901,8 @@ const TusList = ({ shareToken } = {}) => {
     const mainId = entry.items[0].id;
     const index = orderedData.findIndex((doc) => doc.id === mainId);
     const what =
-      entry.action === "approve_all"
-        ? `${t(`tus.undo.${side === "before" ? "undo" : "redo"}`)}: ${t("tus.undo.action.approve_all")} (${entry.items.length})`
+      entry.action.endsWith("_all")
+        ? `${t(`tus.undo.${side === "before" ? "undo" : "redo"}`)}: ${t(`tus.undo.action.${entry.action}`)} (${entry.items.length})`
         : t(`tus.undo.${side === "before" ? "undone" : "redone"}`, {
             action: t(`tus.undo.action.${entry.action}`),
             number: entry.number ?? "",
@@ -2394,6 +2497,32 @@ const TusList = ({ shareToken } = {}) => {
                 </span>
               </Button>
             </Tooltip>
+            {canToggleLock
+              ? [
+                  ["lock", lockTargets, <LockIcon key="i" size={14} />],
+                  ["unlock", unlockTargets, <UnlockIcon key="i" size={14} />],
+                ].map(([action, targets, icon]) => (
+                  <Tooltip
+                    key={action}
+                    title={t(
+                      listFiltered
+                        ? `tus.lockBulk.${action}.tooltipFiltered`
+                        : `tus.lockBulk.${action}.tooltipAll`,
+                      { count: targets.length },
+                    )}
+                  >
+                    <Button
+                      size="small"
+                      aria-label={t(`tus.lockBulk.${action}.button`)}
+                      icon={icon}
+                      disabled={targets.length === 0 || editingLocked || Boolean(bulkProgress)}
+                      onClick={() => lockAllInFilter(action)}
+                    >
+                      <span className="font-bold tabular-nums">{targets.length}</span>
+                    </Button>
+                  </Tooltip>
+                ))
+              : null}
             {(() => {
               // Undo / redo: typed text of the selected segment first, then
               // the last saved action (see stepHistory).
