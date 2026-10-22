@@ -119,6 +119,28 @@ function stateFor(tu, v2 = false) {
   return S.mt;
 }
 
+// A lock made IN PECAT (manual, Ctrl+L, "lock filtered", or an exact memory
+// match / LLM judge lock of older documents) leaves the file locked, the way
+// Trados reads it:
+//   SDLXLIFF        <sdl:seg locked="true">  (Trados' own lock)
+//   XLIFF 1.2 / 2.x state="final": Trados' XLIFF file type maps "final" to
+//                   "Signed off" and, by default, locks the segments with
+//                   status "Signed off" and "Translation Approved" (RWS docs,
+//                   XLIFF settings: "Lock segments with status"). It is also
+//                   what PECAT and MFT read back as the client's lock.
+// A lock that came in the client's file (INTERNAL) is never touched: those
+// segments are not written at all, locked or unlocked in PECAT.
+export function lockedInPecat(tu) {
+  return Boolean(tu?.block) && tu.blockReason !== "INTERNAL" && tu.fileLocked !== true;
+}
+
+const LOCKED_STATE = "final";
+
+/** The state a segment leaves with: "final" when PECAT locked it. */
+function stateOf(tu, v2 = false) {
+  return lockedInPecat(tu) ? LOCKED_STATE : stateFor(tu, v2);
+}
+
 /** A <target> for a plain unit that has none, right after its <source>, with the source's indentation. */
 function newTarget(raw, source, inner, state, eol) {
   const nl = raw.lastIndexOf("\n", source.start);
@@ -253,6 +275,11 @@ export function writeSdlxliff(raw, tus) {
     targetCreated: 0,
     // Sentences of a unit left out because another sentence of it was missing.
     skippedIncomplete: 0,
+    // Segments that leave the file locked because PECAT locked them.
+    lockWritten: 0,
+    // Units cut into sentences with only SOME sentences locked in PECAT: one
+    // <target>, one state, so the unit cannot be locked (left unlocked).
+    lockMixed: 0,
   };
   const splices = [];
   // Units the import cut into sentences (segmenter.js): unit -> mid -> tu.
@@ -295,24 +322,41 @@ export function writeSdlxliff(raw, tus) {
     const changed = !tgtMrk || text !== codeTarget(tgtMrk, byId).trim();
     const reviewed = isReviewed(tu) || tu.Status === "REJECTED";
     if (!changed && !reviewed) {
-      // A target with no state that the import took as untranslated (a copy
-      // of its source) and the engine gave back just the same: the text stays,
-      // but the file now says it is machine output nobody confirmed -- what
-      // Trados writes for it too.
-      if (
+      const lock = lockedInPecat(tu);
+      if (lock && seg) {
+        // Text as the file has it, nobody confirmed it, but PECAT locked it:
+        // only the lock is written.
+        splices.push({
+          start: seg.start,
+          end: seg.openEnd,
+          text: setAttributes(raw.slice(seg.start, seg.openEnd), { locked: "true" }),
+        });
+        report.lockWritten++;
+      } else if (lock && plain && unit.v2) {
+        splices.push({
+          start: unit.node.start,
+          end: unit.node.openEnd,
+          text: setAttributes(raw.slice(unit.node.start, unit.node.openEnd), { state: LOCKED_STATE }),
+        });
+        report.lockWritten++;
+      } else if (
+        // A target with no state that the import took as untranslated (a copy
+        // of its source) and the engine gave back just the same: the text
+        // stays, but the file now says it is machine output nobody confirmed
+        // -- what Trados writes for it too. Or a target PECAT locked.
         plain &&
         !unit.v2 &&
-        tu.fileTarget === false &&
         tgtMrk &&
         !tgtMrk.selfClosing &&
-        !tgtMrk.attrs.has("state")
+        (lock || (tu.fileTarget === false && !tgtMrk.attrs.has("state")))
       ) {
         splices.push({
           start: tgtMrk.start,
           end: tgtMrk.openEnd,
-          text: setAttributes(raw.slice(tgtMrk.start, tgtMrk.openEnd), { state: stateFor(tu) }),
+          text: setAttributes(raw.slice(tgtMrk.start, tgtMrk.openEnd), { state: stateOf(tu) }),
         });
-        report.confirmed++;
+        if (lock) report.lockWritten++;
+        else report.confirmed++;
       }
       // Otherwise the client's own target, untouched: not ours, not
       // reconfirmed -- and not "skipped" either, whatever its tags are.
@@ -385,19 +429,19 @@ export function writeSdlxliff(raw, tus) {
         splices.push({
           start: srcMrk.end,
           end: srcMrk.end,
-          text: newTarget(raw, srcMrk, inner, unit.v2 ? null : stateFor(tu), eol),
+          text: newTarget(raw, srcMrk, inner, unit.v2 ? null : stateOf(tu), eol),
         });
         report.targetCreated++;
       } else if (tgtMrk.selfClosing) {
         let open = raw.slice(tgtMrk.start, tgtMrk.end).replace(/\s*\/>$/, ">");
-        if (plain && !unit.v2) open = setAttributes(open, { state: stateFor(tu) });
+        if (plain && !unit.v2) open = setAttributes(open, { state: stateOf(tu) });
         splices.push({ start: tgtMrk.start, end: tgtMrk.end, text: `${open}${inner}</${tgtMrk.name}>` });
       } else {
         if (plain && !unit.v2) {
           splices.push({
             start: tgtMrk.start,
             end: tgtMrk.openEnd,
-            text: setAttributes(raw.slice(tgtMrk.start, tgtMrk.openEnd), { state: stateFor(tu) }),
+            text: setAttributes(raw.slice(tgtMrk.start, tgtMrk.openEnd), { state: stateOf(tu) }),
           });
         }
         splices.push({ start: tgtMrk.openEnd, end: tgtMrk.closeStart, text: inner });
@@ -407,11 +451,13 @@ export function writeSdlxliff(raw, tus) {
       report.unchanged++;
     }
 
+    if (lockedInPecat(tu)) report.lockWritten++;
     if (seg) {
+      const attrs = lockedInPecat(tu) ? { ...confFor(tu, changed), locked: "true" } : confFor(tu, changed);
       splices.push({
         start: seg.start,
         end: seg.openEnd,
-        text: setAttributes(raw.slice(seg.start, seg.openEnd), confFor(tu, changed)),
+        text: setAttributes(raw.slice(seg.start, seg.openEnd), attrs),
       });
       report.confirmed++;
     } else if (plain && unit.v2) {
@@ -421,7 +467,7 @@ export function writeSdlxliff(raw, tus) {
       splices.push({
         start: unit.node.start,
         end: unit.node.openEnd,
-        text: setAttributes(raw.slice(unit.node.start, unit.node.openEnd), { state: stateFor(tu, true) }),
+        text: setAttributes(raw.slice(unit.node.start, unit.node.openEnd), { state: stateOf(tu, true) }),
       });
       report.confirmed++;
     } else if (plain && tgtMrk && !changed && !tgtMrk.selfClosing) {
@@ -429,7 +475,7 @@ export function writeSdlxliff(raw, tus) {
       splices.push({
         start: tgtMrk.start,
         end: tgtMrk.openEnd,
-        text: setAttributes(raw.slice(tgtMrk.start, tgtMrk.openEnd), { state: stateFor(tu) }),
+        text: setAttributes(raw.slice(tgtMrk.start, tgtMrk.openEnd), { state: stateOf(tu) }),
       });
       report.confirmed++;
     } else if (plain && changed) {
@@ -495,7 +541,15 @@ export function writeSdlxliff(raw, tus) {
         .join("") +
       buildInner(edge.trail, codes, raw, eol) +
       trail;
-    const state = stateFor(rows.reduce((worst, tu) => (stateRank(tu) > stateRank(worst) ? tu : worst)));
+    // One <target> for the whole unit: it leaves locked only when PECAT locked
+    // every sentence of it; a partly locked unit stays unlocked (and counted).
+    const lockedRows = rows.filter((tu) => lockedInPecat(tu)).length;
+    const state =
+      lockedRows === rows.length
+        ? LOCKED_STATE
+        : stateFor(rows.reduce((worst, tu) => (stateRank(tu) > stateRank(worst) ? tu : worst)));
+    if (lockedRows === rows.length) report.lockWritten += rows.length;
+    else if (lockedRows > 0) report.lockMixed += lockedRows;
     const target = unit.target;
     if (!target) {
       splices.push({

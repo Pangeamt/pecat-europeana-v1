@@ -2,7 +2,7 @@
 // saving (lib/bulk-confirm.js). node --test "tests/**/*.test.mjs"
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { lockableInBulk, planBulkLock } from "../../lib/bulk-confirm.js";
+import { isFileLocked, lockableInBulk, planBulkLock } from "../../lib/bulk-confirm.js";
 
 const rows = [
   { id: "a", srcLiteral: "Same", block: false, blockReason: null },
@@ -38,4 +38,21 @@ test("lockableInBulk matches what the editor counts", () => {
   assert.equal(lockableInBulk(rows[2], "unlock"), true);
   assert.equal(lockableInBulk(rows[3], "unlock"), false);
   assert.equal(lockableInBulk(null, "lock"), false);
+});
+
+test("a segment locked in the client's file is never locked nor unlocked by PECAT", () => {
+  const fileRows = [
+    { id: "f1", block: true, blockReason: "INTERNAL", fileLocked: true },
+    { id: "f2", block: true, blockReason: "INTERNAL", fileLocked: null }, // documents older than fileLocked
+    { id: "f3", block: false, blockReason: null, fileLocked: true },
+  ];
+  for (const row of fileRows) {
+    assert.equal(isFileLocked(row), true, row.id);
+    assert.equal(lockableInBulk(row, "lock"), false, `${row.id} lock`);
+    assert.equal(lockableInBulk(row, "unlock"), false, `${row.id} unlock`);
+  }
+  assert.equal(isFileLocked({ block: true, blockReason: "MANUAL", fileLocked: false }), false);
+  const { jobs, skipped } = planBulkLock([{ tuId: "f3" }, { tuId: "f1" }], fileRows, "lock");
+  assert.deepEqual(jobs, []);
+  assert.equal(skipped, 2);
 });

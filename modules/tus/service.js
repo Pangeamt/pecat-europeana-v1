@@ -13,7 +13,7 @@ import {
 import { describeTagIssue, tagIssue } from "../documents/tag-check";
 import { isSpliceFormat } from "../../lib/utils";
 import { buildTuRevisions, revisionActionOf } from "../../lib/tu-revision";
-import { mapWithLimit, planBulkConfirm, planBulkLock } from "../../lib/bulk-confirm";
+import { isFileLocked, mapWithLimit, planBulkConfirm, planBulkLock } from "../../lib/bulk-confirm";
 import { keepReviewerSpaces } from "../../lib/whitespace";
 import {
   createTuRevisions,
@@ -203,6 +203,19 @@ async function applyTuStatusUpdate(tu, payload, reviewer = null) {
   return result;
 }
 
+// A segment locked in the client's own file stays exactly as the file has it:
+// PECAT never changes its lock (lock, unlock or undo), and the export never
+// writes it (modules/documents/sdlxliff/writer.js).
+function assertFileLockKept(tu, block) {
+  if (isFileLocked(tu) && Boolean(tu.block) !== block) {
+    throw new HttpError(
+      409,
+      "This segment is locked in the client's file: its lock cannot be changed",
+      "FILE_LOCKED",
+    );
+  }
+}
+
 // A page still running the old editor (Quill 2 before PR #107) sends every
 // space of an untagged segment as NBSP: the text is repaired against the one
 // the segment had before it is saved (lib/whitespace.js). Any other text is
@@ -231,6 +244,7 @@ async function saveTuStatusUpdate(tu, payload, reviewer = null) {
   // Who may change a lock is checked by the callers (assertMayRestore).
   if (action === "restore") {
     const { snapshot } = payload;
+    assertFileLockKept(tu, Boolean(snapshot.block));
     const tuUpdated = await updateTuById(tu.id, {
       reviewLiteral: snapshot.reviewLiteral || null,
       Status: snapshot.Status,
@@ -248,10 +262,12 @@ async function saveTuStatusUpdate(tu, payload, reviewer = null) {
     return { tu: tuUpdated, alsoUpdated: [] };
   }
 
-  // Manual lock/unlock (ADMIN/SUPER only, enforced by the callers): touches
-  // only this TU and never propagates. Unlock overrides any lock origin
-  // (TM match, LLM judge, file-internal); the review status is untouched.
+  // Manual lock/unlock (any signed-in user who may edit; never the share
+  // link): touches only this TU and never propagates. Unlock overrides the
+  // locks made in PECAT (manual, TM match, LLM judge), never the client's
+  // file lock (assertFileLockKept); the review status is untouched.
   if (action === "lock" || action === "unlock") {
+    assertFileLockKept(tu, action === "lock");
     const tuUpdated = await updateTuById(
       tu.id,
       action === "lock"
