@@ -399,3 +399,50 @@
 svg.lucide {
     vertical-align: -0.125em;
 }
+
+/* "Show spaces" (components/shared/whitespace.jsx): marks drawn over the
+   text, never in it. · space, ° non-breaking (orange: the one that must be
+   seen), ∘ other spaces, → tab, ↵ line break. */
+.ws-mark {
+    position: relative;
+    /* every space keeps its own width: a double space shows two marks */
+    white-space: pre-wrap;
+}
+
+.ws-mark::after,
+.ws-overlay-mark {
+    color: #3b82f6;
+    font-weight: 700;
+    pointer-events: none;
+    user-select: none;
+}
+
+.ws-mark::after {
+    content: attr(data-mark);
+    position: absolute;
+    left: 50%;
+    top: 0;
+    transform: translateX(-50%);
+}
+
+.ws-overlay-mark {
+    position: absolute;
+    transform: translateX(-50%);
+    z-index: 2;
+}
+
+.ws-nbsp.ws-mark::after,
+.ws-nbsp.ws-overlay-mark {
+    color: #ea580c;
+}
+
+.ws-nnbsp.ws-mark::after,
+.ws-nnbsp.ws-overlay-mark {
+    color: #ea580c;
+    font-size: 0.75em;
+}
+
+.ws-other.ws-mark::after,
+.ws-other.ws-overlay-mark {
+    color: #9333ea;
+}

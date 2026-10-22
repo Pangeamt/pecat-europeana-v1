@@ -14,6 +14,7 @@ import { describeTagIssue, tagIssue } from "../documents/tag-check";
 import { isSpliceFormat } from "../../lib/utils";
 import { buildTuRevisions, revisionActionOf } from "../../lib/tu-revision";
 import { mapWithLimit, planBulkConfirm } from "../../lib/bulk-confirm";
+import { keepReviewerSpaces } from "../../lib/whitespace";
 import {
   createTuRevisions,
   findTuRevisions,
@@ -202,8 +203,27 @@ async function applyTuStatusUpdate(tu, payload, reviewer = null) {
   return result;
 }
 
+// A page still running the old editor (Quill 2 before PR #107) sends every
+// space of an untagged segment as NBSP: the text is repaired against the one
+// the segment had before it is saved (lib/whitespace.js). Any other text is
+// saved exactly as sent.
+function reviewTextToSave(tu, { action, reviewLiteral }) {
+  if (!["approve", "save_draft"].includes(action) || typeof reviewLiteral !== "string") {
+    return reviewLiteral;
+  }
+  const kept = keepReviewerSpaces(reviewLiteral, {
+    previous: tu.reviewLiteral,
+    mt: tu.translatedLiteral,
+  });
+  if (kept !== reviewLiteral) {
+    console.warn(`[tus] ${tu.id}: every space came as NBSP (old editor page); repaired before saving`);
+  }
+  return kept;
+}
+
 async function saveTuStatusUpdate(tu, payload, reviewer = null) {
-  const { reviewLiteral, action, levenshteinDistance = null, block } = payload;
+  const { action, levenshteinDistance = null, block } = payload;
+  const reviewLiteral = reviewTextToSave(tu, payload);
 
   // Undo / redo of a saved action: the segment goes back to the state the
   // editor remembers (review text, status, lock, score). Only this TU, never
