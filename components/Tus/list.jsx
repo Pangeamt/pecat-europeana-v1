@@ -69,7 +69,7 @@ import {
   confirmableRows,
   nextPendingIndex,
 } from "@/lib/document-completion";
-import { chunksOf, lockableInBulk } from "@/lib/bulk-confirm";
+import { chunksOf, isFileLocked, lockableInBulk } from "@/lib/bulk-confirm";
 import { distinctTmMatches } from "@/lib/tm-matches";
 import { useProcessedDownload } from "@/components/Documents/useProcessedDownload";
 import { getDocumentOriginalLink } from "@/services/document.services";
@@ -1120,7 +1120,7 @@ const TusList = ({ shareToken } = {}) => {
         );
 
         // Signed-in users toggle the lock in place; the share link just sees it.
-        if (!canToggleLock) {
+        if (!canToggleLock || isFileLocked(record)) {
           return reason ? <Tooltip title={reason}>{icon}</Tooltip> : icon;
         }
         return (
@@ -1482,6 +1482,11 @@ const TusList = ({ shareToken } = {}) => {
     const onKeyDown = (event) => {
       if (event.ctrlKey && !event.shiftKey && !event.altKey && (event.key === "l" || event.key === "L")) {
         event.preventDefault();
+        // Locked in the client's file: its lock stays as the file has it.
+        if (isFileLocked(selectedRow)) {
+          announce(t("tus.lockBulk.fileLocked"));
+          return;
+        }
         toggleLock(selectedRow);
       }
     };

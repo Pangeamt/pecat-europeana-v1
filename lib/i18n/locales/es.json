@@ -448,6 +448,7 @@
       "all": "Todo el documento"
     },
     "lockBulk": {
+      "fileLocked": "Bloqueado en el fichero del cliente: se queda como viene, no se puede desbloquear",
       "lock": {
         "button": "Bloquear filtrados",
         "tooltipFiltered": "Bloquea los {count} segmentos sin bloquear del filtro aplicado (como en Trados; Ctrl+L bloquea el segmento actual)",
@@ -462,8 +463,8 @@
       },
       "unlock": {
         "button": "Desbloquear filtrados",
-        "tooltipFiltered": "Desbloquea los {count} segmentos bloqueados del filtro aplicado (los bloqueados en el fichero de origen no; uno a uno sí)",
-        "tooltipAll": "Desbloquea los {count} segmentos bloqueados del documento (los bloqueados en el fichero de origen no; uno a uno sí)",
+        "tooltipFiltered": "Desbloquea los {count} segmentos bloqueados del filtro aplicado (los bloqueados en el fichero del cliente se quedan como vienen)",
+        "tooltipAll": "Desbloquea los {count} segmentos bloqueados del documento (los bloqueados en el fichero del cliente se quedan como vienen)",
         "title": "¿Desbloquear {count} segmentos?",
         "contentFiltered": "Se desbloquearán los segmentos bloqueados que muestra el filtro, salvo los bloqueados en el fichero de origen. No cambia ni el texto ni el estado. Se puede deshacer.",
         "contentAll": "Se desbloquearán los segmentos bloqueados del documento, salvo los bloqueados en el fichero de origen. No cambia ni el texto ni el estado. Se puede deshacer.",

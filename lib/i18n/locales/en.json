@@ -448,6 +448,7 @@
       "all": "Whole document"
     },
     "lockBulk": {
+      "fileLocked": "Locked in the client's file: it stays as it comes and cannot be unlocked",
       "lock": {
         "button": "Lock filtered",
         "tooltipFiltered": "Locks the {count} unlocked segments of the current filter (as in Trados; Ctrl+L locks the current segment)",
@@ -462,8 +463,8 @@
       },
       "unlock": {
         "button": "Unlock filtered",
-        "tooltipFiltered": "Unlocks the {count} locked segments of the current filter (not the ones locked in the source file; one by one they can be)",
-        "tooltipAll": "Unlocks the {count} locked segments of the document (not the ones locked in the source file; one by one they can be)",
+        "tooltipFiltered": "Unlocks the {count} locked segments of the current filter (the ones locked in the client's file stay as they come)",
+        "tooltipAll": "Unlocks the {count} locked segments of the document (the ones locked in the client's file stay as they come)",
         "title": "Unlock {count} segments?",
         "contentFiltered": "The locked segments shown by the filter will be unlocked, except the ones locked in the source file. Text and status do not change. It can be undone.",
         "contentAll": "The locked segments of the document will be unlocked, except the ones locked in the source file. Text and status do not change. It can be undone.",
