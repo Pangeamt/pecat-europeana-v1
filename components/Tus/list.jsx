@@ -388,10 +388,10 @@ const TusList = ({ shareToken } = {}) => {
 
   const isSegmentBlocked = (doc) => Boolean(doc?.block);
 
-  // Manual segment lock/unlock is a management action: session ADMIN/SUPER
-  // only, never the anonymous share-link translator (also enforced server-side).
-  const canToggleLock =
-    !shareToken && ["ADMIN", "SUPER"].includes(user?.role);
+  // Lock/unlock (one segment, Ctrl+L, or the filtered list): every signed-in
+  // user who may edit the document, like the filters; never the anonymous
+  // share-link translator (also enforced server-side).
+  const canToggleLock = !shareToken;
 
   // Brings the segment of a keyboard move to its anchor in the list. One
   // short smooth scroll when it is near; a long way (or another page) is
@@ -1119,7 +1119,7 @@ const TusList = ({ shareToken } = {}) => {
           <UnlockIcon size={16} className="text-gray-400" />
         );
 
-        // ADMIN/SUPER toggle the lock in place; everyone else just sees it.
+        // Signed-in users toggle the lock in place; the share link just sees it.
         if (!canToggleLock) {
           return reason ? <Tooltip title={reason}>{icon}</Tooltip> : icon;
         }

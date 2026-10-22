@@ -493,12 +493,13 @@ function assertInlineTagsKept(tu, payload, document) {
   );
 }
 
-// "restore" must not become a way around the lock rules: only an admin may
-// restore a state that changes the lock, or touch a segment that is locked.
-function assertMayRestore(tu, payload, isAdmin) {
-  if (payload.action !== "restore" || isAdmin) return;
+// "restore" must not become a way around the lock rules: only someone who may
+// lock (a signed-in user, never the share link) may restore a state that
+// changes the lock, or touch a segment that is locked.
+function assertMayRestore(tu, payload, mayLock) {
+  if (payload.action !== "restore" || mayLock) return;
   if (Boolean(tu.block) !== payload.snapshot.block) {
-    throw new HttpError(403, "Only admins can lock or unlock segments");
+    throw new HttpError(403, "The share link cannot lock or unlock segments: sign in to do it");
   }
   if (tu.block) {
     throw new HttpError(
@@ -512,18 +513,13 @@ function assertMayRestore(tu, payload, isAdmin) {
 export async function updateTuStatusService(payload, actorUser) {
   const { tuId } = payload;
 
-  if (
-    LOCK_ACTIONS.includes(payload.action) &&
-    !["ADMIN", "SUPER"].includes(actorUser?.role)
-  ) {
-    throw new HttpError(403, "Only admins can lock or unlock segments");
-  }
-
+  // Lock/unlock is open to every signed-in user who may edit the document
+  // (checked below, as for any edit); only the share link is refused.
   const tu = await findTuById(tuId);
   if (!tu) {
     throw new HttpError(404, "Tu not found");
   }
-  assertMayRestore(tu, payload, ["ADMIN", "SUPER"].includes(actorUser?.role));
+  assertMayRestore(tu, payload, true);
 
   const document = await assertTuAccessibleByActor(tu, actorUser);
   assertActorMayEditDocument(document, actorUser);
@@ -597,13 +593,11 @@ export async function confirmTusInBulkService(payload, actorUser) {
 }
 
 // "Lock / unlock the filtered segments", as Trados does (filter, select what
-// is shown, Ctrl+L). ADMIN/SUPER only, like the single lock. Each segment
+// is shown, Ctrl+L). Every signed-in user who may edit the document, like the
+// single lock (never the share link: it has no route here). Each segment
 // goes through the single lock's save (its own history row, no propagation);
 // the ones already as asked are skipped. Answers { updated, failed, skipped }.
 export async function lockTusInBulkService(payload, actorUser) {
-  if (!["ADMIN", "SUPER"].includes(actorUser?.role)) {
-    throw new HttpError(403, "Only admins can lock or unlock segments");
-  }
   const document = await findDocumentForTus(payload.documentId, actorUser);
   if (!document) {
     throw new HttpError(404, "Document not found");
@@ -682,7 +676,7 @@ export async function updateTuStatusByShareTokenService(token, payload) {
 
   // The anonymous share link is a translator role: never lock/unlock.
   if (LOCK_ACTIONS.includes(payload.action)) {
-    throw new HttpError(403, "Only admins can lock or unlock segments");
+    throw new HttpError(403, "The share link cannot lock or unlock segments: sign in to do it");
   }
 
   const document = await findDocumentByTusShareToken(token);
