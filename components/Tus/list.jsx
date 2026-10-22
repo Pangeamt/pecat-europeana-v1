@@ -1820,17 +1820,18 @@ const TusList = ({ shareToken } = {}) => {
     stepHistory(undo ? "undo" : "redo");
   };
 
+  // CustomTextArea already emits plain text: running it through stripHTML
+  // would read it as HTML (`&amp;` -> `&`, `<b>` gone).
   const changeTextInTextarea = (text) => {
-    const html = stripHTML(text);
-    if (selectedRow && selectedRow.reviewLiteral !== html) {
-      if (!isSegmentBlocked(selectedRow)) rememberTyped(selectedRow, html);
+    if (selectedRow && selectedRow.reviewLiteral !== text) {
+      if (!isSegmentBlocked(selectedRow)) rememberTyped(selectedRow, text);
       setSelectedRow((prev) => ({
         ...prev,
-        reviewLiteral: html,
+        reviewLiteral: text,
       }));
       if (!isSegmentBlocked(selectedRow)) {
-        markDraft(selectedRow.id, html);
-        scheduleLiveEvaluation(selectedRow.id, html);
+        markDraft(selectedRow.id, text);
+        scheduleLiveEvaluation(selectedRow.id, text);
       }
     }
   };

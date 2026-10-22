@@ -78,8 +78,15 @@ const CustomTextArea = ({ value, setValue, onKeyDown, dir = "ltr" }) => {
             textAlign: dir === "rtl" ? "right" : "left",
           }}
           theme="snow"
-          value={value ?? ""}
-          onChange={setValue}
+          // Plain text in and out, never HTML. As HTML, Quill 2 turned every
+          // space into a non-breaking one on output (getSemanticHTML) and its
+          // parse on load lost NBSP, double spaces and line breaks. The editor
+          // only reads its initial value: the list remounts it (key) to push
+          // new text, as with TagEditor.
+          defaultValue={{ ops: value ? [{ insert: value }] : [] }}
+          onChange={(_html, _delta, _source, editor) =>
+            setValue(editor.getText().replace(/\n$/, ""))
+          }
           modules={modules}
           onKeyDown={onKeyDown}
         />
