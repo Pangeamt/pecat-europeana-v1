@@ -18,7 +18,7 @@ import {
 } from "antd";
 import axios from "axios";
 import { createPortal } from "react-dom";
-import { ChevronDown, ChevronRight, CircleCheck, CircleX, CheckCheck, Download, FileDown, Filter, Info, LoaderCircle, LockIcon, Redo2, Save, Undo2, Search, UnlockIcon } from "lucide-react";
+import { ChevronDown, ChevronRight, CircleCheck, CircleX, CheckCheck, Download, FileDown, Filter, Info, LoaderCircle, LockIcon, Pilcrow, Redo2, Save, Undo2, Search, UnlockIcon } from "lucide-react";
 import { useParams } from "next/navigation";
 
 import React, {
@@ -56,6 +56,7 @@ import { userStore } from "@/store";
 import { getTextDirection } from "@/lib/locale-direction";
 import CustomTextArea from "../../components/CustomTextArea";
 import TagEditor from "@/components/TagEditor";
+import { WhitespaceOverlay, WhitespaceText } from "@/components/shared/whitespace";
 import {
   TagText,
   hasInlineTags,
@@ -152,6 +153,19 @@ const COLUMN_SORTERS = {
 const isConfirmed = (doc) =>
   doc?.Status === "ACCEPTED" || doc?.Status === "EDITED";
 
+const SHOW_WHITESPACE_KEY = "pecat.showWhitespace";
+
+// Search highlight and "show spaces" together: both pieces of the highlighted
+// text (match and rest) keep their whitespace marks.
+const WHITESPACE_HIGHLIGHT_TAGS = {
+  highlightTag: ({ children, highlightIndex, ...props }) => (
+    <mark {...props}>
+      <WhitespaceText text={children} />
+    </mark>
+  ),
+  unhighlightTag: ({ children }) => <WhitespaceText text={children} />,
+};
+
 // Whether the caret sits on the first ("up") or last ("down") visual line of
 // the editor: only then do the plain arrow keys leave the segment.
 const caretOnEdgeLine = (container, direction) => {
@@ -217,6 +231,36 @@ const TusList = ({ shareToken } = {}) => {
   const projectId = shareToken ? null : routeProjectId;
   const [data, setData] = useState([]);
   const [projectConfig, setProjectConfig] = useState(null);
+
+  // "Show spaces", as in Trados (button and Ctrl+Shift+8): marks every
+  // whitespace character of source and target. Remembered per browser.
+  const [showWhitespace, setShowWhitespace] = useState(false);
+  useEffect(() => {
+    try {
+      setShowWhitespace(localStorage.getItem(SHOW_WHITESPACE_KEY) === "1");
+    } catch {
+      // No storage (private window, blocked): the default stays.
+    }
+  }, []);
+  const toggleWhitespace = () =>
+    setShowWhitespace((shown) => {
+      try {
+        localStorage.setItem(SHOW_WHITESPACE_KEY, shown ? "0" : "1");
+      } catch {
+        // Not remembered: it still toggles.
+      }
+      return !shown;
+    });
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if (event.ctrlKey && event.shiftKey && event.code === "Digit8") {
+        event.preventDefault();
+        toggleWhitespace();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   // QE score filter: one rule over the QE v2 score [op+slider] — applied
   // only when the user confirms it ("Apply"). Clear resets the control to the
@@ -787,9 +831,12 @@ const TusList = ({ shareToken } = {}) => {
                     searchWords={[searchText]}
                     autoEscape
                     textToHighlight={part}
+                    {...(showWhitespace ? WHITESPACE_HIGHLIGHT_TAGS : {})}
                   />
                 )
-              : undefined
+              : showWhitespace
+                ? (part) => <WhitespaceText text={part} />
+                : undefined
           }
         />
       </div>
@@ -890,7 +937,17 @@ const TusList = ({ shareToken } = {}) => {
                   textAlign: targetDir === "rtl" ? "right" : "left",
                 }}
               >
-                {hasInlineTags(aux) ? <TagText text={aux} info={selectedRow.tagInfo} /> : stripHTML(aux)}
+                {hasInlineTags(aux) ? (
+                  <TagText
+                    text={aux}
+                    info={selectedRow.tagInfo}
+                    renderText={showWhitespace ? (part) => <WhitespaceText text={part} /> : undefined}
+                  />
+                ) : showWhitespace ? (
+                  <WhitespaceText text={stripHTML(aux)} />
+                ) : (
+                  stripHTML(aux)
+                )}
               </div>
             );
           }
@@ -903,6 +960,7 @@ const TusList = ({ shareToken } = {}) => {
               : CustomTextArea;
           return (
             <div onKeyDownCapture={handleHistoryKeys}>
+            <WhitespaceOverlay enabled={showWhitespace}>
             <Editor
               key={`${record.id}-${editorRefreshKey}`}
               dir={targetDir}
@@ -965,6 +1023,7 @@ const TusList = ({ shareToken } = {}) => {
                 }
               }}
             />
+            </WhitespaceOverlay>
             </div>
           );
         } else {
@@ -2299,6 +2358,16 @@ const TusList = ({ shareToken } = {}) => {
                   {formatSavedAt(lastSavedAt)}
                 </span>
               </Tag>
+            </Tooltip>
+            <Tooltip title={`${t("tus.whitespace.tooltip")} (Ctrl+Shift+8)`}>
+              <Button
+                size="small"
+                aria-label={t("tus.whitespace.button")}
+                aria-pressed={showWhitespace}
+                type={showWhitespace ? "primary" : "default"}
+                icon={<Pilcrow size={14} />}
+                onClick={toggleWhitespace}
+              />
             </Tooltip>
             <Tooltip
               title={

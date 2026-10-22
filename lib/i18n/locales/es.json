@@ -447,6 +447,10 @@
       "filtered": "Del filtro aplicado / del documento",
       "all": "Todo el documento"
     },
+    "whitespace": {
+      "button": "Mostrar espacios",
+      "tooltip": "Mostrar espacios, como en Trados: · espacio normal, ° espacio de no separación, ∘ otros espacios, → tabulador"
+    },
     "bulk": {
       "button": "Confirmar todo",
       "tooltipFiltered": "Confirma los {count} segmentos sin revisar del filtro aplicado",

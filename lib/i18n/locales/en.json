@@ -447,6 +447,10 @@
       "filtered": "In the current filter / in the document",
       "all": "Whole document"
     },
+    "whitespace": {
+      "button": "Show spaces",
+      "tooltip": "Show spaces, as in Trados: · normal space, ° non-breaking space, ∘ other spaces, → tab"
+    },
     "bulk": {
       "button": "Confirm all",
       "tooltipFiltered": "Confirms the {count} unreviewed segments of the current filter",
