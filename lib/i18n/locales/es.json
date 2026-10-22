@@ -447,6 +447,32 @@
       "filtered": "Del filtro aplicado / del documento",
       "all": "Todo el documento"
     },
+    "lockBulk": {
+      "lock": {
+        "button": "Bloquear filtrados",
+        "tooltipFiltered": "Bloquea los {count} segmentos sin bloquear del filtro aplicado (como en Trados; Ctrl+L bloquea el segmento actual)",
+        "tooltipAll": "Bloquea los {count} segmentos sin bloquear del documento (Ctrl+L bloquea el segmento actual)",
+        "title": "¿Bloquear {count} segmentos?",
+        "contentFiltered": "Se bloquearán los segmentos sin bloquear que muestra el filtro. Nadie podrá editarlos hasta que se desbloqueen. No cambia ni el texto ni el estado. Se puede deshacer.",
+        "contentAll": "Se bloquearán todos los segmentos sin bloquear del documento. Nadie podrá editarlos hasta que se desbloqueen. No cambia ni el texto ni el estado. Se puede deshacer.",
+        "ok": "Bloquear {count}",
+        "none": "No hay segmentos sin bloquear en la lista",
+        "done": "{done} segmentos bloqueados",
+        "someFailed": "{done} bloqueados; {failed} no se pudieron bloquear"
+      },
+      "unlock": {
+        "button": "Desbloquear filtrados",
+        "tooltipFiltered": "Desbloquea los {count} segmentos bloqueados del filtro aplicado (los bloqueados en el fichero de origen no; uno a uno sí)",
+        "tooltipAll": "Desbloquea los {count} segmentos bloqueados del documento (los bloqueados en el fichero de origen no; uno a uno sí)",
+        "title": "¿Desbloquear {count} segmentos?",
+        "contentFiltered": "Se desbloquearán los segmentos bloqueados que muestra el filtro, salvo los bloqueados en el fichero de origen. No cambia ni el texto ni el estado. Se puede deshacer.",
+        "contentAll": "Se desbloquearán los segmentos bloqueados del documento, salvo los bloqueados en el fichero de origen. No cambia ni el texto ni el estado. Se puede deshacer.",
+        "ok": "Desbloquear {count}",
+        "none": "No hay segmentos que desbloquear en la lista",
+        "done": "{done} segmentos desbloqueados",
+        "someFailed": "{done} desbloqueados; {failed} no se pudieron desbloquear"
+      }
+    },
     "whitespace": {
       "button": "Mostrar espacios",
       "tooltip": "Mostrar espacios, como en Trados: · espacio normal, ° espacio de no separación, ∘ otros espacios, → tabulador"
@@ -509,6 +535,8 @@
       "action": {
         "approve": "confirmar",
         "approve_all": "confirmar todo",
+        "lock_all": "bloquear filtrados",
+        "unlock_all": "desbloquear filtrados",
         "reject": "rechazar",
         "save_draft": "guardar borrador",
         "lock": "bloquear",

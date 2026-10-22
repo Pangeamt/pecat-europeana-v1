@@ -9,6 +9,7 @@ export {
   updateTuStatusByShareTokenService,
   confirmTusInBulkService,
   confirmTusInBulkByShareTokenService,
+  lockTusInBulkService,
 } from "./service";
 
-export { bulkConfirmTusSchema, evaluateTuSchema, updateTuSchema } from "./schemas";
+export { bulkConfirmTusSchema, bulkLockTusSchema, evaluateTuSchema, updateTuSchema } from "./schemas";
