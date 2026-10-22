@@ -13,7 +13,7 @@ import {
 import { describeTagIssue, tagIssue } from "../documents/tag-check";
 import { isSpliceFormat } from "../../lib/utils";
 import { buildTuRevisions, revisionActionOf } from "../../lib/tu-revision";
-import { mapWithLimit, planBulkConfirm } from "../../lib/bulk-confirm";
+import { mapWithLimit, planBulkConfirm, planBulkLock } from "../../lib/bulk-confirm";
 import { keepReviewerSpaces } from "../../lib/whitespace";
 import {
   createTuRevisions,
@@ -594,6 +594,42 @@ export async function confirmTusInBulkService(payload, actorUser) {
     id: actorUser?.id ?? null,
     name: actorUser?.name || actorUser?.email || null,
   });
+}
+
+// "Lock / unlock the filtered segments", as Trados does (filter, select what
+// is shown, Ctrl+L). ADMIN/SUPER only, like the single lock. Each segment
+// goes through the single lock's save (its own history row, no propagation);
+// the ones already as asked are skipped. Answers { updated, failed, skipped }.
+export async function lockTusInBulkService(payload, actorUser) {
+  if (!["ADMIN", "SUPER"].includes(actorUser?.role)) {
+    throw new HttpError(403, "Only admins can lock or unlock segments");
+  }
+  const document = await findDocumentForTus(payload.documentId, actorUser);
+  if (!document) {
+    throw new HttpError(404, "Document not found");
+  }
+  assertActorMayEditDocument(document, actorUser);
+  const reviewer = {
+    id: actorUser?.id ?? null,
+    name: actorUser?.name || actorUser?.email || null,
+  };
+  const rows = await findTusByDocumentId(document.id);
+  const { jobs, failed, skipped } = planBulkLock(payload.items, rows, payload.action);
+  const updated = [];
+  await mapWithLimit(jobs, BULK_CONFIRM_CONCURRENCY, async (tu) => {
+    try {
+      const result = await applyTuStatusUpdate(tu, { tuId: tu.id, action: payload.action }, reviewer);
+      updated.push(result.tu);
+    } catch (error) {
+      console.error(`[tus] bulk ${payload.action} failed for ${tu.id}:`, error?.message ?? error);
+      failed.push({
+        tuId: tu.id,
+        code: error?.code ?? "SAVE_FAILED",
+        message: error?.message ?? "The segment could not be saved",
+      });
+    }
+  });
+  return { updated, failed, skipped };
 }
 
 // Same as above for the public "share as translator" link (the token names
