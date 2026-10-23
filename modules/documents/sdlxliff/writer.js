@@ -104,8 +104,12 @@ const STATE = {
 };
 
 // XLIFF 2.x has four states, on <segment> (initial | translated | reviewed | final).
+// A confirmed segment leaves as "translated", like 1.2 and SDLXLIFF: "reviewed"
+// is a review approval nobody gave, and Trados maps it to Translation Approved,
+// which its XLIFF file type locks by default (RWS docs, XLIFF settings). The
+// lock is only for what PECAT locked ("final", see lockedInPecat).
 const STATE_V2 = {
-  approved: "reviewed",
+  approved: "translated",
   rejected: "initial",
   tm: "translated",
   mt: "translated",

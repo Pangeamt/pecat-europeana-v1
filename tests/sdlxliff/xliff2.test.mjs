@@ -109,7 +109,9 @@ test("escritor 2.x: la traduccion del cliente no se pisa; revisada solo cambia e
   assert.equal(report.written, 0);
   assert.equal(report.skippedLocked, 1);
   assert.match(text, /<segment state="translated"><source>Save<\/source><target>Enregistrer<\/target>/, "intacta");
-  assert.match(text, /<segment state="reviewed"><source>Open<\/source>/, "aprobada: reviewed");
+  // Confirmed = "translated" (editable), as 1.2 and SDLXLIFF: "reviewed" would
+  // open in Trados as Translation Approved, locked by default.
+  assert.match(text, /<segment state="translated"><source>Open<\/source>/, "confirmada: translated");
   assert.match(text, /<segment state="reviewed"><source>Exit<\/source><target>Quitter<\/target>/, "bloqueada: igual");
 });
 
