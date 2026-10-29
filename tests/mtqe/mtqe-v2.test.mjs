@@ -309,7 +309,7 @@ test("MTQE v2: lo unico que no viaja es lo que el servicio no puede recibir: una
   assert.deepEqual(glossaryReferences([...rotas, { source: "a", target: "b" }]), [{ source: "a", target: "b" }]);
 });
 
-test("MTQE v2: el cuerpo con referencias lleva las instrucciones del perfil como translation_instructions", () => {
+test("MTQE v2: el cuerpo con referencias lleva las instrucciones del perfil como instructions y como translation_instructions", () => {
   const body = buildReferencesBody({
     segments: [
       {
@@ -340,10 +340,11 @@ test("MTQE v2: el cuerpo con referencias lleva las instrucciones del perfil como
     target_language: "es-es",
     ape: false,
     daait_pre_translation: true,
+    // module-mtqe 2.2 (vsgpu02) solo lee `instructions`; service-mtqe 2.0 (7000) leía `translation_instructions`.
+    instructions: "Tutea al lector.",
     translation_instructions: "Tutea al lector.",
   });
   assert.equal("tm_id" in body, false, "en este contrato no viajan ids");
-  assert.equal("instructions" in body, false, "ese nombre es el del contrato de ids");
 });
 
 test("MTQE v2: con referencias en texto se dice siempre que la traduccion es de DAAIT (daait_pre_translation: true)", () => {
