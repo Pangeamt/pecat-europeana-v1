@@ -297,7 +297,6 @@ function buildReviewUpdate(tu, result, settings, { ordered = false } = {}) {
 
   const meta = {
     final_status: finalStatus,
-    d_score: result?.d_score ?? null,
     llm_used: result?.llm_used ?? null,
     fallback_llm: result?.fallback_llm ?? null,
     missed_terms: result?.missed_terms ?? [],
@@ -368,7 +367,6 @@ export async function reviewDraftSegment({
     alignments: [pair],
     memory_ids: tmIds,
     glossary_ids: glossaryIds,
-    use_term_score: true,
     document_id: documentId,
     workspace_id: workspaceId,
     last_batch: true,
@@ -394,7 +392,6 @@ export async function reviewDraftSegment({
 
   const meta = {
     final_status: finalStatus,
-    d_score: result?.d_score ?? null,
     llm_used: result?.llm_used ?? null,
     missed_terms: result?.missed_terms ?? [],
     detected_terms: result?.detected_terms ?? [],
@@ -416,7 +413,7 @@ export async function reviewDraftSegment({
 }
 
 /**
- * Stage 3+4 — LLM review via DAAIT /content/post_edit (use_term_score on).
+ * Stage 3+4 — LLM review via DAAIT /content/post_edit.
  * Routing gate: only segments whose QE v2 score is below the document's
  * mtqeThreshold (or without score) are sent — the LLM is paid only where QE
  * doubts. Runs after READY;
@@ -516,7 +513,6 @@ export async function handleLlmReviewJob({ projectId: documentId }) {
         })),
         memory_ids: tmIds,
         glossary_ids: glossaryIds,
-        use_term_score: true,
         document_id: documentId,
         workspace_id: document.workspaceId,
         last_batch: i + POST_EDIT_BATCH_SIZE >= candidates.length,
