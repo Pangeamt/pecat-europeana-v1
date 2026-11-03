@@ -287,7 +287,7 @@ model Tu {
   suggestionLiteral       String?   @db.Text
   /// PENDING | APPLIED | DISCARDED
   suggestionStatus        String?
-  /// { llm_used, fallback_llm, d_score, final_status, missed_terms,
+  /// { llm_used, fallback_llm, final_status, missed_terms,
   ///   detected_terms, tokens } from the post-edit response.
   suggestionMeta          Json?
   /// Raw DAAITResultStatus for the segment (debugging / retry decisions).

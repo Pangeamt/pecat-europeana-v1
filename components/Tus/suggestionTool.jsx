@@ -153,9 +153,6 @@ const SuggestionTool = ({
                 {segment.suggestionStatus}
               </Tag>
             ) : null}
-            {typeof meta.d_score === "number" ? (
-              <Tag color="blue">term score {meta.d_score.toFixed(2)}</Tag>
-            ) : null}
             {meta.llm_used ? <Tag>{meta.llm_used}</Tag> : null}
           </Space>
         </>
