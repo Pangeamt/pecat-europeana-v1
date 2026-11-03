@@ -31,6 +31,13 @@ import { exportTarget, isApproved } from "../export-target.js";
 // that a Tikal round trip does NOT give the file back (it fills empty targets
 // with the source, mangles non-ASCII without -ie/-oe UTF-8 and reformats);
 // this one changes only our targets.
+// An SDLXLIFF unit with NO <mrk mtype="seg"> (a file that was never segmented
+// in Studio, e.g. P_2026_1600 of 2026-11-03) is the one exception to rule 2:
+// Studio segments such a unit itself when its target is empty, but a unit
+// that comes back with its target filled and no segment marks is not shown at
+// all (the editor opened empty). So the writer segments it the way Trados
+// does: one <mrk mtype="seg" mid> per sentence in <seg-source> and <target>,
+// and one <sdl:seg> per segment in a new <sdl:seg-defs>.
 // Not copied from MFT: its two known gaps (overwriting client translations,
 // losing human edits of tagged segments) -- see the comparison doc.
 
@@ -258,6 +265,89 @@ function assertWellFormed(text) {
   }).parseFromString(body, "text/xml");
 }
 
+const SDL_NS = "http://sdl.com/FileTypes/SdlXliff/1.0";
+
+/** The prefix the file gives the SDL namespace ("sdl"), or null when it is not an SDLXLIFF. */
+function sdlPrefix(raw) {
+  const at = raw.indexOf(SDL_NS);
+  if (at === -1) return null;
+  const m = /xmlns:([A-Za-z_][\w.-]*)\s*=\s*["']$/.exec(raw.slice(Math.max(0, at - 200), at));
+  return m ? m[1] : null;
+}
+
+/** First segment id not used in the file (Trados numbers mids across the whole file). */
+function firstFreeMid(index) {
+  let max = 0;
+  for (const unit of index.units) {
+    for (const id of [...unit.sourceMrks.keys(), ...unit.targetMrks.keys(), ...unit.sdlSegs.keys()]) {
+      const n = Number(id);
+      if (Number.isInteger(n) && n > max) max = n;
+    }
+  }
+  return max + 1;
+}
+
+/**
+ * Writes an SDLXLIFF unit that has no segment marks the way Trados segments it:
+ * <seg-source> and <target> get one <mrk mtype="seg" mid> per sentence (edge
+ * codes and outer whitespace stay outside, as Trados leaves them), and a new
+ * <sdl:seg-defs> right after the target holds each segment's status. Returns
+ * false (and counts why) when the unit cannot be written safely.
+ */
+function segmentSdlUnit({ raw, eol, sdl, unit, coded, sentences, edge, rows, translations, splices, report, mid }) {
+  const segSource = unit.segSource;
+  const ss = codeSource(segSource);
+  // The sentences were cut from <source>: <seg-source> must say the same.
+  if (ss.coded.trim() !== coded.trim() || unit.segDefs) {
+    report.noPlace += rows.length;
+    return false;
+  }
+  const mrkName = segSource.name.replace(/seg-source$/, "mrk");
+  const targetName = segSource.name.replace(/seg-source$/, "target");
+  const mids = rows.map(() => mid());
+  const seg = (m, body) => `<${mrkName} mtype="seg" mid="${m}">${body}</${mrkName}>`;
+  const { lead, trail } = edges(segSource);
+  const side = (texts) =>
+    lead +
+    buildInner(edge.lead, ss.codes, raw, eol) +
+    sentences.map((sentence, i) => sentence.gap + seg(mids[i], buildInner(texts[i], ss.codes, raw, eol))).join("") +
+    buildInner(edge.trail, ss.codes, raw, eol) +
+    trail;
+  const sourceInner = side(sentences.map((sentence) => sentence.text));
+  const targetInner = side(translations);
+  // Tags with lockTU references would need their own copies (rule 5): not done
+  // here, the unit is left as it was.
+  if (lockTuXids(targetInner).length) {
+    report.skippedLockTu += rows.length;
+    return false;
+  }
+  const locked = rows.filter((tu) => lockedInPecat(tu)).length;
+  const segDefs =
+    `<${sdl}:seg-defs>` +
+    rows
+      .map((tu, i) => {
+        const attrs = lockedInPecat(tu) ? { ...confFor(tu, true), locked: "true" } : confFor(tu, true);
+        return setAttributes(`<${sdl}:seg id="${mids[i]}"/>`, attrs);
+      })
+      .join("") +
+    `</${sdl}:seg-defs>`;
+  report.lockWritten += locked;
+
+  splices.push({ start: segSource.openEnd, end: segSource.closeStart, text: sourceInner });
+  const target = unit.target;
+  if (!target) {
+    splices.push({ start: segSource.end, end: segSource.end, text: `<${targetName}>${targetInner}</${targetName}>${segDefs}` });
+    report.targetCreated++;
+  } else if (target.selfClosing) {
+    const open = raw.slice(target.start, target.end).replace(/\s*\/>$/, ">");
+    splices.push({ start: target.start, end: target.end, text: `${open}${targetInner}</${target.name}>${segDefs}` });
+  } else {
+    splices.push({ start: target.openEnd, end: target.closeStart, text: targetInner });
+    splices.push({ start: target.end, end: target.end, text: segDefs });
+  }
+  return true;
+}
+
 /**
  * @param raw  original file text (as read with "utf8": BOM kept)
  * @param tus  Tu rows: { externalId, srcLiteral, translatedLiteral, reviewLiteral, Status, blockReason }
@@ -284,10 +374,16 @@ export function writeSdlxliff(raw, tus) {
     // Units cut into sentences with only SOME sentences locked in PECAT: one
     // <target>, one state, so the unit cannot be locked (left unlocked).
     lockMixed: 0,
+    // Segments of SDLXLIFF units that arrived without segment marks, written
+    // with the marks Trados needs to show them.
+    segmentedForTrados: 0,
   };
   const splices = [];
   // Units the import cut into sentences (segmenter.js): unit -> mid -> tu.
   const sentenceUnits = new Map();
+  const sdl = sdlPrefix(raw);
+  const unsegmented = (unit) => sdl !== null && !unit.v2 && Boolean(unit.segSource) && unit.sourceMrks.size === 0;
+  let nextMid = sdl !== null ? firstFreeMid(index) : 0;
 
   for (const tu of tus) {
     if (!tu.externalId) continue;
@@ -296,6 +392,12 @@ export function writeSdlxliff(raw, tus) {
     // unitById as a fallback: documents imported before multi-<file> keys.
     const unit = index.unitByKey.get(unitKey) ?? index.unitById.get(unitKey);
     const mid = sep === -1 ? null : tu.externalId.slice(sep + 2);
+    if (unit && unsegmented(unit) && (mid === null || isVirtualMid(mid))) {
+      // SDLXLIFF without segment marks: written whole, with the marks (see top).
+      if (!sentenceUnits.has(unit)) sentenceUnits.set(unit, new Map());
+      sentenceUnits.get(unit).set(mid ?? virtualMid(0), tu);
+      continue;
+    }
     if (unit && isVirtualMid(mid) && unit.sourceMrks.size === 0) {
       // Collected even with no text yet: the unit is written whole or not at all.
       if (!sentenceUnits.has(unit)) sentenceUnits.set(unit, new Map());
@@ -534,6 +636,15 @@ export function writeSdlxliff(raw, tus) {
     );
     if (!tagsKept) {
       report.skippedTags += texts.length;
+      continue;
+    }
+    if (unsegmented(unit)) {
+      const done = segmentSdlUnit({ raw, eol, sdl, unit, coded, sentences, edge, rows, translations, splices, report, mid: () => String(nextMid++) });
+      if (done) {
+        report.written += rows.length;
+        report.confirmed += rows.length;
+        report.segmentedForTrados += rows.length;
+      }
       continue;
     }
     const { lead, trail } = edges(unit.source);
