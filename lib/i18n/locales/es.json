@@ -410,14 +410,14 @@
       "targetRequired": "Selecciona un idioma de destino",
       "targetDiffers": "El destino debe ser distinto del origen",
       "dropText": "Suelta el archivo TMX o examina",
-      "dropHint": "Solo TMX. Tamaño máximo 100 MB.",
+      "dropHint": "Solo TMX. Tamaño máximo 200 MB.",
       "completeText": "Completa los campos obligatorios para subir",
       "completeHint": "Nombre, origen y destino son obligatorios (y deben diferir).",
       "uploadSuccess": "Archivo {name} subido correctamente",
       "uploadError": "Error al subir el archivo {name}.",
       "validateFields": "Completa nombre, origen y destino antes de subir.",
       "sameLanguage": "El origen y el destino deben ser distintos.",
-      "tooLarge": "Los archivos deben ser menores de 100 MB",
+      "tooLarge": "Los archivos deben ser menores de 200 MB",
       "invalidType": "Tipo de archivo no admitido"
     }
   },

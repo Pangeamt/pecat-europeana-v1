@@ -410,14 +410,14 @@
       "targetRequired": "Please select a target language",
       "targetDiffers": "Target must differ from source",
       "dropText": "Drop TMX file or browse",
-      "dropHint": "TMX only. Maximum file size 100MB.",
+      "dropHint": "TMX only. Maximum file size 200MB.",
       "completeText": "Complete required fields to upload",
       "completeHint": "Name, source and target are required (and must differ).",
       "uploadSuccess": "{name} file uploaded successfully",
       "uploadError": "{name} file upload failed.",
       "validateFields": "Complete name, source and target before uploading.",
       "sameLanguage": "Source and target must be different.",
-      "tooLarge": "Files must smaller than 100MB",
+      "tooLarge": "Files must smaller than 200MB",
       "invalidType": "File type not supported"
     }
   },
