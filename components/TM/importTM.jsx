@@ -89,7 +89,7 @@ const ImportTmButton = ({ refetch }) => {
         return Upload.LIST_IGNORE;
       }
 
-      const isLt = file.size / 1024 / 1024 < 100;
+      const isLt = file.size / 1024 / 1024 < 200;
       if (!isLt) {
         message.error(t("tms.import.tooLarge"));
         return Upload.LIST_IGNORE;
