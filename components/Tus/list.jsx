@@ -819,8 +819,10 @@ const TusList = ({ shareToken } = {}) => {
     },
     // Inline-code placeholders (<g1>, <x2/>…) render as chips, never as raw
     // text; the search highlight applies only to the text between them.
+    // pre-wrap: a line break inside the segment is shown as a new line, as
+    // Trados does, with "Show spaces" on or off.
     render: (text, record) => (
-      <div style={{ wordWrap: "break-word", wordBreak: "break-word" }}>
+      <div style={{ wordWrap: "break-word", wordBreak: "break-word", whiteSpace: "pre-wrap" }}>
         <TagText
           info={record?.tagInfo}
           text={text ? text.toString() : ""}
@@ -935,6 +937,7 @@ const TusList = ({ shareToken } = {}) => {
                 style={{
                   wordWrap: "break-word",
                   wordBreak: "break-word",
+                  whiteSpace: "pre-wrap",
                   textAlign: targetDir === "rtl" ? "right" : "left",
                 }}
               >
