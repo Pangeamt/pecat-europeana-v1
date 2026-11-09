@@ -65,13 +65,18 @@ export const CONF = {
 
 const LOCKTU_XID_RE = /\bxid\s*=\s*("lockTU_[^"]*"|'lockTU_[^']*')/g;
 
-function escapeText(text, eol) {
+// A line break INSIDE a segment is always written as LF, whatever the file's
+// own line endings are (the CRLF of the file structure stays where it is).
+// Trados reads a CR in a target as a different character (¶ instead of ↵),
+// and Excel/Word get it in the cell: an export with "\r\n" where the source
+// has "\n" was delivered on 2026-11-06 (Leginda P_2026_1627).
+export function escapeText(text) {
   return text
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
-    .replace(/\r?\n/g, eol);
+    .replace(/\r\n?/g, "\n");
 }
 
 function escapeAttr(value) {
@@ -194,7 +199,7 @@ function buildInner(coded, codes, raw, eol) {
   const selfClosedG = new Set();
   for (const match of coded.matchAll(new RegExp(TOKEN_RE.source, "g"))) {
     const [full, closing, letter, num, selfClosing] = match;
-    out += escapeText(coded.slice(last, match.index), eol);
+    out += escapeText(coded.slice(last, match.index));
     last = match.index + full.length;
     const key = letter + num;
     const node = codes.get(key);
@@ -215,7 +220,7 @@ function buildInner(coded, codes, raw, eol) {
       out += raw.slice(node.start, node.end);
     }
   }
-  out += escapeText(coded.slice(last), eol);
+  out += escapeText(coded.slice(last));
   return out;
 }
 
