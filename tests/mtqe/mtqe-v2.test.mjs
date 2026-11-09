@@ -17,6 +17,7 @@ import {
   buildScoreSegmentsBody,
   chunkSegments,
   glossaryReferences,
+  isSyncReferencesEndpoint,
   jobDownloadUrl,
   jobStatusUrl,
   mtqeBaseUrl,
@@ -26,6 +27,7 @@ import {
   runReferencesJob,
   scoreResults,
   scoreSegmentsUrl,
+  textResourcesUrl,
   tmReferences,
   toUnitScores,
 } from "../../lib/mtqe-v2.js";
@@ -197,6 +199,7 @@ test("MTQE v2: por defecto score-segments (lo que ya corria); los otros dos cont
     SEGMENTS: "score-segments",
     REFERENCES: "score-with-references",
     REFERENCES_JOB: "jobs/score-with-references",
+    TEXT_RESOURCES: "score-with-text-resources",
   });
   for (const raw of [undefined, null, "", "score-segments", " /Score-Segments/ ", "otra-cosa", "score"]) {
     assert.equal(mtqeEndpoint(raw), "score-segments", `valor ${JSON.stringify(raw)}`);
@@ -217,6 +220,23 @@ test("MTQE v2: /score-with-references sincrono cuelga de la base, tambien con el
   assert.equal(referencesUrl(`${base}/score-with-references`), `${base}/score-with-references`);
   assert.equal(referencesUrl(`${base}/`), `${base}/score-with-references`);
   assert.equal(referencesUrl(""), "");
+});
+
+// module-mtqe 2.2.2 (vsgpu02, leido de su /mtqe/v2/openapi.json el 2026-11-09): el mismo contrato
+// sincrono con referencias en texto se llama POST <base>/score-with-text-resources.
+test("MTQE v2: score-with-text-resources se elige por MTQE_V2_ENDPOINT y cuelga de la base", () => {
+  for (const raw of ["score-with-text-resources", "/score-with-text-resources/", " Score-With-Text-Resources "]) {
+    assert.equal(mtqeEndpoint(raw), "score-with-text-resources", `valor ${JSON.stringify(raw)}`);
+  }
+  assert.equal(textResourcesUrl(BASE), `${BASE}/score-with-text-resources`);
+  assert.equal(textResourcesUrl(`${BASE}/score-with-text-resources`), `${BASE}/score-with-text-resources`);
+  assert.equal(textResourcesUrl(`${BASE}/score-with-references`), `${BASE}/score-with-text-resources`);
+  assert.equal(mtqeBaseUrl(`${BASE}/score-with-text-resources`), BASE);
+  assert.equal(textResourcesUrl(""), "");
+  assert.equal(isSyncReferencesEndpoint("score-with-text-resources"), true);
+  assert.equal(isSyncReferencesEndpoint("score-with-references"), true);
+  assert.equal(isSyncReferencesEndpoint("score-segments"), false);
+  assert.equal(isSyncReferencesEndpoint("jobs/score-with-references"), false);
 });
 
 test("MTQE v2: las notas se leen igual vengan en una lista o dentro de results", () => {
