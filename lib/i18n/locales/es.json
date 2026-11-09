@@ -476,7 +476,7 @@
     },
     "whitespace": {
       "button": "Mostrar espacios",
-      "tooltip": "Mostrar espacios, como en Trados: · espacio normal, ° espacio de no separación, ∘ otros espacios, → tabulador"
+      "tooltip": "Mostrar espacios, como en Trados: · espacio normal, ° espacio de no separación, ∘ otros espacios, → tabulador, ↵ salto de línea, ¶ retorno de carro"
     },
     "bulk": {
       "button": "Confirmar todo",

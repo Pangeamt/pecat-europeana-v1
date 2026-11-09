@@ -476,7 +476,7 @@
     },
     "whitespace": {
       "button": "Show spaces",
-      "tooltip": "Show spaces, as in Trados: · normal space, ° non-breaking space, ∘ other spaces, → tab"
+      "tooltip": "Show spaces, as in Trados: · normal space, ° non-breaking space, ∘ other spaces, → tab, ↵ line break, ¶ carriage return"
     },
     "bulk": {
       "button": "Confirm all",
