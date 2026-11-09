@@ -431,6 +431,45 @@ svg.lucide {
     z-index: 2;
 }
 
+/* Line breaks (↵ LF, ¶ CR): a break has no width to draw over, so its mark
+   takes its own room right after the text, centred on the line, instead of
+   sitting on the last letter. */
+.ws-break.ws-mark::after,
+.ws-cr.ws-mark::after {
+    content: none;
+}
+
+.ws-break.ws-mark::before,
+.ws-cr.ws-mark::before {
+    content: attr(data-mark);
+    display: inline-block;
+    margin: 0 0.15em 0 0.1em;
+    line-height: 1;
+    /* the arrows sit low in the font: lift them to the middle of the letters */
+    vertical-align: 0.12em;
+    color: #3b82f6;
+    font-weight: 700;
+    pointer-events: none;
+    user-select: none;
+}
+
+/* A CR only shows its ¶: the line breaks once, at the LF that follows. The
+   CR itself collapses to a space; the negative margin takes that space back. */
+.ws-cr.ws-mark {
+    white-space: normal;
+}
+
+.ws-cr.ws-mark::before {
+    vertical-align: 0;
+    margin-right: -0.25em;
+}
+
+/* In the editor the mark cannot take room: it starts at the break. */
+.ws-break.ws-overlay-mark,
+.ws-cr.ws-overlay-mark {
+    transform: translateX(0.1em);
+}
+
 .ws-nbsp.ws-mark::after,
 .ws-nbsp.ws-overlay-mark {
     color: #ea580c;
