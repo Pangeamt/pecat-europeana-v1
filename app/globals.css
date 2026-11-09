@@ -402,7 +402,7 @@ svg.lucide {
 
 /* "Show spaces" (components/shared/whitespace.jsx): marks drawn over the
    text, never in it. · space, ° non-breaking (orange: the one that must be
-   seen), ∘ other spaces, → tab, ↵ line break. */
+   seen), ∘ other spaces, → tab, ↵ line break, ¶ carriage return. */
 .ws-mark {
     position: relative;
     /* every space keeps its own width: a double space shows two marks */
