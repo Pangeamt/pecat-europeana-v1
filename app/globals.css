@@ -485,3 +485,8 @@ svg.lucide {
 .ws-other.ws-overlay-mark {
     color: #9333ea;
 }
+
+/* TM match picked with Alt+PageUp / Alt+PageDown (Ctrl+Shift+A applies it). */
+.ant-table-row.tm-picked > td {
+    background-color: #e6f4ff !important;
+}

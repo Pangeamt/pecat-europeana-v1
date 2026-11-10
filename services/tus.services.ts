@@ -204,6 +204,26 @@ export const lockTusBulk = async (payload: {
   });
 };
 
+// Bulk edit of a list of segments in one request: "replace" (find and
+// replace), "copy_source" or "clear" (no text). With the share token when
+// there is one.
+export const replaceTusBulk = async (
+  payload: {
+    documentId: string;
+    kind?: "replace" | "copy_source" | "clear";
+    items: { tuId: string; reviewLiteral?: string }[];
+  },
+  shareToken?: string | null,
+): Promise<AxiosResponse<BulkConfirmResult & { skipped: number }>> => {
+  const { documentId, ...rest } = payload;
+  return await httpClient({
+    method: "post",
+    url: shareToken ? `/api/share/tu/${shareToken}/tus/bulk-edit` : "/api/tus/bulk-edit",
+    data: shareToken ? rest : { documentId, ...rest },
+    timeout: 300000,
+  });
+};
+
 export const appendTuByShareToken = async (
   token: string,
   payload: tuAppendPayload,
