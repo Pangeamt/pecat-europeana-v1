@@ -1,5 +1,5 @@
 "use client";
-// Dialogs behind the Trados shortcuts of the segment editor (see
+// Dialogs behind the keyboard shortcuts of the segment editor (see
 // lib/trados-shortcuts.js and components/Tus/list.jsx): the shortcut list,
 // Verify (F8), Concordance search (F3) and Go to (Ctrl+G). Presentation only.
 import { Button, Empty, Input, List, Modal, Spin, Table, Tag } from "antd";
@@ -9,9 +9,7 @@ import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { TagText } from "@/components/shared/inline-tags";
 import { TRADOS_SHORTCUTS } from "@/lib/trados-shortcuts";
 
-const GROUPS = ["translate", "find", "tm", "segments", "navigation", "symbols"];
-
-// PECAT-E's own shortcuts (not in Trados' list).
+// Shortcuts the editor already had before this list.
 const OWN = [
   { id: "reject", keys: "Ctrl+Shift+Enter" },
   { id: "save", keys: "Ctrl+S" },
@@ -19,47 +17,26 @@ const OWN = [
   { id: "whitespace", keys: "Ctrl+Shift+8" },
 ];
 
+// One list with only the shortcuts that work in PECAT-E (the ones that do
+// not apply are never shown).
 export function ShortcutsHelpModal({ open, onClose }) {
   const { t } = useTranslation();
-  const rows = (group) =>
-    TRADOS_SHORTCUTS.filter((s) => s.group === group).map((s) => ({
+  const rows = [
+    ...TRADOS_SHORTCUTS.filter((s) => s.supported).map((s) => ({
       key: s.id,
       keys: s.keys,
       label: t(`tus.shortcuts.action.${s.id}`),
-      supported: s.supported,
-    }));
+    })),
+    ...OWN.map((s) => ({ key: s.id, keys: s.keys, label: t(`tus.shortcuts.own.${s.id}`) })),
+  ];
   const columns = [
-    { title: t("tus.shortcuts.keys"), dataIndex: "keys", width: 230, render: (v) => <code className="text-xs">{v}</code> },
+    { title: t("tus.shortcuts.keys"), dataIndex: "keys", width: 260, render: (v) => <code className="text-xs">{v}</code> },
     { title: t("tus.shortcuts.what"), dataIndex: "label" },
-    {
-      title: "",
-      dataIndex: "supported",
-      width: 130,
-      render: (v) =>
-        v ? (
-          <Tag color="green" bordered={false}>{t("tus.shortcuts.yes")}</Tag>
-        ) : (
-          <Tag bordered={false}>{t("tus.shortcuts.no")}</Tag>
-        ),
-    },
   ];
   return (
-    <Modal open={open} onCancel={onClose} footer={null} width={820} title={t("tus.shortcuts.title")}>
-      <p className="mb-3 text-xs text-slate-500">{t("tus.shortcuts.intro")}</p>
-      <div style={{ maxHeight: "65vh", overflowY: "auto" }} data-testid="shortcuts-help">
-        {GROUPS.map((group) => (
-          <div key={group} className="mb-4">
-            <h4 className="mb-1 text-sm font-semibold">{t(`tus.shortcuts.group.${group}`)}</h4>
-            <Table size="small" pagination={false} columns={columns} dataSource={rows(group)} />
-          </div>
-        ))}
-        <h4 className="mb-1 text-sm font-semibold">{t("tus.shortcuts.group.own")}</h4>
-        <Table
-          size="small"
-          pagination={false}
-          columns={columns.slice(0, 2)}
-          dataSource={OWN.map((s) => ({ key: s.id, keys: s.keys, label: t(`tus.shortcuts.own.${s.id}`) }))}
-        />
+    <Modal open={open} onCancel={onClose} footer={null} width={760} title={t("tus.shortcuts.title")}>
+      <div style={{ maxHeight: "70vh", overflowY: "auto" }} data-testid="shortcuts-help">
+        <Table size="small" pagination={false} columns={columns} dataSource={rows} />
       </div>
     </Modal>
   );

@@ -451,7 +451,7 @@
       "fileLocked": "Bloqueado en el fichero del cliente: se queda como viene, no se puede desbloquear",
       "lock": {
         "button": "Bloquear filtrados",
-        "tooltipFiltered": "Bloquea los {count} segmentos sin bloquear del filtro aplicado (como en Trados; Ctrl+L bloquea el segmento actual)",
+        "tooltipFiltered": "Bloquea los {count} segmentos sin bloquear del filtro aplicado (Ctrl+L bloquea el segmento actual)",
         "tooltipAll": "Bloquea los {count} segmentos sin bloquear del documento (Ctrl+L bloquea el segmento actual)",
         "title": "¿Bloquear {count} segmentos?",
         "contentFiltered": "Se bloquearán los segmentos sin bloquear que muestra el filtro. Nadie podrá editarlos hasta que se desbloqueen. No cambia ni el texto ni el estado. Se puede deshacer.",
@@ -476,7 +476,7 @@
     },
     "whitespace": {
       "button": "Mostrar espacios",
-      "tooltip": "Mostrar espacios, como en Trados: · espacio normal, ° espacio de no separación, ∘ otros espacios, → tabulador, ↵ salto de línea, ¶ retorno de carro"
+      "tooltip": "Mostrar espacios: · espacio normal, ° espacio de no separación, ∘ otros espacios, → tabulador, ↵ salto de línea, ¶ retorno de carro"
     },
     "bulk": {
       "button": "Confirmar todo",
@@ -577,29 +577,16 @@
       "someFailed": "Reemplazado en {done}; {failed} no se pudieron cambiar"
     },
     "shortcuts": {
-      "button": "Atajos de teclado (Trados)",
-      "title": "Atajos de teclado (los de Trados)",
-      "intro": "Los mismos atajos que Trados (lista oficial de RWS). Los marcados como «No en PECAT-E» no aplican aquí: los destinos no llevan formato y los segmentos vienen fijados del fichero.",
+      "button": "Atajos de teclado",
+      "title": "Atajos de teclado",
       "keys": "Teclas",
       "what": "Qué hace",
-      "yes": "Sí",
-      "no": "No en PECAT-E",
-      "group": {
-        "translate": "Traducir y revisar",
-        "find": "Buscar y reemplazar",
-        "tm": "Memoria de traducción",
-        "segments": "Dividir y bloquear",
-        "navigation": "Navegación",
-        "symbols": "Símbolos y caracteres especiales",
-        "own": "Propios de PECAT-E"
-      },
       "own": {
         "reject": "Rechazar el segmento",
         "save": "Guardar los borradores sin confirmar",
         "prevNextShift": "Segmento anterior / siguiente",
         "whitespace": "Mostrar espacios"
       },
-      "notAvailable": "{keys}: no disponible en PECAT-E ({label})",
       "readOnly": "El segmento no se puede editar (bloqueado o edición cerrada)",
       "reloaded": "Segmento recargado",
       "reloadFailed": "No se pudo recargar el segmento",
@@ -614,13 +601,6 @@
         "confirmNextAny": "Confirmar e ir al siguiente, esté como esté",
         "confirmStay": "Confirmar y quedarse en el segmento",
         "reload": "Recargar el segmento desde el servidor (descarta lo no guardado)",
-        "bold": "Negrita",
-        "italic": "Cursiva",
-        "underline": "Subrayado",
-        "subscript": "Subíndice",
-        "superscript": "Superíndice",
-        "smallcaps": "Versalitas",
-        "clearFormatting": "Quitar formato",
         "clearAll": "Vaciar todos los segmentos de la lista (vuelven a la traducción automática)",
         "copySource": "Copiar el origen al destino",
         "copySourceAll": "Copiar el origen al destino en los segmentos vacíos de la lista",
@@ -628,8 +608,6 @@
         "clearDrafts": "Vaciar los borradores de la lista (vuelven a la traducción automática)",
         "changeCase": "Cambiar mayúsculas/minúsculas de la selección o de la palabra",
         "smartMenu": "Insertar la siguiente etiqueta que falta",
-        "overwrite": "Modo sobrescribir",
-        "editSource": "Editar el origen",
         "verify": "Verificar el documento",
         "concordance": "Búsqueda en concordancia (texto seleccionado)",
         "concordanceTarget": "Búsqueda en concordancia del destino",
@@ -642,7 +620,6 @@
         "tmApplySelected": "Aplicar la coincidencia de memoria elegida",
         "tmApplyN": "Aplicar la coincidencia de memoria n.º 1…9",
         "tmAdd": "Añadir el segmento a la memoria",
-        "split": "Dividir el segmento",
         "lock": "Bloquear/desbloquear el segmento",
         "lockSelection": "Bloquear/desbloquear los segmentos de la lista",
         "selectAll": "Seleccionar todo el segmento",
@@ -653,7 +630,6 @@
         "lastSegment": "Último segmento de la lista",
         "undoRedo": "Deshacer / rehacer",
         "goTo": "Ir al segmento n.º…",
-        "ribbon": "Pestañas de la cinta de Trados",
         "emDash": "Raya (—)",
         "enDash": "Semirraya (–)",
         "nbHyphen": "Guion de no separación (‑)",
@@ -696,8 +672,8 @@
     },
     "copySourceAll": {
       "title": "¿Copiar el origen en {count} segmentos vacíos?",
-      "contentFiltered": "Se copiará el origen al destino en los segmentos vacíos y no bloqueados que muestra el filtro (como Trados: no se sobrescribe nada). Se puede deshacer.",
-      "contentAll": "Se copiará el origen al destino en los segmentos vacíos y no bloqueados del documento (como Trados: no se sobrescribe nada). Se puede deshacer.",
+      "contentFiltered": "Se copiará el origen al destino en los segmentos vacíos y no bloqueados que muestra el filtro (no se sobrescribe nada). Se puede deshacer.",
+      "contentAll": "Se copiará el origen al destino en los segmentos vacíos y no bloqueados del documento (no se sobrescribe nada). Se puede deshacer.",
       "ok": "Copiar en {count}",
       "none": "No hay segmentos vacíos en la lista",
       "running": "Copiando el origen… {done} de {total}",
