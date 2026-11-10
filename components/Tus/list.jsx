@@ -1904,15 +1904,10 @@ const TusList = ({ shareToken } = {}) => {
     orderedData.filter((row) => !row.block && (hasReviewerText(row) || isConfirmed(row)));
 
   const runShortcut = (shortcut, event) => {
-    if (!shortcut.supported) {
-      announce(
-        t("tus.shortcuts.notAvailable", {
-          keys: shortcut.keys,
-          label: t(`tus.shortcuts.action.${shortcut.id}`),
-        }),
-      );
-      return;
-    }
+    // Formatting, split, edit source...: they do not apply to PECAT-E targets.
+    // The key is only swallowed (Quill would otherwise apply formatting that is
+    // never saved); nothing is shown.
+    if (!shortcut.supported) return;
     if (shortcut.insert || shortcut.wrap) {
       if (!canEditSelected()) return void announce(t("tus.shortcuts.readOnly"));
       if (shortcut.wrap) wrapInEditor(shortcut.wrap);
