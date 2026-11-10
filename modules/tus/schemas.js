@@ -1,5 +1,6 @@
 import Joi from "joi";
 import { BULK_CONFIRM_MAX } from "../../lib/bulk-confirm";
+import { BULK_EDIT_KINDS } from "../../lib/find-replace";
 
 export const evaluateTuSchema = Joi.object({
   tuId: Joi.string().required(),
@@ -16,6 +17,28 @@ export const bulkConfirmTusSchema = Joi.object({
       Joi.object({
         tuId: Joi.string().required(),
         reviewLiteral: Joi.string().allow(null, "").optional(),
+      }),
+    )
+    .min(1)
+    .max(BULK_CONFIRM_MAX)
+    .required(),
+});
+
+// Bulk edit of a list of segments of ONE document, with the new text computed
+// by the editor: "replace" (find and replace), "copy_source" (copy source to
+// target) or "clear" (back to the MT, no text). Same limits as "Confirm all".
+export const bulkReplaceTusSchema = Joi.object({
+  documentId: Joi.string().optional(),
+  kind: Joi.string().valid(...BULK_EDIT_KINDS).default("replace"),
+  items: Joi.array()
+    .items(
+      Joi.object({
+        tuId: Joi.string().required(),
+        reviewLiteral: Joi.when(Joi.ref("....kind"), {
+          is: "clear",
+          then: Joi.forbidden(),
+          otherwise: Joi.string().required(),
+        }),
       }),
     )
     .min(1)

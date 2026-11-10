@@ -15,6 +15,7 @@ import { isSpliceFormat } from "../../lib/utils";
 import { buildTuRevisions, revisionActionOf } from "../../lib/tu-revision";
 import { isFileLocked, mapWithLimit, planBulkConfirm, planBulkLock } from "../../lib/bulk-confirm";
 import { keepReviewerSpaces } from "../../lib/whitespace";
+import { BULK_EDIT_KINDS, planBulkReplace, statusAfterReplace } from "../../lib/find-replace";
 import {
   createTuRevisions,
   findTuRevisions,
@@ -300,6 +301,26 @@ async function saveTuStatusUpdate(tu, payload, reviewer = null) {
           ? SUGGESTION_STATUS.APPLIED
           : SUGGESTION_STATUS.DISCARDED,
       reviewedAt: new Date(),
+    });
+    return { tu: tuUpdated, alsoUpdated: [] };
+  }
+
+  // "Replace all" (find and replace): the replaced text is saved as a draft.
+  // Only this TU (never propagated). A confirmed segment goes back to "not
+  // reviewed" -- nobody confirmed the new text, and only confirmed text
+  // reaches the exported file. The QE score is cleared instead of re-scored
+  // (a replace may touch thousands of segments): confirming re-scores it.
+  // Also "copy_source" and "clear" (no text: the segment falls back to the MT).
+  if (BULK_EDIT_KINDS.includes(action)) {
+    const text = typeof reviewLiteral === "string" ? reviewLiteral : "";
+    const tuUpdated = await updateTuById(tu.id, {
+      reviewLiteral: action === "clear" ? null : text,
+      Status: statusAfterReplace(tu.Status),
+      mtqeV2Score: null,
+      reviewedAt: new Date(),
+      ...(reviewer
+        ? { reviewedById: reviewer.id ?? null, reviewedByName: reviewer.name ?? null }
+        : {}),
     });
     return { tu: tuUpdated, alsoUpdated: [] };
   }
@@ -606,6 +627,75 @@ export async function confirmTusInBulkService(payload, actorUser) {
     id: actorUser?.id ?? null,
     name: actorUser?.name || actorUser?.email || null,
   });
+}
+
+// "Replace all" (find and replace, Ctrl+H): saves the replaced text of a LIST
+// of segments of one document. The editor computes each text (from what the
+// reviewer sees, unsaved drafts included); here each one is checked like a
+// typed text (unlocked, same inline tags) and saved with its own history row.
+// Answers { updated, failed, skipped }.
+async function replaceTusInBulk(document, items, reviewer, kind = "replace") {
+  const rows = await findTusByDocumentId(document.id);
+  const { jobs, failed, skipped } = planBulkReplace(items, rows, (tu, reviewLiteral) => {
+    try {
+      assertInlineTagsKept(tu, { action: "save_draft", reviewLiteral }, document);
+      return null;
+    } catch (error) {
+      return { code: error?.code ?? "REFUSED", message: error?.message ?? "" };
+    }
+  }, kind);
+  const updated = [];
+  await mapWithLimit(jobs, BULK_CONFIRM_CONCURRENCY, async ({ tu, reviewLiteral }) => {
+    try {
+      const result = await applyTuStatusUpdate(
+        tu,
+        { tuId: tu.id, action: kind, reviewLiteral },
+        reviewer,
+      );
+      updated.push(result.tu);
+    } catch (error) {
+      console.error(`[tus] bulk replace failed for ${tu.id}:`, error?.message ?? error);
+      failed.push({
+        tuId: tu.id,
+        code: error?.code ?? "SAVE_FAILED",
+        message: error?.message ?? "The segment could not be saved",
+      });
+    }
+  });
+  return { updated, failed, skipped };
+}
+
+export async function replaceTusInBulkService(payload, actorUser) {
+  if (!payload.documentId) {
+    throw new HttpError(400, "documentId is required");
+  }
+  const document = await findDocumentForTus(payload.documentId, actorUser);
+  if (!document) {
+    throw new HttpError(404, "Document not found");
+  }
+  assertActorMayEditDocument(document, actorUser);
+  return replaceTusInBulk(document, payload.items, {
+    id: actorUser?.id ?? null,
+    name: actorUser?.name || actorUser?.email || null,
+  }, payload.kind);
+}
+
+export async function replaceTusInBulkByShareTokenService(token, payload) {
+  const document = await findDocumentByTusShareToken(token);
+  if (!document) {
+    throw new HttpError(404, "Document not found");
+  }
+  if (document.translatorSubmittedAt) {
+    throw new HttpError(
+      409,
+      "Editing is closed: this translation was already submitted. Ask a project manager to reopen it.",
+      "SUBMISSION_LOCKED",
+    );
+  }
+  return replaceTusInBulk(document, payload.items, {
+    id: null,
+    name: "Translator link",
+  }, payload.kind);
 }
 
 // "Lock / unlock the filtered segments", as Trados does (filter, select what

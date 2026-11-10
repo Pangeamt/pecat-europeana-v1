@@ -18,7 +18,7 @@ import {
 } from "antd";
 import axios from "axios";
 import { createPortal } from "react-dom";
-import { ChevronDown, ChevronRight, CircleCheck, CircleX, CheckCheck, Download, FileDown, Filter, Info, LoaderCircle, LockIcon, Pilcrow, Redo2, Save, Undo2, Search, UnlockIcon } from "lucide-react";
+import { ChevronDown, ChevronRight, CircleCheck, CircleX, CheckCheck, Download, FileDown, Filter, Info, Keyboard, LoaderCircle, LockIcon, Pilcrow, Redo2, Replace, Save, Undo2, Search, UnlockIcon } from "lucide-react";
 import { useParams } from "next/navigation";
 
 import React, {
@@ -52,7 +52,28 @@ import {
   getTus,
   getTusByShareToken,
   lockTusBulk,
+  replaceTusBulk,
 } from "@/services/tus.services";
+import FindReplaceBar from "@/components/Tus/FindReplaceBar";
+import {
+  ConcordanceModal,
+  GoToModal,
+  ShortcutsHelpModal,
+  VerifyModal,
+} from "@/components/Tus/ShortcutPanels";
+import {
+  cycleCase,
+  indexOfSegmentNumber,
+  matchShortcut,
+  tmIndexOf,
+} from "@/lib/trados-shortcuts";
+import { searchTMTusRequest } from "@/services/tm.services";
+import {
+  countMatches,
+  replaceInText,
+  replaceableRows,
+  stepMatch,
+} from "@/lib/find-replace";
 import { userStore } from "@/store";
 import { getTextDirection } from "@/lib/locale-direction";
 import CustomTextArea from "../../components/CustomTextArea";
@@ -93,7 +114,7 @@ import {
 } from "@/lib/segment-status";
 import SegmentStatusIcon from "./SegmentStatusIcon";
 import SegmentHistory from "./SegmentHistory";
-import { tagIssue } from "@/modules/documents/tag-check";
+import { describeTagIssue, tagIssue } from "@/modules/documents/tag-check";
 import { isSpliceFormat } from "@/lib/utils";
 
 const stripHTML = (html) => {
@@ -304,6 +325,23 @@ const TusList = ({ shareToken } = {}) => {
   const [saveFailed, setSaveFailed] = useState(false);
   // "Confirm everything in the filter": { done, total } while it runs.
   const [bulkProgress, setBulkProgress] = useState(null);
+  // Find and replace bar (Ctrl+H): closed until asked for.
+  const [find, setFind] = useState({
+    open: false,
+    query: "",
+    replacement: "",
+    matchCase: false,
+  });
+  const findInputRef = useRef(null);
+  // Trados shortcuts: their dialogs and the TM match picked with
+  // Alt+PageUp / Alt+PageDown (applied with Ctrl+Shift+A).
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [verifyIssues, setVerifyIssues] = useState(null);
+  const [concordance, setConcordance] = useState(null);
+  const [goToOpen, setGoToOpen] = useState(false);
+  const [tmPick, setTmPick] = useState(0);
+  const [topTab, setTopTab] = useState("1");
+  useEffect(() => setTmPick(0), [selectedRow?.id]);
   const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL;
   const downloadProcessed = useProcessedDownload(baseURL);
   const [downloading, setDownloading] = useState(false);
@@ -925,8 +963,12 @@ const TusList = ({ shareToken } = {}) => {
         }
 
         if (selectedRow && record.id === selectedRow.id) {
+          // An unsaved EMPTY draft (Alt+Delete, as Trados) shows empty; a
+          // saved empty review still shows the MT, which is what it exports.
           const initialValue =
-            selectedRow.reviewLiteral || selectedRow.translatedLiteral;
+            drafts[selectedRow.id] === ""
+              ? ""
+              : selectedRow.reviewLiteral || selectedRow.translatedLiteral;
           // Submitted work renders read-only: the row can be inspected but
           // the editor never mounts (the backend rejects writes anyway).
           if (editingLocked) {
@@ -1479,6 +1521,509 @@ const TusList = ({ shareToken } = {}) => {
     }
   };
 
+  // ----- Find and replace (Ctrl+H, lib/find-replace.js) -------------------
+  // Searches the target as the reviewer sees it (unsaved drafts included) in
+  // the visible list, never inside an inline tag. "Replace all" acts on the
+  // unlocked rows of that list, like "Confirm all".
+  const findOpts = { matchCase: find.matchCase };
+  const findActive = find.open && Boolean(find.query);
+  const findHits = findActive
+    ? orderedData.filter((row) => countMatches(confirmTextOf(row), find.query, findOpts) > 0)
+    : [];
+  const findMatches = findHits.reduce(
+    (sum, row) => sum + countMatches(confirmTextOf(row), find.query, findOpts),
+    0,
+  );
+  const replaceTargets = findActive
+    ? replaceableRows(orderedData, confirmTextOf, find.query, findOpts)
+    : [];
+  const canReplaceHere =
+    findActive &&
+    !editingLocked &&
+    Boolean(selectedRow) &&
+    !isSegmentBlocked(selectedRow) &&
+    countMatches(
+      selectedRow?.reviewLiteral ?? selectedRow?.translatedLiteral ?? "",
+      find.query,
+      findOpts,
+    ) > 0;
+
+  const openFind = () => {
+    setFind((prev) => ({ ...prev, open: true }));
+    setTimeout(() => findInputRef.current?.focus?.({ cursor: "all" }), 0);
+  };
+  const closeFind = () => setFind((prev) => ({ ...prev, open: false }));
+
+  // Next / previous segment with a match (Enter / Shift+Enter), wrapping.
+  const findStep = (delta) => {
+    const id = stepMatch(
+      findHits.map((row) => row.id),
+      selectedRow?.id ?? null,
+      delta,
+    );
+    if (!id) {
+      if (find.query) announce(t("tus.find.none"));
+      return;
+    }
+    const index = orderedData.findIndex((row) => row.id === id);
+    if (index >= 0) goToRowIndex(index);
+  };
+
+  // Replaces every match of the selected segment in its editor, as typed
+  // text (one undo step; saved with Save or Confirm), then goes to the next.
+  const replaceHere = () => {
+    if (!canReplaceHere) {
+      findStep(1);
+      return;
+    }
+    const current = selectedRow.reviewLiteral ?? selectedRow.translatedLiteral ?? "";
+    const result = replaceInText(current, find.query, find.replacement, findOpts);
+    if (!result.count) return;
+    rememberTyped(selectedRow, result.text);
+    replaceEditorText(selectedRow.id, result.text);
+    announce(t("tus.find.replacedHere", { count: result.count }));
+  };
+
+  const replaceAllInFilter = () => {
+    if (editingLocked || bulkProgress || !findActive) return;
+    const targets = replaceableRows(orderedData, confirmTextOf, find.query, findOpts);
+    if (targets.length === 0) {
+      announce(t("tus.find.none"));
+      return;
+    }
+    const { query, replacement, matchCase } = find;
+    Modal.confirm({
+      title: t("tus.find.confirmTitle", { count: targets.length }),
+      content: t(listFiltered ? "tus.find.contentFiltered" : "tus.find.contentAll", {
+        find: query,
+        replace: replacement,
+      }),
+      okText: t("tus.find.ok", { count: targets.length }),
+      cancelText: t("tus.bulk.cancel"),
+      onOk: () => {
+        runBulkReplace(targets, { query, replacement, matchCase });
+      },
+    });
+  };
+
+  // Same progress panel, chunks and single undo entry as "Confirm all", for
+  // the bulk edits: "replace" (find and replace), "copy_source" (Trados
+  // Alt+Shift+Insert) and "clear" (Alt+Shift+Delete, Ctrl+Alt+Space).
+  // `items` = [{ tuId, reviewLiteral? }]; `keys` = i18n block of the texts.
+  const runBulkEdit = async ({ kind, items, undoAction, keys, refused: refusedBefore = 0 }) => {
+    const beforeById = new Map(data.map((doc) => [doc.id, doc]));
+    const after = new Map();
+    let failed = refusedBefore;
+    let firstReason = null;
+    let done = 0;
+    const runningKey = `${keys}.running`;
+    document.activeElement?.blur?.();
+    setBulkProgress({ done: 0, total: items.length, runningKey });
+    for (const chunk of chunksOf(items)) {
+      try {
+        const response = await replaceTusBulk(
+          { documentId: projectId, kind, items: chunk },
+          shareToken,
+        );
+        const { updated = [], failed: refused = [] } = response.data;
+        const updatedById = new Map(updated.map((item) => [item.id, item]));
+        for (const item of updated) {
+          after.set(item.id, item);
+          clearDraft(item.id);
+        }
+        failed += refused.length;
+        firstReason ??= refused[0]?.message || null;
+        setData((prev) =>
+          prev.map((doc) =>
+            updatedById.has(doc.id) ? { ...doc, ...updatedById.get(doc.id) } : doc,
+          ),
+        );
+        setSelectedRow((prev) =>
+          prev && updatedById.has(prev.id)
+            ? { ...prev, ...updatedById.get(prev.id) }
+            : prev,
+        );
+      } catch (error) {
+        failed += chunk.length;
+        firstReason ??= failureReason(error);
+        console.error(error);
+      }
+      done += chunk.length;
+      setBulkProgress({ done, total: items.length, runningKey });
+    }
+    setBulkProgress(null);
+    // The selected segment's editor only reads its initial text.
+    setEditorRefreshKey((prev) => prev + 1);
+    if (after.size > 0) {
+      actionHistoryRef.current = recordAction(
+        actionHistoryRef.current,
+        actionEntry({
+          action: undoAction,
+          number: after.size,
+          beforeById,
+          after: [...after.values()],
+        }),
+      );
+      touchHistory();
+    }
+    if (failed > 0) {
+      messageApi.warning(
+        `${t(`${keys}.someFailed`, { failed, done: after.size })}${
+          firstReason ? ` (${firstReason})` : ""
+        }`,
+      );
+    } else {
+      announce(t(`${keys}.done`, { done: after.size }));
+    }
+  };
+
+  const runBulkReplace = (targets, { query, replacement, matchCase }) => {
+    const items = targets
+      .map((row) => ({
+        tuId: row.id,
+        reviewLiteral: replaceInText(confirmTextOf(row), query, replacement, { matchCase }).text,
+      }))
+      .filter((item) => item.reviewLiteral.trim());
+    return runBulkEdit({
+      kind: "replace",
+      items,
+      undoAction: "replace_all",
+      keys: "tus.find",
+      refused: targets.length - items.length,
+    });
+  };
+
+  // Asks, with the exact number, before a bulk edit of the visible list.
+  const askBulkEdit = ({ keys, targets, run }) => {
+    if (editingLocked || bulkProgress) return;
+    if (targets.length === 0) {
+      announce(t(`${keys}.none`));
+      return;
+    }
+    Modal.confirm({
+      title: t(`${keys}.title`, { count: targets.length }),
+      content: t(listFiltered ? `${keys}.contentFiltered` : `${keys}.contentAll`),
+      okText: t(`${keys}.ok`, { count: targets.length }),
+      cancelText: t("tus.bulk.cancel"),
+      onOk: () => {
+        run(targets);
+      },
+    });
+  };
+
+  // ----- Trados shortcuts (lib/trados-shortcuts.js) -------------------------
+  const EDITOR_BOX = "#tus-list .selected-row .tag-editor, #tus-list .selected-row .ql-editor";
+  const inSegmentEditor = (node) => Boolean(node?.closest?.(EDITOR_BOX));
+  const canEditSelected = () =>
+    Boolean(selectedRow) && !editingLocked && !isSegmentBlocked(selectedRow);
+
+  // Types `text` at the caret of the segment editor, as typed text (both
+  // editors take it as an ordinary input: the TagEditor still guards tags).
+  const typeInEditor = (text) => {
+    document.execCommand("insertText", false, text);
+  };
+
+  // Quotes around the selection, or a pair with the caret inside.
+  const wrapInEditor = ([open, close]) => {
+    const selection = window.getSelection();
+    const selected = selection?.toString() ?? "";
+    typeInEditor(`${open}${selected}${close}`);
+    if (!selected) selection?.modify?.("move", "backward", "character");
+  };
+
+  // Shift+F3: the selection (or the word at the caret) cycles lower → UPPER →
+  // Title, and stays selected for the next press.
+  const changeCaseInEditor = () => {
+    const selection = window.getSelection();
+    if (!selection) return;
+    if (selection.isCollapsed) {
+      selection.modify("move", "backward", "word");
+      selection.modify("extend", "forward", "word");
+    }
+    const selected = selection.toString();
+    if (!selected.trim()) return;
+    const next = cycleCase(selected, projectConfig?.targetLanguage || undefined);
+    if (next === selected) return;
+    typeInEditor(next);
+    for (let i = 0; i < next.length; i += 1) selection.modify("extend", "backward", "character");
+  };
+
+  // Puts a whole new text in the selected segment, as typed (one undo step).
+  const setSegmentText = (text) => {
+    if (!canEditSelected()) {
+      announce(t("tus.shortcuts.readOnly"));
+      return;
+    }
+    rememberTyped(selectedRow, text);
+    replaceEditorText(selectedRow.id, text);
+  };
+
+  const reloadSegment = async () => {
+    if (!selectedRow) return;
+    const id = selectedRow.id;
+    try {
+      const response = shareToken
+        ? await getTusByShareToken(shareToken)
+        : await getTus(projectId);
+      const fresh = (response.data.docs || []).find((doc) => doc.id === id);
+      if (!fresh) return;
+      clearDraft(id);
+      setData((prev) => prev.map((doc) => (doc.id === id ? fresh : doc)));
+      setSelectedRow((prev) => (prev?.id === id ? fresh : prev));
+      setEditorRefreshKey((prev) => prev + 1);
+      announce(t("tus.shortcuts.reloaded"));
+    } catch (error) {
+      messageApi.error(failureReason(error) || t("tus.shortcuts.reloadFailed"));
+    }
+  };
+
+  const addToTm = async () => {
+    if (!selectedRow) return;
+    const tmIds = (projectConfig?.tmIds ?? []).filter(
+      (tmId) => projectConfig?.tms?.find((tm) => tm.id === tmId)?.updateTm,
+    );
+    if (!tmIds.length) {
+      announce(t("tus.shortcuts.noTmUpdate"));
+      return;
+    }
+    const target = selectedRow.reviewLiteral ?? selectedRow.translatedLiteral ?? "";
+    if (!target.trim()) return;
+    const payload = {
+      tmIds,
+      source: stripInlineTags(selectedRow.srcLiteral),
+      target: stripInlineTags(target),
+    };
+    try {
+      await (shareToken ? appendTuByShareToken(shareToken, payload) : appendTu(payload));
+      announce(t("tus.shortcuts.tmAdded"));
+    } catch (error) {
+      messageApi.error(failureReason(error) || t("tus.shortcuts.tmAddFailed"));
+    }
+  };
+
+  const pickTm = (delta) => {
+    if (!tmInfo.length) {
+      announce(t("tus.shortcuts.noTm"));
+      return;
+    }
+    const next = (tmPick + delta + tmInfo.length) % tmInfo.length;
+    setTmPick(next);
+    setTopPanelOpen(true);
+    setTopTab("2");
+    announce(t("tus.shortcuts.tmPosition", { n: next + 1, total: tmInfo.length }));
+  };
+
+  const applyTm = (index) => {
+    const match = tmInfo[index];
+    if (!match) {
+      announce(t("tus.shortcuts.noTm"));
+      return;
+    }
+    setSegmentText(match.target ?? "");
+  };
+
+  // F8: everything that keeps the document from a clean delivery.
+  const verifyDocument = () => {
+    const ordered = isSpliceFormat(projectConfig?.extension);
+    const issues = [];
+    data.forEach((row, i) => {
+      if (row.visible === false || row.block) return;
+      const number = segmentNumberOf(row, i + 1);
+      const text = confirmTextOf(row);
+      if (!String(text).trim()) {
+        issues.push({ id: row.id, number, kind: "empty", severity: "error", detail: "" });
+        return;
+      }
+      const tags = tagIssue(row.srcLiteral, text, { ordered });
+      if (!tags.ok) {
+        issues.push({ id: row.id, number, kind: "tags", severity: "error", detail: describeTagIssue(tags) });
+      }
+      if (draftsRef.current[row.id] != null) {
+        issues.push({ id: row.id, number, kind: "draft", severity: "warning", detail: "" });
+      }
+      if (row.Status === "REJECTED") {
+        issues.push({ id: row.id, number, kind: "rejected", severity: "warning", detail: "" });
+      } else if (!isConfirmed(row)) {
+        issues.push({ id: row.id, number, kind: "pending", severity: "warning", detail: "" });
+      }
+    });
+    setVerifyIssues(issues);
+  };
+
+  const goToSegmentId = (id) => {
+    setVerifyIssues(null);
+    const index = orderedData.findIndex((row) => row.id === id);
+    if (index >= 0) goToRowIndex(index);
+    else announce(t("tus.undo.outsideFilter"));
+  };
+
+  const goToNumber = (value) => {
+    const index = indexOfSegmentNumber(orderedData, value, segmentNumberOf);
+    if (index < 0) {
+      announce(t("tus.goTo.notFound", { number: value }));
+      return;
+    }
+    setGoToOpen(false);
+    goToRowIndex(index);
+  };
+
+  const searchConcordance = async (query) => {
+    const names = new Map((projectConfig?.tms ?? []).map((tm) => [tm.id, tm.name]));
+    const lists = await Promise.all(
+      (projectConfig?.tmIds ?? []).map((tmId) =>
+        searchTMTusRequest({ translation_memory_id: tmId, query })
+          .then((res) =>
+            (res?.docs ?? []).map((doc) => ({
+              source: doc.source_text,
+              target: doc.translated_text,
+              tm: names.get(tmId) ?? tmId,
+            })),
+          )
+          .catch(() => []),
+      ),
+    );
+    return lists.flat();
+  };
+
+  const openConcordance = () => {
+    if (shareToken) {
+      announce(t("tus.shortcuts.concordanceSignIn"));
+      return;
+    }
+    setConcordance({ query: window.getSelection()?.toString().trim() ?? "" });
+  };
+
+  // Rows of the visible list for the bulk shortcuts.
+  const hasReviewerText = (row) =>
+    row.reviewLiteral != null || draftsRef.current[row.id] != null;
+  const copySourceTargets = () =>
+    orderedData.filter((row) => !row.block && !String(confirmTextOf(row)).trim());
+  const clearDraftTargets = () =>
+    orderedData.filter((row) => !row.block && !isConfirmed(row) && hasReviewerText(row));
+  const clearAllTargets = () =>
+    orderedData.filter((row) => !row.block && (hasReviewerText(row) || isConfirmed(row)));
+
+  const runShortcut = (shortcut, event) => {
+    if (!shortcut.supported) {
+      announce(
+        t("tus.shortcuts.notAvailable", {
+          keys: shortcut.keys,
+          label: t(`tus.shortcuts.action.${shortcut.id}`),
+        }),
+      );
+      return;
+    }
+    if (shortcut.insert || shortcut.wrap) {
+      if (!canEditSelected()) return void announce(t("tus.shortcuts.readOnly"));
+      if (shortcut.wrap) wrapInEditor(shortcut.wrap);
+      else typeInEditor(shortcut.insert);
+      return;
+    }
+    switch (shortcut.id) {
+      case "confirmNextAny":
+        return void save(selectedRow?.reviewLiteral, { advance: "any" });
+      case "confirmStay":
+        return void save(selectedRow?.reviewLiteral, { advance: false });
+      case "reload":
+        return void reloadSegment();
+      case "copySource":
+        return setSegmentText(selectedRow?.srcLiteral ?? "");
+      case "clearTarget":
+        return setSegmentText("");
+      case "changeCase":
+        if (!canEditSelected()) return void announce(t("tus.shortcuts.readOnly"));
+        return changeCaseInEditor();
+      case "copySourceAll":
+        return askBulkEdit({
+          keys: "tus.copySourceAll",
+          targets: copySourceTargets(),
+          run: (targets) =>
+            runBulkEdit({
+              kind: "copy_source",
+              items: targets.map((row) => ({ tuId: row.id, reviewLiteral: row.srcLiteral })),
+              undoAction: "copy_source_all",
+              keys: "tus.copySourceAll",
+            }),
+        });
+      case "clearDrafts":
+      case "clearAll": {
+        const all = shortcut.id === "clearAll";
+        const keys = all ? "tus.clearAll" : "tus.clearDrafts";
+        return askBulkEdit({
+          keys,
+          targets: all ? clearAllTargets() : clearDraftTargets(),
+          run: (targets) =>
+            runBulkEdit({
+              kind: "clear",
+              items: targets.map((row) => ({ tuId: row.id })),
+              undoAction: all ? "clear_all" : "clear_drafts",
+              keys,
+            }),
+        });
+      }
+      case "verify":
+        return verifyDocument();
+      case "concordance":
+      case "concordanceTarget":
+        return openConcordance();
+      case "find":
+      case "replace":
+        return openFind();
+      case "findNext":
+      case "findPrev":
+        if (!find.open || !find.query) return openFind();
+        return findStep(shortcut.id === "findNext" ? 1 : -1);
+      case "tmPrev":
+        return pickTm(-1);
+      case "tmNext":
+        return pickTm(1);
+      case "tmApplySelected":
+        return applyTm(tmPick);
+      case "tmApplyN":
+        return applyTm(tmIndexOf(event));
+      case "tmAdd":
+        return void addToTm();
+      case "lockSelection":
+        if (!canToggleLock) return undefined;
+        return lockAllInFilter(lockTargets.length ? "lock" : "unlock");
+      case "prevSegment":
+        return navigate(-1);
+      case "nextSegment":
+        return navigate(1);
+      case "firstSegment":
+        return goToRowIndex(0);
+      case "lastSegment":
+        return goToRowIndex(orderedData.length - 1);
+      case "goTo":
+        return setGoToOpen(true);
+      default:
+        return undefined;
+    }
+  };
+
+  // One listener, in the capture phase (before Quill and the TagEditor see
+  // the key). Inside a dialog or another text field only find is taken.
+  useEffect(() => {
+    if (bulkProgress) return undefined;
+    const onKeyDown = (event) => {
+      const shortcut = matchShortcut(event);
+      if (!shortcut) return;
+      const target = event.target;
+      const inEditor = inSegmentEditor(target);
+      if (shortcut.editorOnly && !inEditor) return;
+      if (target?.closest?.(".ant-modal")) return;
+      const inField =
+        !inEditor &&
+        (["INPUT", "TEXTAREA", "SELECT"].includes(target?.tagName) || target?.isContentEditable);
+      if (inField && !["find", "replace", "findNext", "findPrev", "verify"].includes(shortcut.id)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      runShortcut(shortcut, event);
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  });
+
   // Ctrl+L locks / unlocks the selected segment, as in Trados (admins only).
   useEffect(() => {
     if (!canToggleLock || editingLocked || bulkProgress || !selectedRow) return undefined;
@@ -1688,7 +2233,11 @@ const TusList = ({ shareToken } = {}) => {
     // on it is ignored. The reviewer moves on to the next unconfirmed
     // segment while the request is in flight.
     if (!beginPending(currentRow.id, "status")) return;
-    if (advance) goToNextUnconfirmed(currentRow.id);
+    // Ctrl+Alt+Enter (advance "any"): the next row, whatever its status.
+    if (advance === "any") {
+      const index = orderedData.findIndex((doc) => doc.id === currentRow.id);
+      if (index >= 0 && index + 1 < orderedData.length) goToRowIndex(index + 1, index);
+    } else if (advance) goToNextUnconfirmed(currentRow.id);
 
     try {
       if (!isSegmentBlocked(currentRow)) {
@@ -2163,7 +2712,7 @@ const TusList = ({ shareToken } = {}) => {
           className="bulk-lock"
           role="alertdialog"
           aria-busy="true"
-          aria-label={t("tus.bulk.running", bulkProgress)}
+          aria-label={t(bulkProgress.runningKey ?? "tus.bulk.running", bulkProgress)}
           style={{
             position: "fixed",
             inset: 0,
@@ -2177,7 +2726,7 @@ const TusList = ({ shareToken } = {}) => {
         >
           <div className="w-[26rem] max-w-[90vw] rounded-lg bg-white p-5 shadow-xl">
             <div className="text-sm font-semibold text-slate-800">
-              {t("tus.bulk.running", bulkProgress)}
+              {t(bulkProgress.runningKey ?? "tus.bulk.running", bulkProgress)}
             </div>
             <div className="mt-3 h-2 w-full overflow-hidden rounded bg-slate-200">
               <div
@@ -2294,7 +2843,8 @@ const TusList = ({ shareToken } = {}) => {
         {topPanelOpen ? (
         <Tabs
           type="card"
-          defaultActiveKey="1"
+          activeKey={topTab}
+          onChange={setTopTab}
           headers={{
             style: {
               padding: "0px 0px",
@@ -2346,7 +2896,7 @@ const TusList = ({ shareToken } = {}) => {
                 </>
               ),
               children: (
-                <TmTool tmInfo={tmInfo} />
+                <TmTool tmInfo={tmInfo} pickedIndex={tmPick} />
               ),
             },
             {
@@ -2469,6 +3019,24 @@ const TusList = ({ shareToken } = {}) => {
                   {formatSavedAt(lastSavedAt)}
                 </span>
               </Tag>
+            </Tooltip>
+            <Tooltip title={t("tus.shortcuts.button")}>
+              <Button
+                size="small"
+                aria-label={t("tus.shortcuts.button")}
+                icon={<Keyboard size={14} />}
+                onClick={() => setShortcutsOpen(true)}
+              />
+            </Tooltip>
+            <Tooltip title={`${t("tus.find.button")} (Ctrl+H)`}>
+              <Button
+                size="small"
+                aria-label={t("tus.find.button")}
+                aria-pressed={find.open}
+                type={find.open ? "primary" : "default"}
+                icon={<Replace size={14} />}
+                onClick={() => (find.open ? closeFind() : openFind())}
+              />
             </Tooltip>
             <Tooltip title={`${t("tus.whitespace.tooltip")} (Ctrl+Shift+8)`}>
               <Button
@@ -2698,6 +3266,41 @@ const TusList = ({ shareToken } = {}) => {
             </Tooltip>
           </div>
         </div>
+        {find.open ? (
+          <FindReplaceBar
+            find={find}
+            onChange={(patch) => setFind((prev) => ({ ...prev, ...patch }))}
+            onClose={closeFind}
+            onStep={findStep}
+            onReplaceHere={replaceHere}
+            onReplaceAll={replaceAllInFilter}
+            hits={findHits.length}
+            matches={findMatches}
+            replaceable={replaceTargets.length}
+            canReplace={!editingLocked}
+            canReplaceHere={canReplaceHere}
+            busy={Boolean(bulkProgress)}
+            inputRef={findInputRef}
+          />
+        ) : null}
+        <ShortcutsHelpModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+        <VerifyModal
+          open={verifyIssues != null}
+          issues={verifyIssues ?? []}
+          onClose={() => setVerifyIssues(null)}
+          onGo={goToSegmentId}
+        />
+        {concordance != null ? (
+          <ConcordanceModal
+            open
+            initialQuery={concordance.query}
+            onClose={() => setConcordance(null)}
+            search={searchConcordance}
+          />
+        ) : null}
+        {goToOpen ? (
+          <GoToModal open onClose={() => setGoToOpen(false)} onGo={goToNumber} />
+        ) : null}
         <Table
           loading={requesting}
           columns={columns}

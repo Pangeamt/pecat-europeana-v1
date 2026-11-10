@@ -20,7 +20,7 @@ const TM_TOOL_CHROME_HEIGHT = 72;
 
 // TM matches exactly as DAAIT returns them (all retrieved references, best
 // first, each with its similarity): PECAT-E applies no threshold of its own.
-const TmTool = ({ tmInfo }) => {
+const TmTool = ({ tmInfo, pickedIndex = null }) => {
   const { t } = useTranslation();
   const [height, setHeight] = useState(DEFAULT_TM_TOOL_HEIGHT);
   const baseHeightRef = useRef(DEFAULT_TM_TOOL_HEIGHT);
@@ -123,6 +123,8 @@ const TmTool = ({ tmInfo }) => {
           // The list arrives without repeated rows (distinctTmMatches), so
           // pair + value is a unique key.
           rowKey={tmMatchKey}
+          // The match picked with Alt+PageUp / Alt+PageDown (Ctrl+Shift+A applies it).
+          rowClassName={(_row, index) => (index === pickedIndex ? "tm-picked" : "")}
           size="small"
           pagination={false}
           scroll={{ y: tableScrollY }}
@@ -133,6 +135,7 @@ const TmTool = ({ tmInfo }) => {
 };
 
 TmTool.propTypes = {
+  pickedIndex: PropTypes.number,
   tmInfo: PropTypes.arrayOf(
     PropTypes.shape({
       tm_item_id: PropTypes.string.isRequired,

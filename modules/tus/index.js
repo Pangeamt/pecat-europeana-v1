@@ -10,6 +10,14 @@ export {
   confirmTusInBulkService,
   confirmTusInBulkByShareTokenService,
   lockTusInBulkService,
+  replaceTusInBulkService,
+  replaceTusInBulkByShareTokenService,
 } from "./service";
 
-export { bulkConfirmTusSchema, bulkLockTusSchema, evaluateTuSchema, updateTuSchema } from "./schemas";
+export {
+  bulkConfirmTusSchema,
+  bulkLockTusSchema,
+  bulkReplaceTusSchema,
+  evaluateTuSchema,
+  updateTuSchema,
+} from "./schemas";
