@@ -451,7 +451,7 @@
       "fileLocked": "Bloqueado en el fichero del cliente: se queda como viene, no se puede desbloquear",
       "lock": {
         "button": "Bloquear filtrados",
-        "tooltipFiltered": "Bloquea los {count} segmentos sin bloquear del filtro aplicado (como en Trados; Ctrl+L bloquea el segmento actual)",
+        "tooltipFiltered": "Bloquea los {count} segmentos sin bloquear del filtro aplicado (Ctrl+L bloquea el segmento actual)",
         "tooltipAll": "Bloquea los {count} segmentos sin bloquear del documento (Ctrl+L bloquea el segmento actual)",
         "title": "¿Bloquear {count} segmentos?",
         "contentFiltered": "Se bloquearán los segmentos sin bloquear que muestra el filtro. Nadie podrá editarlos hasta que se desbloqueen. No cambia ni el texto ni el estado. Se puede deshacer.",
@@ -476,7 +476,7 @@
     },
     "whitespace": {
       "button": "Mostrar espacios",
-      "tooltip": "Mostrar espacios, como en Trados: · espacio normal, ° espacio de no separación, ∘ otros espacios, → tabulador, ↵ salto de línea, ¶ retorno de carro"
+      "tooltip": "Mostrar espacios: · espacio normal, ° espacio de no separación, ∘ otros espacios, → tabulador, ↵ salto de línea, ¶ retorno de carro"
     },
     "bulk": {
       "button": "Confirmar todo",

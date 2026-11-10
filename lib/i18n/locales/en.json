@@ -451,7 +451,7 @@
       "fileLocked": "Locked in the client's file: it stays as it comes and cannot be unlocked",
       "lock": {
         "button": "Lock filtered",
-        "tooltipFiltered": "Locks the {count} unlocked segments of the current filter (as in Trados; Ctrl+L locks the current segment)",
+        "tooltipFiltered": "Locks the {count} unlocked segments of the current filter (Ctrl+L locks the current segment)",
         "tooltipAll": "Locks the {count} unlocked segments of the document (Ctrl+L locks the current segment)",
         "title": "Lock {count} segments?",
         "contentFiltered": "The unlocked segments shown by the filter will be locked. Nobody can edit them until they are unlocked. Text and status do not change. It can be undone.",
@@ -476,7 +476,7 @@
     },
     "whitespace": {
       "button": "Show spaces",
-      "tooltip": "Show spaces, as in Trados: · normal space, ° non-breaking space, ∘ other spaces, → tab, ↵ line break, ¶ carriage return"
+      "tooltip": "Show spaces: · normal space, ° non-breaking space, ∘ other spaces, → tab, ↵ line break, ¶ carriage return"
     },
     "bulk": {
       "button": "Confirm all",
