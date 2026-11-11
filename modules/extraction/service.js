@@ -6,7 +6,7 @@ import contentDisposition from "content-disposition";
 import { HttpError } from "@/modules/shared";
 import { isSpliceFormat } from "@/lib/utils";
 import { resolveUploadPath } from "@/lib/uploads";
-import { exportTarget } from "@/modules/documents/export-target";
+import { exportTarget, leavesWithSource } from "@/modules/documents/export-target";
 import {
   PARTIAL_LINK_PREFIX,
   completionOf,
@@ -263,6 +263,10 @@ export function buildSegmentUpdatesFromTus(tus) {
   let skipped = 0;
   for (const tu of tus) {
     if (!tu.externalId) continue;
+    // A hidden segment with no text of its own leaves with its source: here
+    // the pre-merge fill (prepareXliffForMerge) already copies it byte for
+    // byte, so it is not sent as an update.
+    if (leavesWithSource(tu)) continue;
     const target = exportTarget(tu);
     if (!target) continue;
     if (!hasSameInlineCodes(tu.srcLiteral, target)) {
