@@ -201,7 +201,7 @@ test("numero: el de Trados si se guardo; si no, el orden en el documento", () =>
 
 test("filtro de estado: todo lo que enseña la columna, situación y origen", async () => {
   const { STATUS_FILTER_VALUES, matchesStatusSelection } = await import("../../lib/segment-status.js");
-  assert.deepEqual(STATUS_FILTER_VALUES, ["NOT_REVIEWED", "ACCEPTED", "EDITED", "REJECTED", "LOCKED", "ORIGIN_MT", "ORIGIN_FUZZY"]);
+  assert.deepEqual(STATUS_FILTER_VALUES, ["NOT_REVIEWED", "ACCEPTED", "EDITED", "REJECTED", "LOCKED", "ORIGIN_MT", "ORIGIN_FUZZY", "TAG_ERROR"]);
   const mtPending = { Status: "TRANSLATED_MT", translatedLiteral: "x", fileTarget: false, block: false };
   const mtConfirmed = { ...mtPending, Status: "ACCEPTED", reviewLiteral: "x", reviewedAt: new Date() };
   const fuzzy = { Status: "NOT_REVIEWED", translatedLiteral: "x", fileTarget: true, fileOrigin: "tm", filePercent: 87, block: false };

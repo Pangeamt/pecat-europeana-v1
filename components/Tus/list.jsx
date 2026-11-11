@@ -18,7 +18,7 @@ import {
 } from "antd";
 import axios from "axios";
 import { createPortal } from "react-dom";
-import { ChevronDown, ChevronRight, CircleCheck, CircleX, CheckCheck, Download, FileDown, Filter, Info, Keyboard, LoaderCircle, LockIcon, Pilcrow, Redo2, Replace, Save, Undo2, Search, UnlockIcon } from "lucide-react";
+import { ChevronDown, ChevronRight, CircleCheck, CircleX, CheckCheck, Download, FileDown, Filter, Info, Keyboard, ListChecks, LoaderCircle, LockIcon, Pilcrow, Redo2, Replace, Save, Undo2, Search, UnlockIcon } from "lucide-react";
 import { useParams } from "next/navigation";
 
 import React, {
@@ -115,6 +115,7 @@ import {
 import SegmentStatusIcon from "./SegmentStatusIcon";
 import SegmentHistory from "./SegmentHistory";
 import { describeTagIssue, tagIssue } from "@/modules/documents/tag-check";
+import { hasTagError } from "@/lib/tag-errors";
 import { isSpliceFormat } from "@/lib/utils";
 
 const stripHTML = (html) => {
@@ -154,13 +155,15 @@ const matchesLockFilter = (value, record) =>
   value === "locked" ? Boolean(record.block) : !record.block;
 
 // Each takes the column's WHOLE selection: most columns pass when any of
-// their values matches; the status column reads its selection as two groups
-// (situation and origin, see matchesStatusSelection).
+// their values matches; the status column reads its selection as groups
+// (situation, origin and problems, see matchesStatusSelection). `context`
+// carries what the status column needs from the document (`tagError`).
 const anyOf = (match) => (values, record) =>
   values.some((value) => match(value, record));
 
 const COLUMN_FILTERS = {
-  status: (values, record) => matchesStatusSelection(values, record),
+  status: (values, record, context) =>
+    matchesStatusSelection(values, record, context),
   block: anyOf(matchesLockFilter),
   srcLiteral: anyOf((value, record) => matchesTextFilter("srcLiteral", value, record)),
   reviewLiteral: anyOf((value, record) =>
@@ -170,6 +173,22 @@ const COLUMN_FILTERS = {
 
 const COLUMN_SORTERS = {
   mtqeV2Score: (a, b) => (a.mtqeV2Score ?? -1) - (b.mtqeV2Score ?? -1),
+};
+
+// The rows a table view ({ filters, sorter }) shows, in its order.
+const rowsInView = (rows, view, context) => {
+  let result = rows;
+  for (const [key, values] of Object.entries(view.filters ?? {})) {
+    const match = COLUMN_FILTERS[key];
+    if (!match || !values?.length) continue;
+    result = result.filter((record) => match(values, record, context));
+  }
+  const compare = view.sorter && COLUMN_SORTERS[view.sorter.key];
+  if (compare) {
+    const direction = view.sorter.order === "descend" ? -1 : 1;
+    result = [...result].sort((a, b) => direction * compare(a, b));
+  }
+  return result;
 };
 
 const isConfirmed = (doc) =>
@@ -633,24 +652,19 @@ const TusList = ({ shareToken } = {}) => {
   const translatorSubmitted = Boolean(projectConfig?.translatorSubmittedAt);
   const reviewerSubmitted = Boolean(projectConfig?.reviewerSubmittedAt);
 
-  // SDLXLIFF targets must carry the source's tags in the SOURCE'S ORDER (the
-  // export writes nothing else); other formats only need the same set.
+  // SDLXLIFF/XLIFF targets: the source's tags in any order that still nests
+  // (the export writes nothing else); other formats only need the same set.
   const orderedTags = isSpliceFormat(projectConfig?.extension);
   // Translated segments whose tags do not match: they cannot be approved and
-  // the export will not write them, so the reviewer is told up front.
+  // the export will not write them, so the reviewer is told up front. The
+  // status filter's "Tag errors" uses the same check (lib/tag-errors.js).
+  const filterContext = useMemo(
+    () => ({ tagError: (row) => hasTagError(row, { ordered: orderedTags }) }),
+    [orderedTags],
+  );
   const tagIssueCount = useMemo(
-    () =>
-      data.filter((row) => {
-        const target = row.reviewLiteral || row.translatedLiteral;
-        return (
-          row.visible !== false &&
-          !row.block &&
-          target &&
-          hasInlineTags(row.srcLiteral) &&
-          !tagIssue(row.srcLiteral, target, { ordered: orderedTags }).ok
-        );
-      }).length,
-    [data, orderedTags],
+    () => data.filter(filterContext.tagError).length,
+    [data, filterContext],
   );
   const isPm = !shareToken && ["ADMIN", "SUPER"].includes(user?.role);
   const isTranslator = shareToken
@@ -716,20 +730,10 @@ const TusList = ({ shareToken } = {}) => {
   // Rows in the order the table displays them: the MTQE score filter first,
   // then the table's own column filters (status, source/target search) and
   // sort. This is the working list for navigation and for the counters.
-  const orderedData = useMemo(() => {
-    let rows = tableData;
-    for (const [key, values] of Object.entries(tableView.filters ?? {})) {
-      const match = COLUMN_FILTERS[key];
-      if (!match || !values?.length) continue;
-      rows = rows.filter((record) => match(values, record));
-    }
-    const compare = tableView.sorter && COLUMN_SORTERS[tableView.sorter.key];
-    if (compare) {
-      const direction = tableView.sorter.order === "descend" ? -1 : 1;
-      rows = [...rows].sort((a, b) => direction * compare(a, b));
-    }
-    return rows;
-  }, [tableData, tableView]);
+  const orderedData = useMemo(
+    () => rowsInView(tableData, tableView, filterContext),
+    [tableData, tableView, filterContext],
+  );
   // Any filter (score, status or text search) that leaves rows out.
   const listFiltered = orderedData.length !== data.length;
 
@@ -748,6 +752,23 @@ const TusList = ({ shareToken } = {}) => {
   const clearScoreFilter = () => {
     setV2Rule(NEUTRAL_RULE);
     setAppliedScoreFilter(null);
+  };
+
+  // The red banner's "Show segments": the grid lists only the segments with
+  // tag errors (status filter "Tag errors"; every other filter is cleared, so
+  // it lists exactly the ones the banner counts) and the first is selected.
+  const showTagErrors = () => {
+    const view = { filters: { status: ["TAG_ERROR"] }, sorter: tableView.sorter };
+    const rows = rowsInView(data, view, filterContext);
+    clearScoreFilter();
+    setSearchText("");
+    setSearchedColumn("");
+    setTableView(view);
+    setPage(1);
+    if (rows.length > 0) {
+      navIntentRef.current = { id: rows[0].id, jump: true };
+      selectRow(rows[0]);
+    }
   };
 
   // The filtered list is the working list: if the current selection falls
@@ -848,6 +869,9 @@ const TusList = ({ shareToken } = {}) => {
       <Search size={15} style={{ color: filtered ? "#1677ff" : undefined }} />
     ),
     onFilter: (value, record) => matchesTextFilter(dataIndex, value, record),
+    // Every filtered column is controlled (antd needs all or none): the
+    // banner's "Show segments" sets the filters from code.
+    filteredValue: tableView.filters?.[dataIndex] ?? null,
     filterDropdownProps: {
       onOpenChange: (visible) => {
         if (visible) {
@@ -1100,7 +1124,12 @@ const TusList = ({ shareToken } = {}) => {
         value,
       })),
       onFilter: (value, record) =>
-        matchesStatusSelection(tableView.filters?.status ?? [value], record),
+        matchesStatusSelection(
+          tableView.filters?.status ?? [value],
+          record,
+          filterContext,
+        ),
+      filteredValue: tableView.filters?.status ?? null,
       render: (text, record) => {
         // Confirm / reject / save in flight: the spinner replaces the status
         // icon of this row only.
@@ -1143,6 +1172,7 @@ const TusList = ({ shareToken } = {}) => {
         { text: t("tus.lock.open"), value: "open" },
       ],
       onFilter: matchesLockFilter,
+      filteredValue: tableView.filters?.block ?? null,
       render: (value, record) => {
         // Lock/unlock in flight: the spinner replaces the padlock of this row.
         if (pending[record.id] === "lock") {
@@ -2783,7 +2813,12 @@ const TusList = ({ shareToken } = {}) => {
           className="mb-2"
           type="error"
           showIcon
-          message={`${tagIssueCount} segment${tagIssueCount === 1 ? "" : "s"} with tags that do not match the source (missing, extra${orderedTags ? " or in another order" : ""}). They cannot be approved and the export will not write them: open each one and use "Fix tags".`}
+          message={`${tagIssueCount} segment${tagIssueCount === 1 ? "" : "s"} with tags that do not match the source (missing, extra${orderedTags ? " or crossed" : ""}). They cannot be approved and the export will not write them: open each one and use "Fix tags".`}
+          action={
+            <Button size="small" danger onClick={showTagErrors}>
+              {t("tus.tagErrors.show")}
+            </Button>
+          }
         />
       ) : null}
 
@@ -3022,6 +3057,17 @@ const TusList = ({ shareToken } = {}) => {
                 icon={<Keyboard size={14} />}
                 onClick={() => setShortcutsOpen(true)}
               />
+            </Tooltip>
+            {/* F8 as a button: the same verification list, for whoever does
+                not know the shortcut. */}
+            <Tooltip title={t("tus.verify.tooltip")}>
+              <Button
+                size="small"
+                icon={<ListChecks size={14} />}
+                onClick={verifyDocument}
+              >
+                {t("tus.verify.button")}
+              </Button>
             </Tooltip>
             <Tooltip title={`${t("tus.find.button")} (Ctrl+H)`}>
               <Button

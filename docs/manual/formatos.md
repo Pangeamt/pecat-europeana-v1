@@ -124,6 +124,12 @@ Al confirmar un segmento, el fichero descargado lo marca como traducido (`Transl
 traducción rechazada (`RejectedTranslation`), que es lo que Trados espera (comprobado en el QA del 2026-10-07, no en
 esta revisión).
 
+**Segmentos que son solo una dirección web** (por ejemplo `https://varjo.com/eula/`): la plataforma los aparta al
+importar, así que no se traducen ni aparecen en el editor. En el fichero descargado salen **con la dirección tal
+cual** como traducción y sin confirmar: en Trados, como borrador copiado del origen (`Draft`, origen `source`); en
+XLIFF, como `needs-translation`. En Word, Excel y los demás formatos también salen tal cual. Hasta el 2026-11-11, en
+`.sdlxliff` y XLIFF salían vacíos.
+
 ## Memorias y glosarios
 
 - **Memorias:** fichero **TMX**, de hasta 100 MB.

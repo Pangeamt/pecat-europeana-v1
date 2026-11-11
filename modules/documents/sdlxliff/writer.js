@@ -4,7 +4,8 @@ import { codeSource, codeTarget, tagSequence, TOKEN_RE } from "./codes.js";
 import { indexSdlxliff, isPlainLocked } from "./reader.js";
 import { isVirtualMid, locateSentences, peelEdgeCodes, splitCoded, virtualMid } from "./segmenter.js";
 import { findAll } from "./xmltree.js";
-import { exportTarget, isApproved } from "../export-target.js";
+import { exportTarget, isApproved, leavesWithSource } from "../export-target.js";
+import { tagIssue } from "../tag-check.js";
 
 // Writes our translations INTO the client's original SDLXLIFF by splicing the
 // raw text at the offsets of our target <mrk>s and their <sdl:seg> tags.
@@ -53,6 +54,9 @@ import { exportTarget, isApproved } from "../export-target.js";
 //   exact memory match (auto-locked; only in
 //   documents imported before 2026-10-14)     Translated, origin tm, 100
 //   DAAIT's, nobody confirmed it              Draft, origin mt
+//   hidden at import (a bare URL), no text:
+//   its source copied (export-target.js)      Draft, origin source (Trados'
+//                                             DefaultTranslationOrigin.Source)
 //   untouched client target / locked          not written at all
 export const CONF = {
   edited: { conf: "Translated", origin: "interactive" },
@@ -61,6 +65,7 @@ export const CONF = {
   rejected: { conf: "RejectedTranslation", origin: "interactive" },
   tm: { conf: "Translated", origin: "tm", percent: "100" },
   mt: { conf: "Draft", origin: "mt" },
+  source: { conf: "Draft", origin: "source" },
 };
 
 const LOCKTU_XID_RE = /\bxid\s*=\s*("lockTU_[^"]*"|'lockTU_[^']*')/g;
@@ -189,6 +194,7 @@ function confFor(tu, changed = true) {
     return changed && tu.fileTarget !== true ? CONF.confirmedMt : CONF.confirmed;
   }
   if (tu.blockReason === "TM_MATCH") return CONF.tm;
+  if (leavesWithSource(tu)) return CONF.source;
   return CONF.mt;
 }
 
@@ -237,6 +243,14 @@ function edges(mrk) {
 
 function lockTuXids(text) {
   return [...text.matchAll(LOCKTU_XID_RE)].map((m) => m[1].slice(1, -1));
+}
+
+/** The lockTU references of an XML slice, in order: [{ id, xid }], id = the code's own id. */
+function lockTuRefs(text) {
+  return [...text.matchAll(LOCKTU_XID_RE)].map((m) => {
+    const tag = text.slice(text.lastIndexOf("<", m.index), text.indexOf(">", m.index) + 1);
+    return { id: /\sid\s*=\s*["']([^"']*)["']/.exec(tag)?.[1] ?? null, xid: m[1].slice(1, -1) };
+  });
 }
 
 /** MFT's Studio invariants: shared lockTU refs, orphan lockTU defs, seg mrks without sdl:seg. */
@@ -484,10 +498,10 @@ export function writeSdlxliff(raw, tus) {
       if ((peeled.lead || peeled.trail) && tu.srcLiteral.trim() === peeled.core.trim()) edge = peeled;
     }
 
-    const want = tagSequence(edge ? edge.core : srcCoded).join("");
-    const got = tagSequence(text).join("");
-    if (want !== got) {
-      if (!got && codes.size) report.skippedLegacy++;
+    // Same rule as the editor and the save (tag-check.js): the source's tags,
+    // in any order that still nests. buildInner copies each one by its key.
+    if (!tagIssue(edge ? edge.core : srcCoded, text, { ordered: true }).ok) {
+      if (!tagSequence(text).length && codes.size) report.skippedLegacy++;
       else report.skippedTags++;
       continue;
     }
@@ -503,19 +517,26 @@ export function writeSdlxliff(raw, tus) {
 
       // Rule 5: the copied tags carry the SEG-SOURCE's lockTU xids. Give the
       // target back its own previous xids first; clone a definition for any
-      // extra one.
-      const previous = tgtMrk ? lockTuXids(raw.slice(tgtMrk.openEnd, tgtMrk.closeStart)) : [];
-      const incoming = lockTuXids(inner);
+      // extra one. Each previous xid goes back to the code with the same id
+      // (the translation may have moved the tags), the rest in order.
+      const previous = tgtMrk ? lockTuRefs(raw.slice(tgtMrk.openEnd, tgtMrk.closeStart)) : [];
+      const incoming = lockTuRefs(inner);
       if (incoming.length < previous.length) {
         report.skippedLockTu++;
         continue;
       }
+      const left = [...previous];
+      const sameCode = incoming.map((ref) => {
+        const k = ref.id === null ? -1 : left.findIndex((p) => p.id === ref.id);
+        return k < 0 ? null : left.splice(k, 1)[0].xid;
+      });
+      const owns = sameCode.map((xid) => xid ?? left.shift()?.xid ?? null);
       let i = 0;
       let failed = false;
       const clones = [];
       inner = inner.replace(LOCKTU_XID_RE, (whole, quoted) => {
         const srcXid = quoted.slice(1, -1);
-        const own = previous[i++];
+        const own = owns[i++];
         if (own) return whole.replace(srcXid, own);
         const def = index.unitById.get(srcXid);
         if (!def) {
@@ -636,8 +657,7 @@ export function writeSdlxliff(raw, tus) {
       continue;
     }
     const tagsKept = sentences.every(
-      (sentence, position) =>
-        tagSequence(sentence.text).join("") === tagSequence(translations[position]).join(""),
+      (sentence, position) => tagIssue(sentence.text, translations[position], { ordered: true }).ok,
     );
     if (!tagsKept) {
       report.skippedTags += texts.length;

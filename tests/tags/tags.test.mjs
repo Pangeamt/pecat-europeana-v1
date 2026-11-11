@@ -33,12 +33,14 @@ test("una sugerencia del LLM solo se admite si conserva las etiquetas del origen
   assert.equal(suggestionKeepsTags("sin etiquetas", "inventa <x1/>"), false);
 });
 
-test("sugerencia con las etiquetas reordenadas: solo falla donde se exige el orden", () => {
+test("sugerencia con las etiquetas reordenadas: pasa; con una pareja cruzada, no en SDLXLIFF/XLIFF", () => {
   const src = "A <x1/> B <x2/> C";
   const swapped = "A' <x2/> B' <x1/> C'";
   assert.equal(suggestionKeepsTags(src, swapped), true, "por conjunto pasa");
-  assert.equal(suggestionKeepsTags(src, swapped, { ordered: true }), false, "SDLXLIFF/XLIFF: orden");
-  assert.equal(suggestionKeepsTags(src, "A' <x1/> B' <x2/> C'", { ordered: true }), true);
+  assert.equal(suggestionKeepsTags(src, swapped, { ordered: true }), true, "SDLXLIFF/XLIFF: cualquier orden");
+  const pairs = "A <g1>B</g1> <g2>C</g2>";
+  assert.equal(suggestionKeepsTags(pairs, "<g2>C'</g2> A' <g1>B'</g1>", { ordered: true }), true);
+  assert.equal(suggestionKeepsTags(pairs, "A' <g1>B' <g2></g1>C'</g2>", { ordered: true }), false, "cruzadas");
 });
 
 test("export: el texto del revisor solo cuenta si esta aprobado", () => {
@@ -76,10 +78,11 @@ test("editor: etiquetas que faltan, agrupando las parejas, en orden de origen", 
   assert.deepEqual(missingTags("Click <g1>here</g1>", SRC), [{ key: "x2", open: "<x2/>" }]);
 });
 
-test("guardado: conjunto completo (y orden para SDLXLIFF)", () => {
+test("guardado: conjunto completo (y sin parejas cruzadas para SDLXLIFF)", () => {
   const reordered = "Y <x2/> luego pulse <g1>aquí</g1>.";
   assert.equal(tagsComplete(reordered, SRC), true);
-  assert.equal(tagsComplete(reordered, SRC, { ordered: true }), false);
+  assert.equal(tagsComplete(reordered, SRC, { ordered: true }), true);
+  assert.equal(tagsComplete("Y <x2/> luego </g1>pulse<g1> aquí.", SRC, { ordered: true }), false);
   assert.equal(tagsComplete("Pulse aquí", SRC), false);
 });
 

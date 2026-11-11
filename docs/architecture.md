@@ -126,11 +126,15 @@ motivó está en `documentacion/pecat-e/COMPARATIVA-SDLXLIFF-PECATE-VS-MFT.md`.
 - **Exportar** (`writer.js`, con `xmltree.js`): **empalma** nuestras traducciones sobre el texto original, así
   que todo lo demás queda byte a byte (medido: 2037/2037 ficheros reales idénticos sin cambios). Reglas:
   - solo se escribe en `<mrk>` que ya existen; las etiquetas se copian del `seg-source`;
-  - la firma de etiquetas tiene que coincidir en orden con la del origen; si no, el segmento se salta y se cuenta;
+  - las etiquetas tienen que ser las del origen y seguir anidadas (cualquier orden, sin parejas cruzadas; `tagIssue`); si no, el segmento se salta y se cuenta;
   - cada destino lleva su **propia** copia de `lockTU`;
   - `sdl:seg`: revisado → `ApprovedTranslation`/`interactive`; match exacto de TM → `Translated`/`tm`; MT →
     `Draft`/`mt`;
   - lo que el cliente ya traía y nadie tocó no se reconfirma;
+  - un segmento **oculto al importar** (`visibility-rules.js`: una URL sola) no va a la MT ni al editor: sale con
+    **su origen** como destino, sin confirmar (`Draft`/`source`, el «copiar origen» de Trados; en XLIFF,
+    `needs-translation`). Lo decide `export-target.js` (`leavesWithSource`); hasta el 2026-11-11 salía vacío. En
+    los formatos de Okapi ya salía con el origen (el relleno previo a `tikal -m`), y así sigue;
   - la salida se valida (bien formada + invariantes de `lockTU`) antes de entregarse.
 - **Descarga** (`GET /api/file` y `GET /api/documents/<id>/export`): la cabecera `X-Pecat-Skipped-Segments` dice
   cuántos segmentos con traducción no se escribieron. Un documento importado antes de esta versión no tiene
@@ -145,12 +149,19 @@ motivó está en `documentacion/pecat-e/COMPARATIVA-SDLXLIFF-PECATE-VS-MFT.md`.
     `<ph>/<bpt>/<ept>`;
   - sin información (tipo desconocido, o documento importado antes): la ficha se ve como siempre.
   Solo se muestra: ni las reglas de etiquetas ni el escritor lo leen.
-- **Etiquetas en el orden del origen** (`modules/documents/tag-check.js`, `tagIssue`): una sola comprobación para el
-  servidor y el editor. En SDLXLIFF exige el mismo conjunto **y el mismo orden**; en los demás formatos, el conjunto.
-  - al importar, una MT con etiquetas que faltan, sobran o están **reordenadas** queda en `VALIDATION_FAILED`
+- **Etiquetas de la traducción** (`modules/documents/tag-check.js`, `tagIssue`): una sola comprobación para el
+  servidor, el editor y el export. Siempre exige el mismo conjunto (ni de más ni de menos). En SDLXLIFF/XLIFF (`ordered`)
+  admite **cualquier orden** desde 2026-11-11 (hay idiomas que necesitan girarlas), siempre que sigan formando un árbol:
+  ninguna pareja `<gN>…</gN>` cruzada con otra (`<g1><g2></g1></g2>`) y cada `<bN/>` antes de su `<eN/>`. Si el origen no
+  es un árbol (una pareja partida entre dos frases de la misma unidad) se sigue exigiendo su orden exacto. Hasta esa fecha
+  el orden tenía que ser el del origen, como en el MFT hasta su 1.0.72 (desde ese mismo día el MFT también acepta
+  cualquier orden sin parejas cruzadas).
+  - al importar, una MT con etiquetas que faltan, sobran o están **cruzadas** queda en `VALIDATION_FAILED`
     (no pasa por el juez LLM) y el editor lo avisa;
   - guardar da 422 `INLINE_TAGS_MISMATCH` con el motivo;
-  - el export no escribe un segmento cuyas etiquetas no coinciden (la puerta de `writer.js`, igual que el MFT);
+  - el export no escribe un segmento cuyas etiquetas no cumplen la regla (la puerta de `writer.js`, la misma función);
+    `buildInner` copia cada código por su número, así que escribe cualquier orden, y las referencias `lockTU` del
+    destino anterior vuelven al código con el mismo `id` aunque se haya movido;
   - **«Fix tags»** (`TagEditor/tag-rules.js`, `fixTags`): propone el destino con las etiquetas del origen, en su
     orden y colocadas por posición relativa; no se aplica solo y tiene «Undo fix».
 - **Propagación de repeticiones** (`lib/same-source.js`, `planPropagation`; desde 2026-11-11): confirmar o rechazar

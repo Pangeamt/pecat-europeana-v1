@@ -115,7 +115,7 @@ test("escritor 2.x: la traduccion del cliente no se pisa; revisada solo cambia e
   assert.match(text, /<segment state="reviewed"><source>Exit<\/source><target>Quitter<\/target>/, "bloqueada: igual");
 });
 
-test("escritor 2.x: pc/ph/sc/ec se copian del origen con su originalData; otro orden no se escribe", () => {
+test("escritor 2.x: pc/ph/sc/ec se copian del origen con su originalData; otro orden sí se escribe", () => {
   const raw = doc(
     file(
       `    <unit id="u1">\n      <originalData><data id="d1">&lt;b&gt;</data><data id="d2">&lt;/b&gt;</data></originalData>\n` +
@@ -128,10 +128,14 @@ test("escritor 2.x: pc/ph/sc/ec se copian del origen con su originalData; otro o
   assert.equal(ok.report.written, 1);
   assert.match(ok.text, /<target>Appuyez sur <pc id="1" dataRefStart="d1" dataRefEnd="d2">Start<\/pc> et <ph id="2"\/> maintenant<\/target>/);
   assert.equal(wellFormed(ok.text), true);
-  assert.equal(tagIssue(seg.source, "et <x2/> <g1>Start</g1>", { ordered: true }).ok, false);
+  assert.equal(tagIssue(seg.source, "et <x2/> <g1>Start</g1>", { ordered: true }).ok, true);
   const swapped = writeSdlxliff(raw, [tu("u1|#0", "et <x2/> Appuyez sur <g1>Start</g1> maintenant")]);
-  assert.equal(swapped.report.skippedTags, 1);
-  assert.equal(swapped.text, raw);
+  assert.equal(swapped.report.written, 1);
+  assert.match(swapped.text, /<target>et <ph id="2"\/> Appuyez sur <pc id="1" dataRefStart="d1" dataRefEnd="d2">Start<\/pc> maintenant<\/target>/);
+  assert.equal(wellFormed(swapped.text), true);
+  const crossed = writeSdlxliff(raw, [tu("u1|#0", "Appuyez </g1>sur<g1> Start et <x2/>")]);
+  assert.equal(crossed.report.skippedTags, 1);
+  assert.equal(crossed.text, raw);
 });
 
 test("2.x: <ignorable>, <notes> y todo lo demas quedan byte a byte; varios <file> con los mismos ids", () => {
