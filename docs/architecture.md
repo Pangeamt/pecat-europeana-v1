@@ -131,6 +131,10 @@ motivó está en `documentacion/pecat-e/COMPARATIVA-SDLXLIFF-PECATE-VS-MFT.md`.
   - `sdl:seg`: revisado → `ApprovedTranslation`/`interactive`; match exacto de TM → `Translated`/`tm`; MT →
     `Draft`/`mt`;
   - lo que el cliente ya traía y nadie tocó no se reconfirma;
+  - un segmento **oculto al importar** (`visibility-rules.js`: una URL sola) no va a la MT ni al editor: sale con
+    **su origen** como destino, sin confirmar (`Draft`/`source`, el «copiar origen» de Trados; en XLIFF,
+    `needs-translation`). Lo decide `export-target.js` (`leavesWithSource`); hasta el 2026-11-11 salía vacío. En
+    los formatos de Okapi ya salía con el origen (el relleno previo a `tikal -m`), y así sigue;
   - la salida se valida (bien formada + invariantes de `lockTU`) antes de entregarse.
 - **Descarga** (`GET /api/file` y `GET /api/documents/<id>/export`): la cabecera `X-Pecat-Skipped-Segments` dice
   cuántos segmentos con traducción no se escribieron. Un documento importado antes de esta versión no tiene

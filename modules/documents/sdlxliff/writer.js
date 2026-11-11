@@ -4,7 +4,7 @@ import { codeSource, codeTarget, tagSequence, TOKEN_RE } from "./codes.js";
 import { indexSdlxliff, isPlainLocked } from "./reader.js";
 import { isVirtualMid, locateSentences, peelEdgeCodes, splitCoded, virtualMid } from "./segmenter.js";
 import { findAll } from "./xmltree.js";
-import { exportTarget, isApproved } from "../export-target.js";
+import { exportTarget, isApproved, leavesWithSource } from "../export-target.js";
 import { tagIssue } from "../tag-check.js";
 
 // Writes our translations INTO the client's original SDLXLIFF by splicing the
@@ -54,6 +54,9 @@ import { tagIssue } from "../tag-check.js";
 //   exact memory match (auto-locked; only in
 //   documents imported before 2026-10-14)     Translated, origin tm, 100
 //   DAAIT's, nobody confirmed it              Draft, origin mt
+//   hidden at import (a bare URL), no text:
+//   its source copied (export-target.js)      Draft, origin source (Trados'
+//                                             DefaultTranslationOrigin.Source)
 //   untouched client target / locked          not written at all
 export const CONF = {
   edited: { conf: "Translated", origin: "interactive" },
@@ -62,6 +65,7 @@ export const CONF = {
   rejected: { conf: "RejectedTranslation", origin: "interactive" },
   tm: { conf: "Translated", origin: "tm", percent: "100" },
   mt: { conf: "Draft", origin: "mt" },
+  source: { conf: "Draft", origin: "source" },
 };
 
 const LOCKTU_XID_RE = /\bxid\s*=\s*("lockTU_[^"]*"|'lockTU_[^']*')/g;
@@ -190,6 +194,7 @@ function confFor(tu, changed = true) {
     return changed && tu.fileTarget !== true ? CONF.confirmedMt : CONF.confirmed;
   }
   if (tu.blockReason === "TM_MATCH") return CONF.tm;
+  if (leavesWithSource(tu)) return CONF.source;
   return CONF.mt;
 }
 

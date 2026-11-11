@@ -144,6 +144,22 @@ dentro del texto.
 - Si a la traducción le falta alguna etiqueta del origen, `Ctrl+,` inserta la siguiente que falta (no comprobado en
   esta revisión).
 
+#### Encontrar los segmentos con error de etiquetas
+
+Si algún segmento traducido no lleva las etiquetas de su origen, encima de la rejilla sale un aviso rojo con cuántos
+son. Esos segmentos no se pueden confirmar y la descarga no los escribe. Hay tres formas de llegar a ellos:
+
+- **Ver segmentos** (*Show segments* con la interfaz en inglés), en el propio aviso rojo: la rejilla se queda solo
+  con esos segmentos y se selecciona el primero. Quita los demás filtros, para que salgan todos los que cuenta el aviso.
+- La opción **Etiquetas con error** del filtro de la columna **Status** (ver [Por estado](#por-estado)): lo mismo, y
+  se puede combinar con las otras opciones, por ejemplo con **Sin revisar**.
+- **Verificar (F8)** (*Verify (F8)*), en la barra de trabajo, o la tecla `F8`: abre la lista de todo lo que impide
+  entregar el documento (etiquetas con error, segmentos vacíos, sin guardar o sin confirmar), con un botón **Ir** para
+  saltar a cada uno.
+
+En cada uno, pulsa **Fix tags** o coloca a mano las etiquetas que faltan. Al confirmarlo deja de contar en el aviso.
+El aviso cuenta lo guardado: un segmento que se está editando cuenta como estaba la última vez que se guardó.
+
 ### Segmentos bloqueados
 
 Un segmento bloqueado ya está resuelto. No se puede editar y el editor lo salta al avanzar. Pasa el ratón por su
@@ -196,6 +212,10 @@ filtro.
 Con un filtro puesto, el embudo queda marcado y los contadores de la barra pasan a referirse a lo que se ve.
 
 ![Rejilla filtrada por segmentos sin revisar, con el embudo y el botón de confirmar todo resaltados](img/editor-filtro-aplicado.png)
+
+La opción **Etiquetas con error** del mismo filtro deja solo los segmentos cuya traducción no lleva las etiquetas del
+origen: los que cuenta el aviso rojo de encima de la rejilla (ver
+[Encontrar los segmentos con error de etiquetas](#encontrar-los-segmentos-con-error-de-etiquetas)).
 
 El embudo de la columna del **candado** filtra del mismo modo entre bloqueados y no bloqueados.
 
@@ -286,5 +306,6 @@ desactivadas**: si quieres alimentar una memoria con este trabajo, actívala ant
 | `Ctrl+Mayús+↓` · `Ctrl+Mayús+↑` | Ir al segmento siguiente · anterior |
 | `Ctrl+Z` · `Ctrl+Y` | Deshacer · rehacer |
 | `Ctrl+,` | Insertar la siguiente etiqueta que falta (no comprobado en esta revisión) |
+| `F8` | Verificar el documento: lista de lo que impide entregarlo, con un botón para ir a cada segmento |
 
 La rejilla muestra 50 segmentos por página; el selector de abajo cambia de página y de tamaño.

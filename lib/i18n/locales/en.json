@@ -430,7 +430,11 @@
       "REJECTED": "Rejected",
       "LOCKED": "Locked",
       "ORIGIN_MT": "Origin: machine translation (AT)",
-      "ORIGIN_FUZZY": "Origin: fuzzy memory match (%)"
+      "ORIGIN_FUZZY": "Origin: fuzzy memory match (%)",
+      "TAG_ERROR": "Tag errors"
+    },
+    "tagErrors": {
+      "show": "Show segments"
     },
     "nav": {
       "lockedSkipped": "{count} locked skipped",
@@ -646,6 +650,8 @@
       }
     },
     "verify": {
+      "button": "Verify (F8)",
+      "tooltip": "Lists the segments that prevent a clean delivery (tag errors, empty, unsaved or not confirmed), with a button to go to each one",
       "title": "Verification: {count} issues",
       "none": "No issues: ready to deliver",
       "go": "Go",
