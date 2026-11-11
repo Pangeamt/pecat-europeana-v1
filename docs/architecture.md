@@ -150,7 +150,8 @@ motivó está en `documentacion/pecat-e/COMPARATIVA-SDLXLIFF-PECATE-VS-MFT.md`.
   admite **cualquier orden** desde 2026-11-11 (hay idiomas que necesitan girarlas), siempre que sigan formando un árbol:
   ninguna pareja `<gN>…</gN>` cruzada con otra (`<g1><g2></g1></g2>`) y cada `<bN/>` antes de su `<eN/>`. Si el origen no
   es un árbol (una pareja partida entre dos frases de la misma unidad) se sigue exigiendo su orden exacto. Hasta esa fecha
-  el orden tenía que ser el del origen, como en el MFT (que sigue así).
+  el orden tenía que ser el del origen, como en el MFT hasta su 1.0.72 (desde ese mismo día el MFT también acepta
+  cualquier orden sin parejas cruzadas).
   - al importar, una MT con etiquetas que faltan, sobran o están **cruzadas** queda en `VALIDATION_FAILED`
     (no pasa por el juez LLM) y el editor lo avisa;
   - guardar da 422 `INLINE_TAGS_MISMATCH` con el motivo;
