@@ -1,5 +1,5 @@
 import prisma from "../../lib/prisma";
-import { keepExactSource } from "../../lib/same-source";
+import { candidateFilter } from "../../lib/same-source";
 import {
   buildDocumentScopeWhere,
   findDocumentByShareToken,
@@ -52,17 +52,20 @@ export async function findDocumentPipelineContext(documentId) {
   });
 }
 
-// Review decisions propagate to identical sources WITHIN the same document
-// only (never across a project's documents).
-// Propagation targets for a review decision. Locked (block) and hidden
+// Review decisions propagate to segments with the same source WITHIN the
+// same document only (never across a project's documents).
+// Propagation CANDIDATES for a review decision. Locked (block) and hidden
 // siblings are left alone: propagating used to overwrite the target and
 // status of locked TM/file-locked segments with the same source.
-// The query matches more than that (the column's collation ignores case,
-// accents and NBSP), so the result is cut to the exact source in code.
-export async function findTusWithSameSource(documentId, srcLiteral, excludedTuId) {
-  const rows = await prisma.tu.findMany({
+// The query matches more than the rule (the column's collation ignores case,
+// accents and NBSP; tag numbers may differ): `planPropagation`
+// (lib/same-source.js) decides which ones get the text, and which text.
+export async function findPropagationCandidates(documentId, srcLiteral, excludedTuId) {
+  const filter = candidateFilter(srcLiteral);
+  if (!filter) return [];
+  return prisma.tu.findMany({
     where: {
-      srcLiteral,
+      ...filter,
       documentId,
       block: false,
       visible: true,
@@ -71,7 +74,6 @@ export async function findTusWithSameSource(documentId, srcLiteral, excludedTuId
       },
     },
   });
-  return keepExactSource(rows, srcLiteral);
 }
 
 // Edit history (tu_revisions): written by the save, read by the editor's
