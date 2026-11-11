@@ -387,8 +387,8 @@ async function importSdlxliff(
     glossaryIds,
     profileId,
     workspaceId,
-    // SDLXLIFF / XLIFF: the tags must come back in the source's ORDER (the
-    // export writes nothing else); other formats keep the set rule.
+    // SDLXLIFF / XLIFF: the source's tags in any order that still nests
+    // (tag-check.js); other formats keep the set rule.
     orderedTags: true,
     // Only the EMPTY, unlocked segments go to DAAIT (.sdlxliff, .xlf and
     // .xliff alike); what the file already translated is never re-translated.

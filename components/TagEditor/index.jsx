@@ -261,8 +261,8 @@ const TagEditor = ({
   dir = "ltr",
   source = "",
   tagInfo = null,
-  // SDLXLIFF: the target must carry the source's tags in the SOURCE'S ORDER
-  // (the export writes nothing else); other formats only need the same set.
+  // SDLXLIFF/XLIFF: the source's tags in any order that still nests (no
+  // crossed pairs; the export writes nothing else); others only need the set.
   ordered = false,
 }) => {
   const boxRef = useRef(null);
@@ -428,7 +428,7 @@ const TagEditor = ({
 
   const missing = missingTags(text, source);
   // What the save (server) and the export will demand: same tags, and for
-  // SDLXLIFF the same order. Shown as soon as it is not met, not at save time.
+  // SDLXLIFF/XLIFF no crossed pairs. Shown as soon as it is not met.
   const issue = source ? tagIssue(source, text, { ordered }) : { ok: true };
 
   // Paste as plain text: HTML would bring duplicated chips (or foreign markup).

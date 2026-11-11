@@ -135,7 +135,9 @@ dentro del texto.
 
 ![Segmento con etiquetas de formato en el origen y en la traducción](img/editor-etiquetas.png)
 
-- Las etiquetas de la traducción tienen que ser **las mismas que las del origen y en el mismo orden**.
+- Las etiquetas de la traducción tienen que ser **las mismas que las del origen**. En los ficheros de Trados y XLIFF
+  pueden ir **en otro orden** si el idioma lo pide (por ejemplo, si la traducción automática las trae giradas). Lo único
+  que no vale es cruzar dos parejas: abrir una dentro de otra y cerrarla fuera.
 - Escribe y corrige el texto alrededor de ellas. El editor no deja borrarlas ni cambiarlas de orden.
 - Cada pareja rodea el texto al que da formato: lo que quede entre la ficha de apertura y la de cierre saldrá, por
   ejemplo, en negrita.

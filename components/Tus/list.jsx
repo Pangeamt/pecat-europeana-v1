@@ -652,8 +652,8 @@ const TusList = ({ shareToken } = {}) => {
   const translatorSubmitted = Boolean(projectConfig?.translatorSubmittedAt);
   const reviewerSubmitted = Boolean(projectConfig?.reviewerSubmittedAt);
 
-  // SDLXLIFF targets must carry the source's tags in the SOURCE'S ORDER (the
-  // export writes nothing else); other formats only need the same set.
+  // SDLXLIFF/XLIFF targets: the source's tags in any order that still nests
+  // (the export writes nothing else); other formats only need the same set.
   const orderedTags = isSpliceFormat(projectConfig?.extension);
   // Translated segments whose tags do not match: they cannot be approved and
   // the export will not write them, so the reviewer is told up front. The
@@ -2813,7 +2813,7 @@ const TusList = ({ shareToken } = {}) => {
           className="mb-2"
           type="error"
           showIcon
-          message={`${tagIssueCount} segment${tagIssueCount === 1 ? "" : "s"} with tags that do not match the source (missing, extra${orderedTags ? " or in another order" : ""}). They cannot be approved and the export will not write them: open each one and use "Fix tags".`}
+          message={`${tagIssueCount} segment${tagIssueCount === 1 ? "" : "s"} with tags that do not match the source (missing, extra${orderedTags ? " or crossed" : ""}). They cannot be approved and the export will not write them: open each one and use "Fix tags".`}
           action={
             <Button size="small" danger onClick={showTagErrors}>
               {t("tus.tagErrors.show")}

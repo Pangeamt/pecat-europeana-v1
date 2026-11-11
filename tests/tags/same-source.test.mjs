@@ -96,15 +96,17 @@ test("propagar: «Ale» no va a «A<x1/>le» ni a «Ale<x1/>» (ni al revés)", 
   assert.deepEqual(ids(planPropagation(edge, "Ale<x1/>", [plain, mid])), []);
 });
 
-test("propagar: el control de etiquetas del editor decide (orden en SDLXLIFF)", () => {
+test("propagar: el control de etiquetas del editor decide (pares cruzados en SDLXLIFF)", () => {
   const tu = row("a", "<g1>A</g1> B<x2/>");
   const twin = row("b", "<g5>A</g5> B<x9/>");
   const reordered = "<x2/>B <g1>A</g1>"; // la traducción cambia el orden
-  // .sdlxliff (orden obligatorio): ese texto no valdría ni en el original; no se propaga.
-  assert.deepEqual(ids(planPropagation(tu, reordered, [twin], { ordered: true })), []);
-  // Otros formatos (sin orden): se propaga renumerado.
-  const plan = planPropagation(tu, reordered, [twin], { ordered: false });
-  assert.deepEqual(plan.map((item) => [item.row.id, item.text]), [["b", "<x9/>B <g5>A</g5>"]]);
+  // En cualquier formato (desde 2026-11-11 también en .sdlxliff): se propaga renumerado.
+  for (const ordered of [true, false]) {
+    const plan = planPropagation(tu, reordered, [twin], { ordered });
+    assert.deepEqual(plan.map((item) => [item.row.id, item.text]), [["b", "<x9/>B <g5>A</g5>"]], String(ordered));
+  }
+  // .sdlxliff: una pareja cruzada no valdría ni en el original; no se propaga.
+  assert.deepEqual(ids(planPropagation(tu, "</g1>A<g1> B<x2/>", [twin], { ordered: true })), []);
   // Un texto con una etiqueta que el origen no tiene nunca se propaga a la gemela.
   assert.deepEqual(ids(planPropagation(tu, "<g1>A</g1> B<x2/><x3/>", [twin], { ordered: false })), []);
 });

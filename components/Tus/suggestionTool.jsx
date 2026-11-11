@@ -10,7 +10,7 @@ import { Check, X } from "lucide-react";
 // suggestionStatus so acceptance can be measured.
 // Segments WITH inline tags (2026-10-02): the LLM gets source and target WITH
 // their tags and the server only keeps a suggestion that preserves them (same
-// tags, same order for SDLXLIFF/XLIFF), so every suggestion shown is applicable.
+// tags, no crossed pairs for SDLXLIFF/XLIFF), so every suggestion shown is applicable.
 // The `live` prop carries the ephemeral evaluation of the CURRENT draft
 // (fired when the reviewer pauses typing) and takes precedence over the
 // stored suggestion while present.

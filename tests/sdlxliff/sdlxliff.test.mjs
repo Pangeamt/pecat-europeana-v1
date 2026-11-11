@@ -120,7 +120,7 @@ test("escritor: documento antiguo sin marcadores -> no se escribe y se cuenta", 
   assert.equal(report.skippedLegacy, 1);
 });
 
-test("escritor: etiquetas en otro orden o sobrantes -> no se escribe", () => {
+test("escritor: etiquetas sobrantes -> no se escribe", () => {
   const tus = [{ externalId: "t2::2", reviewLiteral: 'Dis <g8>ya</g8> "hola" <x1/>', Status: "EDITED" }];
   const { report } = writeSdlxliff(FILE, tus);
   assert.equal(report.skippedTags, 1);

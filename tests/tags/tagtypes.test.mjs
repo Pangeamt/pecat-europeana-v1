@@ -81,16 +81,17 @@ test("Tikal/XLIFF: tipo desde ctype, equiv-text o el nombre del codigo original"
   assert.equal(tagInfoFromCodes(new Map([["b1", run.documentElement.firstChild]])), null);
 });
 
-test("tagIssue: falta, sobra y ORDEN (solo cuando se pide)", () => {
+test("tagIssue: falta, sobra y, cuando se pide, parejas CRUZADAS (el orden ya no)", () => {
   const src = "A <g1>b</g1> <x2/> c";
   assert.equal(tagIssue(src, "A <g1>b</g1> <x2/> c", { ordered: true }).ok, true);
   assert.deepEqual(tagIssue(src, "A <g1>b</g1> c").missing, ["<x2/>"]);
   assert.deepEqual(tagIssue(src, "A <g1>b</g1> <x2/> <x9/> c").extra, ["<x9/>"]);
   const swapped = "A <x2/> <g1>b</g1> c";
   assert.equal(tagIssue(src, swapped).ok, true, "por conjunto, el reorden pasa");
-  const strict = tagIssue(src, swapped, { ordered: true });
-  assert.equal(strict.ok, false);
-  assert.match(describeTagIssue(strict), /wrong order: expected <g1> <\/g1> <x2\/>, got <x2\/> <g1> <\/g1>/);
+  assert.equal(tagIssue(src, swapped, { ordered: true }).ok, true, "SDLXLIFF/XLIFF: el reorden también pasa");
+  const crossed = tagIssue(src, "A </g1>b<g1> <x2/> c", { ordered: true });
+  assert.equal(crossed.ok, false);
+  assert.match(describeTagIssue(crossed), /crossed tags: <\/g1> comes before its <g1>/);
 });
 
 test("fixTags: reordenadas, con faltantes, con sobrantes y vacio -> la secuencia del origen", () => {
@@ -136,15 +137,19 @@ test("fixTags (propiedad): cualquier destino roto sale con la secuencia del orig
   }
 });
 
-test("escritor: etiquetas en otro orden NO se escriben (la puerta), en su orden SI", () => {
+test("escritor: etiquetas en otro orden SÍ se escriben; una pareja cruzada NO (la puerta)", () => {
   const raw = sdlxliff({ locked: false });
   const mk = (text) => [{ externalId: "u1::1", translatedLiteral: text }];
   const ok = writeSdlxliff(raw, mk("Branchez 1 <g3>maintenant</g3> <x164/> ok."));
   assert.equal(ok.report.written, 1);
   const swapped = writeSdlxliff(raw, mk("Branchez 1 <x164/> <g3>maintenant</g3> ok."));
-  assert.equal(swapped.report.written, 0);
-  assert.equal(swapped.report.skippedTags, 1);
-  assert.equal(swapped.text, raw, "no se escribe nada: el fichero queda igual");
+  assert.equal(swapped.report.written, 1);
+  assert.equal(swapped.report.skippedTags, 0);
+  assert.match(swapped.text, /<mrk mtype="seg" mid="1">Branchez 1 <x id="164"\/> <g id="3">maintenant<\/g> ok\.<\/mrk>/);
+  const crossed = writeSdlxliff(raw, mk("Branchez 1 </g3>maintenant<g3> <x164/> ok."));
+  assert.equal(crossed.report.written, 0);
+  assert.equal(crossed.report.skippedTags, 1);
+  assert.equal(crossed.text, raw, "no se escribe nada: el fichero queda igual");
 });
 
 test("Okapi numera sus codigos por posicion: el tipo es el nombre sin el numero", () => {

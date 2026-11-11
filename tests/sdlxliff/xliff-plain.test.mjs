@@ -89,7 +89,7 @@ test("escritor: bloqueados (signed-off) no se tocan", () => {
   assert.equal(text, raw);
 });
 
-test("escritor: etiquetas Okapi (bpt/ept/ph) y <g> se copian del origen; otro orden no se escribe", () => {
+test("escritor: etiquetas Okapi (bpt/ept/ph) y <g> se copian del origen; otro orden sí, cruzadas no", () => {
   const raw = wrap(
     `      <trans-unit id="1"><source>Press <g id="1">Start</g> and <ph id="2">&lt;xref id="9"/&gt;</ph> now</source><target/></trans-unit>\n` +
       `      <trans-unit id="2"><source>Use <bpt id="3" ctype="x-unit">&lt;unit&gt;</bpt>5 V<ept id="3">&lt;/unit&gt;</ept> now</source><target/></trans-unit>`,
@@ -106,10 +106,18 @@ test("escritor: etiquetas Okapi (bpt/ept/ph) y <g> se copian del origen; otro or
   assert.match(ok.text, /<bpt id="3" ctype="x-unit">&lt;unit&gt;<\/bpt>5 V<ept id="3">&lt;\/unit&gt;<\/ept> maintenant<\/target>/);
   assert.equal(wellFormed(ok.text), true);
 
-  const swapped = writeSdlxliff(raw, [tu("1", "et <x2/> Appuyez sur <g1>Start</g1> maintenant")]);
-  assert.equal(swapped.report.written, 0);
-  assert.equal(swapped.report.skippedTags, 1);
-  assert.equal(swapped.text, raw);
+  // Otro orden (desde 2026-11-11): se escribe, cada código copiado por su id.
+  const swapped = writeSdlxliff(raw, [tu("1", "et <x2/> Appuyez sur <g1>Start</g1> maintenant"), tu("2", "Utilisez 5 V <b3/>ici<e3/>")]);
+  assert.equal(swapped.report.written, 2);
+  assert.equal(swapped.report.skippedTags, 0);
+  assert.match(swapped.text, /<target state="needs-translation">et <ph id="2">&lt;xref id="9"\/&gt;<\/ph> Appuyez sur <g id="1">Start<\/g> maintenant<\/target>/);
+  assert.match(swapped.text, /Utilisez 5 V <bpt id="3" ctype="x-unit">&lt;unit&gt;<\/bpt>ici<ept id="3">&lt;\/unit&gt;<\/ept><\/target>/);
+  assert.equal(wellFormed(swapped.text), true);
+  // Un par cruzado o un final antes de su inicio: no se escribe.
+  const crossed = writeSdlxliff(raw, [tu("1", "Appuyez </g1>sur<g1> Start et <x2/>"), tu("2", "Utilisez <e3/>5 V<b3/>")]);
+  assert.equal(crossed.report.written, 0);
+  assert.equal(crossed.report.skippedTags, 2);
+  assert.equal(crossed.text, raw);
 });
 
 test("varios <file> con los mismos ids de trans-unit: cada uno recibe lo suyo", () => {

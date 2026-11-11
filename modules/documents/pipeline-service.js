@@ -288,7 +288,7 @@ function buildReviewUpdate(tu, result, settings, { ordered = false } = {}) {
     finalStatus === "FAILED" ||
     finalStatus === "VALIDATION_FAILED" ||
     finalStatus === "UNPROCESSED" ||
-    // A suggestion that loses, invents or reorders tags is dropped.
+    // A suggestion that loses, invents or crosses tags is dropped.
     !suggestionKeepsTags(tu.srcLiteral, suggestion, { ordered })
   ) {
     // Fail-safe to human: record what DAAIT said, change nothing else.
@@ -400,7 +400,7 @@ export async function reviewDraftSegment({
   if (normalizeForCompare(suggestion) === normalizeForCompare(pair.target)) {
     return { daaitStatus: finalStatus, verdict: LLM_VERDICT.OK, suggestion: null, meta };
   }
-  // A suggestion that loses, invents or reorders the source's tags is not shown.
+  // A suggestion that loses, invents or crosses the source's tags is not shown.
   if (!suggestionKeepsTags(source, suggestion, { ordered })) {
     return { daaitStatus: finalStatus, verdict: null, suggestion: null, meta: null };
   }
