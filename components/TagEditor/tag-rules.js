@@ -10,7 +10,7 @@
 //     be removed -- it would block the export otherwise.
 //   * Missing source tags are INSERTED (chips under the editor, Ctrl+, or
 //     "Copy source"); the save check (server) then demands the full set, and
-//     for SDLXLIFF the source's order.
+//     for SDLXLIFF/XLIFF pairs that do not cross (any order).
 
 import { describeTagIssue, tagIssue } from "../../modules/documents/tag-check.js";
 
@@ -118,17 +118,14 @@ export function missingTags(text, source) {
   return out;
 }
 
-/** Whether `text` has exactly the source's tags (set, and order when `ordered`). */
+/** Whether `text` has exactly the source's tags (set, and nested when `ordered`): tagIssue. */
 export function tagsComplete(text, source, { ordered = false } = {}) {
-  const a = tagList(text);
-  const b = tagList(source);
-  if (ordered) return a.join("") === b.join("");
-  return [...a].sort().join("") === [...b].sort().join("");
+  return tagIssue(source, text, { ordered }).ok;
 }
 
 // ---- "Fix tags" ----------------------------------------------------------
 //
-// A target whose tags are wrong (missing, extra or in another order) cannot be
+// A target whose tags are wrong (missing, extra or crossed) cannot be
 // repaired by hand: source tags are atomic chips that cannot be moved, and the
 // only way out used to be "Copy source" (retype the translation). `fixTags`
 // proposes the target with the SOURCE's tags put back, in the source's order:

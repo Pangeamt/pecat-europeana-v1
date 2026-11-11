@@ -129,9 +129,9 @@ export async function enrichSdlxliffSegments(segments, {
     seg.target = result.target ?? null;
     // The source travels with its inline codes as placeholders (<g1>, <x2/>).
     // DAAIT is not guaranteed to keep them: a translation that drops or
-    // invents one -- or REORDERS them -- is still stored (the reviewer can fix
+    // invents one -- or CROSSES a pair -- is still stored (the reviewer can fix
     // the text), but it is flagged VALIDATION_FAILED, and the export will not
-    // write it until the tags match in the same order (writer.js gate; same
+    // write it until the tags match (any order that nests; writer.js gate, same
     // criterion, so nothing is skipped without having been flagged first).
     seg.tagMismatch =
       Boolean(seg.target) && !tagIssue(seg.source, seg.target, { ordered: orderedTags }).ok;

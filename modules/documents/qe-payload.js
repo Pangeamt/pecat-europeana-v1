@@ -21,9 +21,9 @@ export const toQeReferences = (info, cap = 2) =>
     .map((entry) => ({ source: entry.source, target: entry.target }));
 
 /**
- * Whether a post_edit suggestion keeps the source's tags (same tags, and the
- * same order for SDLXLIFF/XLIFF). A suggestion that loses, invents or reorders
- * tags is never shown nor stored: applying it would break the segment.
+ * Whether a post_edit suggestion keeps the source's tags (same tags, and for
+ * SDLXLIFF/XLIFF still nested, in any order). A suggestion that loses, invents
+ * or crosses tags is never shown nor stored: applying it would break the segment.
  */
 export function suggestionKeepsTags(source, suggestion, { ordered = false } = {}) {
   return tagIssue(source, suggestion, { ordered }).ok;
