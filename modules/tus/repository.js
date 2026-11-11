@@ -1,4 +1,5 @@
 import prisma from "../../lib/prisma";
+import { keepExactSource } from "../../lib/same-source";
 import {
   buildDocumentScopeWhere,
   findDocumentByShareToken,
@@ -56,8 +57,10 @@ export async function findDocumentPipelineContext(documentId) {
 // Propagation targets for a review decision. Locked (block) and hidden
 // siblings are left alone: propagating used to overwrite the target and
 // status of locked TM/file-locked segments with the same source.
+// The query matches more than that (the column's collation ignores case,
+// accents and NBSP), so the result is cut to the exact source in code.
 export async function findTusWithSameSource(documentId, srcLiteral, excludedTuId) {
-  return prisma.tu.findMany({
+  const rows = await prisma.tu.findMany({
     where: {
       srcLiteral,
       documentId,
@@ -68,6 +71,7 @@ export async function findTusWithSameSource(documentId, srcLiteral, excludedTuId
       },
     },
   });
+  return keepExactSource(rows, srcLiteral);
 }
 
 // Edit history (tu_revisions): written by the save, read by the editor's
