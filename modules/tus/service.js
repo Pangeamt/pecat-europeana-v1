@@ -15,6 +15,7 @@ import { isSpliceFormat } from "../../lib/utils";
 import { buildTuRevisions, revisionActionOf } from "../../lib/tu-revision";
 import { isFileLocked, mapWithLimit, planBulkConfirm, planBulkLock } from "../../lib/bulk-confirm";
 import { keepReviewerSpaces } from "../../lib/whitespace";
+import { planPropagation } from "../../lib/same-source";
 import { BULK_EDIT_KINDS, planBulkReplace, statusAfterReplace } from "../../lib/find-replace";
 import {
   createTuRevisions,
@@ -24,7 +25,7 @@ import {
   findDocumentPipelineContext,
   findTuById,
   findTusByDocumentId,
-  findTusWithSameSource,
+  findPropagationCandidates,
   updateTuById,
 } from "./repository";
 
@@ -172,17 +173,19 @@ async function rescoreReviewedPair(tu, target) {
 // Saves the action AND its history row(s): text, status and MTQE before and
 // after, for the segment and for every same-source segment it propagated to.
 // The history is best-effort -- it never fails nor delays the answer's content.
-async function applyTuStatusUpdate(tu, payload, reviewer = null) {
+// `document` (its extension) says whether the tag check of a propagated text
+// also checks tag order, as the editor does for that format.
+async function applyTuStatusUpdate(tu, payload, reviewer = null, document = null) {
   const propagates = payload.action === "approve" || payload.action === "reject";
   let siblingsBefore = [];
   if (propagates && !tu.block) {
-    siblingsBefore = await findTusWithSameSource(
+    siblingsBefore = await findPropagationCandidates(
       tu.documentId,
       tu.srcLiteral,
       tu.id,
     ).catch(() => []);
   }
-  const result = await saveTuStatusUpdate(tu, payload, reviewer);
+  const result = await saveTuStatusUpdate(tu, payload, reviewer, document);
   try {
     const beforeById = new Map(siblingsBefore.map((item) => [item.id, item]));
     await createTuRevisions(
@@ -235,7 +238,7 @@ function reviewTextToSave(tu, { action, reviewLiteral }) {
   return kept;
 }
 
-async function saveTuStatusUpdate(tu, payload, reviewer = null) {
+async function saveTuStatusUpdate(tu, payload, reviewer = null, document = null) {
   const { action, levenshteinDistance = null, block } = payload;
   const reviewLiteral = reviewTextToSave(tu, payload);
 
@@ -348,7 +351,7 @@ async function saveTuStatusUpdate(tu, payload, reviewer = null) {
     return { tu: tuUpdated, alsoUpdated: [] };
   }
 
-  const tusWithSameSrcLiteral = await findTusWithSameSource(
+  const candidates = await findPropagationCandidates(
     tu.documentId,
     tu.srcLiteral,
     tu.id,
@@ -402,12 +405,17 @@ async function saveTuStatusUpdate(tu, payload, reviewer = null) {
 
   const tuUpdated = await updateTuById(tu.id, data);
 
-  let alsoUpdated = [];
-  if (tusWithSameSrcLiteral.length > 0) {
-    alsoUpdated = await Promise.all(
-      tusWithSameSrcLiteral.map((item) => updateTuById(item.id, data)),
-    );
-  }
+  // Same source character by character, or the same but for its tag numbers
+  // (then with the text's tags renumbered, if they pass the tag check):
+  // lib/same-source.js.
+  const propagation = planPropagation(tu, data.reviewLiteral, candidates, {
+    ordered: document ? isSpliceFormat(document.extension) : true,
+  });
+  const alsoUpdated = await Promise.all(
+    propagation.map(({ row, text }) =>
+      updateTuById(row.id, text === undefined ? data : { ...data, reviewLiteral: text }),
+    ),
+  );
 
   return { tu: tuUpdated, alsoUpdated };
 }
@@ -563,10 +571,15 @@ export async function updateTuStatusService(payload, actorUser) {
 
   assertInlineTagsKept(tu, payload, document);
 
-  return applyTuStatusUpdate(tu, payload, {
-    id: actorUser?.id ?? null,
-    name: actorUser?.name || actorUser?.email || null,
-  });
+  return applyTuStatusUpdate(
+    tu,
+    payload,
+    {
+      id: actorUser?.id ?? null,
+      name: actorUser?.name || actorUser?.email || null,
+    },
+    document,
+  );
 }
 
 // Segments confirmed at the same time inside one bulk request: enough to
@@ -581,22 +594,24 @@ const BULK_CONFIRM_CONCURRENCY = 8;
 // `failed` and never stops the rest.
 async function confirmTusInBulk(document, items, reviewer) {
   const rows = await findTusByDocumentId(document.id);
-  const { jobs, failed } = planBulkConfirm(items, rows, (tu, reviewLiteral) => {
+  const refuse = (tu, reviewLiteral) => {
     try {
       assertInlineTagsKept(tu, { action: "approve", reviewLiteral }, document);
       return null;
     } catch (error) {
       return { code: error?.code ?? "REFUSED", message: error?.message ?? "" };
     }
-  });
+  };
+  const { jobs, failed, covered } = planBulkConfirm(items, rows, refuse);
 
   const updated = new Map();
-  await mapWithLimit(jobs, BULK_CONFIRM_CONCURRENCY, async ({ tu, reviewLiteral }) => {
+  const confirmOne = async ({ tu, reviewLiteral }) => {
     try {
       const result = await applyTuStatusUpdate(
         tu,
         { tuId: tu.id, action: "approve", reviewLiteral },
         reviewer,
+        document,
       );
       for (const row of [result.tu, ...(result.alsoUpdated ?? [])]) {
         updated.set(row.id, row);
@@ -609,7 +624,21 @@ async function confirmTusInBulk(document, items, reviewer) {
         message: error?.message ?? "The segment could not be saved",
       });
     }
-  });
+  };
+  await mapWithLimit(jobs, BULK_CONFIRM_CONCURRENCY, confirmOne);
+
+  // A segment left to an earlier job's propagation that it did not reach
+  // (that job failed, or its text did not fit this segment's tags) is
+  // confirmed on its own, through the same tag check.
+  for (const item of covered) {
+    if (updated.has(item.tu.id)) continue;
+    const refusal = refuse(item.tu, item.reviewLiteral);
+    if (refusal) {
+      failed.push({ tuId: item.tu.id, code: refusal.code ?? "REFUSED", message: refusal.message ?? "" });
+      continue;
+    }
+    await confirmOne(item);
+  }
 
   return { updated: [...updated.values()], failed };
 }
@@ -808,8 +837,13 @@ export async function updateTuStatusByShareTokenService(token, payload) {
 
   // Anonymous link: no user identity — attribute the action to the link.
   assertInlineTagsKept(tu, payload, document);
-  return applyTuStatusUpdate(tu, payload, {
-    id: null,
-    name: "Translator link",
-  });
+  return applyTuStatusUpdate(
+    tu,
+    payload,
+    {
+      id: null,
+      name: "Translator link",
+    },
+    document,
+  );
 }

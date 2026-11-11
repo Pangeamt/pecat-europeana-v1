@@ -90,7 +90,7 @@ Al agotar los 3 intentos, cada tipo degrada distinto — **solo la fase de impor
 
 ### Re-puntuación al confirmar y evaluación en vivo
 
-Al confirmar un segmento (approve) se re-puntúa con QE v2 (mismas referencias de TM/glosario que el pipeline, timeout 8 s, best-effort: si no responde a tiempo se guarda sin tocar el score). El nuevo score se escribe en `mtqeV2Score` y se propaga a los segmentos con la misma fuente. La evaluación en vivo del editor usa la misma llamada y no persiste nada.
+Al confirmar un segmento (approve) se re-puntúa con QE v2 (mismas referencias de TM/glosario que el pipeline, timeout 8 s, best-effort: si no responde a tiempo se guarda sin tocar el score). El nuevo score se escribe en `mtqeV2Score` y se propaga a los segmentos con la misma fuente (idéntica carácter a carácter, salvo el número de las etiquetas: `lib/same-source.js`). La evaluación en vivo del editor usa la misma llamada y no persiste nada.
 
 ### Monitor de colas
 

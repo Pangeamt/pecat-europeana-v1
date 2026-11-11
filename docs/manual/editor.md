@@ -96,6 +96,12 @@ abre el siguiente que no esté bloqueado.
 **Las repeticiones se confirman solas.** Si otro segmento del documento tiene exactamente el mismo texto original,
 queda confirmado con la misma traducción. En el ejemplo, confirmar el segmento 1 confirmó también el 12.
 
+«Exactamente el mismo» quiere decir carácter a carácter: una mayúscula, un acento, un espacio de no separación o un
+espacio al final hacen que sea otro texto. «Software» y «software» no son repeticiones: cada uno se confirma por
+separado y conserva su traducción. Lo único que puede cambiar es el número interno de las etiquetas: si la frase es
+la misma y tiene las mismas etiquetas en el mismo sitio, la traducción se copia con las etiquetas de ese segmento.
+Si una etiqueta está en otro sitio, sobra o falta, el segmento no se toca.
+
 ### Corregir
 
 Escribe la corrección en la caja. Mientras no la guardes, la barra avisa de que hay cambios sin guardar.

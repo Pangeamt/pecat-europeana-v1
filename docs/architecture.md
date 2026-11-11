@@ -153,6 +153,18 @@ motivó está en `documentacion/pecat-e/COMPARATIVA-SDLXLIFF-PECATE-VS-MFT.md`.
   - el export no escribe un segmento cuyas etiquetas no coinciden (la puerta de `writer.js`, igual que el MFT);
   - **«Fix tags»** (`TagEditor/tag-rules.js`, `fixTags`): propone el destino con las etiquetas del origen, en su
     orden y colocadas por posición relativa; no se aplica solo y tiene «Undo fix».
+- **Propagación de repeticiones** (`lib/same-source.js`, `planPropagation`; desde 2026-11-11): confirmar o rechazar
+  un segmento se copia a los del mismo documento (no bloqueados ni ocultos) con el **mismo origen carácter a
+  carácter**: cuentan mayúsculas, acentos, NBSP y espacios finales. La consulta a MySQL es solo un prefiltro amplio,
+  porque la columna `tus.srcLiteral` es `utf8mb4_unicode_ci` y da por iguales «software» y «Software», «resume» y
+  «résumé», espacio y NBSP, «abc» y «abc ». Antes se propagaba con ese criterio y una confirmación copiaba la
+  mayúscula de un término a su gemelo (listas de términos de Leginda, 485 propagaciones así).
+  - Única excepción: el **número** de las etiquetas (`ne<g1182>o</g1182>s` y `ne<g1226>o</g1226>s` son la misma frase;
+    el número es el id de la etiqueta en el fichero). Se propaga con las etiquetas del texto renumeradas por orden de
+    aparición, y solo si el resultado pasa `tagIssue` con el orden del formato. Una etiqueta en otro sitio, de más o
+    de menos («Ale» / «A<x1/>le» / «Ale<x1/>») no es repetición: nunca se adivina dónde va en la traducción.
+  - «Confirmar todo» (`planBulkConfirm`) agrupa con la misma regla (`propagationKey`) y confirma por su cuenta lo
+    agrupado que la propagación no alcanzó.
 - **XLIFF plano (`.xlf`, `.xliff`, desde 2026-10-01)**: misma cadena y mismo lector/escritor que SDLXLIFF
   (`isSpliceFormat`, `lib/splice-formats.js`), **sin Tikal**: medido en ficheros reales que una ida y vuelta por Tikal
   rellena los targets vacíos con el origen, reformatea y corrompe los no-ASCII (no pasa `-ie/-oe UTF-8`). Solo XLIFF 1.2 y UTF-8.
