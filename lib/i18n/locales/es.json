@@ -430,7 +430,11 @@
       "REJECTED": "Rechazado",
       "LOCKED": "Bloqueado",
       "ORIGIN_MT": "Origen: traducción automática (AT)",
-      "ORIGIN_FUZZY": "Origen: coincidencia parcial de memoria (%)"
+      "ORIGIN_FUZZY": "Origen: coincidencia parcial de memoria (%)",
+      "TAG_ERROR": "Etiquetas con error"
+    },
+    "tagErrors": {
+      "show": "Ver segmentos"
     },
     "nav": {
       "lockedSkipped": "{count} bloqueados saltados",
@@ -646,6 +650,8 @@
       }
     },
     "verify": {
+      "button": "Verificar (F8)",
+      "tooltip": "Lista los segmentos que impiden una entrega limpia (etiquetas con error, vacíos, sin guardar o sin confirmar), con un botón para ir a cada uno",
       "title": "Verificación: {count} avisos",
       "none": "Sin avisos: todo listo para entregar",
       "go": "Ir",
