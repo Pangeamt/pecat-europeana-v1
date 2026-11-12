@@ -589,7 +589,9 @@
         "reject": "Reject the segment",
         "save": "Save the drafts without confirming",
         "prevNextShift": "Previous / next segment",
-        "whitespace": "Show whitespace"
+        "whitespace": "Show whitespace",
+        "dragTag": "Move a target tag with the mouse",
+        "moveTag": "Move a target tag with the keyboard: cut it and paste it where it goes"
       },
       "readOnly": "The segment cannot be edited (locked or editing closed)",
       "reloaded": "Segment reloaded",
@@ -647,7 +649,8 @@
         "quotesGerman": "German quotes („ “)",
         "quotesEnglish": "English quotes (“ ”)",
         "quotesFrench": "Angle quotes (« »)"
-      }
+      },
+      "dragKeys": "Drag it"
     },
     "verify": {
       "button": "Verify (F8)",

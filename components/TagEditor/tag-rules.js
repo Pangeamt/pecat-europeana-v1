@@ -71,11 +71,16 @@ function counts(list) {
 /**
  * Whether an edit from `prev` to `next` keeps the tags valid against `source`.
  * Returns { ok: true } or { ok: false, reason }.
+ *
+ * `inTransit` (2026-11-12, moving tags as in Trados): source tags cut with
+ * Ctrl+X and not pasted yet; each may be missing as many times as it was cut.
+ * Without cutting, a source tag still cannot be deleted.
  */
-export function checkTagEdit(prev, next, source) {
+export function checkTagEdit(prev, next, source, inTransit = []) {
   const src = counts(tagList(source));
   const before = counts(tagList(prev));
   const after = counts(tagList(next));
+  const moving = counts(inTransit);
 
   for (const [token, n] of after) {
     const allowed = Math.max(src.get(token) ?? 0, before.get(token) ?? 0);
@@ -90,11 +95,27 @@ export function checkTagEdit(prev, next, source) {
   }
   for (const [token, n] of before) {
     const inSource = src.get(token) ?? 0;
-    if (inSource > 0 && (after.get(token) ?? 0) < Math.min(n, inSource)) {
+    if (inSource > 0 && (after.get(token) ?? 0) + (moving.get(token) ?? 0) < Math.min(n, inSource)) {
       return { ok: false, reason: `${token} is a source tag and cannot be deleted` };
     }
   }
   return { ok: true };
+}
+
+/** Of the tags in transit (cut), those still missing from `text` against the source. */
+export function stillInTransit(inTransit, text, source) {
+  const src = counts(tagList(source));
+  const have = counts(tagList(text));
+  const kept = new Map();
+  const out = [];
+  for (const token of inTransit) {
+    const lacking = (src.get(token) ?? 0) - (have.get(token) ?? 0) - (kept.get(token) ?? 0);
+    if (lacking > 0) {
+      out.push(token);
+      kept.set(token, (kept.get(token) ?? 0) + 1);
+    }
+  }
+  return out;
 }
 
 /**

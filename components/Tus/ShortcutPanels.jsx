@@ -15,6 +15,9 @@ const OWN = [
   { id: "save", keys: "Ctrl+S" },
   { id: "prevNextShift", keys: "Ctrl+Shift+↑ / Ctrl+Shift+↓" },
   { id: "whitespace", keys: "Ctrl+Shift+8" },
+  // Moving a tag of the target (2026-11-12, as in Trados): drag it, or cut and paste it.
+  { id: "dragTag", keysKey: "tus.shortcuts.dragKeys" },
+  { id: "moveTag", keys: "Ctrl+X → Ctrl+V" },
 ];
 
 // One list with only the shortcuts that work in PECAT-E (the ones that do
@@ -27,7 +30,7 @@ export function ShortcutsHelpModal({ open, onClose }) {
       keys: s.keys,
       label: t(`tus.shortcuts.action.${s.id}`),
     })),
-    ...OWN.map((s) => ({ key: s.id, keys: s.keys, label: t(`tus.shortcuts.own.${s.id}`) })),
+    ...OWN.map((s) => ({ key: s.id, keys: s.keysKey ? t(s.keysKey) : s.keys, label: t(`tus.shortcuts.own.${s.id}`) })),
   ];
   const columns = [
     { title: t("tus.shortcuts.keys"), dataIndex: "keys", width: 260, render: (v) => <code className="text-xs">{v}</code> },

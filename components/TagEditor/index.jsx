@@ -18,14 +18,18 @@ import {
   editorPieces,
   fixTags,
   missingTags,
+  stillInTransit,
   stripCaretAnchors,
   tagIssue,
+  tagList,
 } from "./tag-rules";
 
 // Target editor for segments with inline-code placeholders (<g1>…</g1>,
 // <x2/>…), ported from revisions-pangeanic-local (static/js/editor.js): a
 // contenteditable where every tag is an ATOMIC chip (contenteditable=false) —
-// the caret cannot enter it and it cannot be deleted, duplicated or moved.
+// the caret cannot enter it and it cannot be deleted or duplicated. Since
+// 2026-11-12 (as in Trados) a tag MOVES: drag it inside the target with the
+// mouse, or cut it (Ctrl+X) and paste it where it goes (Ctrl+V).
 // The rules (tag-rules.js) are checked on every input and a bad edit is
 // reverted. Since 2026-09-30 the reference is the SOURCE (Trados model), not
 // the value the editor opened with: an empty target or an MT that lost a tag
@@ -97,24 +101,83 @@ function caretUnits(box) {
   const selection = window.getSelection();
   if (!selection?.rangeCount) return null;
   const { focusNode, focusOffset } = selection;
-  if (!focusNode || !box.contains(focusNode)) return null;
+  if (!focusNode) return null;
+  return unitsAt(box, focusNode, focusOffset);
+}
+
+/** Units (see caretUnits) before the position `node`/`offset` inside `box`; null outside it. */
+function unitsAt(box, node, offset) {
+  if (!box.contains(node)) return null;
   let units = 0;
   const children = [...box.childNodes];
-  // Caret between two children of the box (focusNode is the box itself).
-  const stop = focusNode === box ? focusOffset : children.indexOf(
-    children.find((child) => child === focusNode || child.contains(focusNode)),
+  // Position between two children of the box (node is the box itself).
+  const stop = node === box ? offset : children.indexOf(
+    children.find((child) => child === node || child.contains(node)),
   );
   for (let index = 0; index < children.length; index += 1) {
     const child = children[index];
     if (index === stop) {
-      if (focusNode !== box && isText(child)) {
-        units += stripCaretAnchors(child.nodeValue.slice(0, focusOffset)).length;
+      if (node !== box && isText(child)) {
+        units += stripCaretAnchors(child.nodeValue.slice(0, offset)).length;
       }
       return units;
     }
-    units += isText(child) ? visibleLength(child) : isChip(child) ? 1 : toText(child).length;
+    units += unitOf(child);
   }
   return units;
+}
+
+const unitOf = (child) =>
+  isText(child) ? visibleLength(child) : isChip(child) ? 1 : toText(child).length;
+
+/** Units before a chip of the box. */
+function unitsBefore(box, chip) {
+  let units = 0;
+  for (const child of box.childNodes) {
+    if (child === chip) break;
+    units += unitOf(child);
+  }
+  return units;
+}
+
+/** Text position under a screen point (caretPositionFromPoint, or caretRangeFromPoint in older Chromium). */
+function pointPosition(x, y) {
+  const position = document.caretPositionFromPoint?.(x, y);
+  if (position) return { node: position.offsetNode, offset: position.offset };
+  const range = document.caretRangeFromPoint?.(x, y);
+  return range ? { node: range.startContainer, offset: range.startOffset } : null;
+}
+
+/**
+ * Where a chip dropped at (x, y) lands, in units of the box; null when the
+ * point is outside the target. Over another chip, before or after it by its
+ * half, as a click.
+ */
+function dropUnits(box, x, y, dir) {
+  const rect = box.getBoundingClientRect();
+  if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) return null;
+  const chip = document.elementFromPoint(x, y)?.closest?.("[data-raw]");
+  if (chip && chip.parentNode === box) {
+    const r = chip.getBoundingClientRect();
+    const right = x > r.left + r.width / 2;
+    return unitsBefore(box, chip) + ((dir === "rtl" ? !right : right) ? 1 : 0);
+  }
+  const position = pointPosition(x, y);
+  return (position && unitsAt(box, position.node, position.offset)) ?? totalUnits(box);
+}
+
+/** MIME of the editor's own clipboard: the exact text, tags included. */
+const CLIPBOARD_MIME = "application/x-pecat-segment";
+
+/** Exact text (placeholders included) of the selection inside `box`, or null. */
+function selectionRaw(box) {
+  const selection = window.getSelection();
+  if (!selection?.rangeCount || selection.isCollapsed) return null;
+  const range = selection.getRangeAt(0);
+  if (!box.contains(range.commonAncestorContainer)) return null;
+  const holder = document.createElement("div");
+  holder.appendChild(range.cloneContents());
+  return toText(holder);
 }
 
 /** Puts the caret at `units` (see caretUnits), always inside a text node when there is one. */
@@ -295,6 +358,10 @@ const TagEditor = ({
   const caretRef = useRef(null);
   // An IME / dead-key composition is in progress: the DOM is not touched.
   const composingRef = useRef(false);
+  // Moving tags (2026-11-12): the chip pressed (a click or the start of a
+  // drag) and the source tags cut with Ctrl+X that are not pasted yet.
+  const dragRef = useRef(null);
+  const inTransitRef = useRef([]);
 
   const rememberRange = () => {
     const box = boxRef.current;
@@ -320,14 +387,17 @@ const TagEditor = ({
     const box = boxRef.current;
     if (!box) return;
     const next = toText(box);
-    const verdict = checkTagEdit(snapshotRef.current.text, next, source);
+    // What was cut with Ctrl+X may be missing until it is pasted (moving a tag).
+    const verdict = checkTagEdit(snapshotRef.current.text, next, source, inTransitRef.current);
     if (!verdict.ok) {
       box.innerHTML = snapshotRef.current.html;
       if (caretRef.current !== null) placeCaret(box, caretRef.current);
       else placeCaretAtEnd(box);
+      inTransitRef.current = stillInTransit(inTransitRef.current, snapshotRef.current.text, source);
       message.error(`Formatting tags are protected: ${verdict.reason}`);
       return;
     }
+    inTransitRef.current = stillInTransit(inTransitRef.current, next, source);
     tidy();
     snapshotRef.current = { html: box.innerHTML, text: next };
     setText(next);
@@ -341,22 +411,81 @@ const TagEditor = ({
 
   // Click on a chip: the caret goes to the side of the chip that was clicked
   // (a chip is not editable, so the browser would leave the caret where it was).
+  const caretBesideChip = (box, chip, clientX) => {
+    const rect = chip.getBoundingClientRect();
+    const rightHalf = clientX > rect.left + rect.width / 2;
+    const after = dir === "rtl" ? !rightHalf : rightHalf;
+    placeCaret(box, unitsBefore(box, chip) + (after ? 1 : 0));
+    rememberRange();
+  };
+
+  // Moves the chip to `target` (units counting the chip where it is). Outside
+  // the target, or onto its own place, nothing moves.
+  const moveChip = (box, chip, target) => {
+    if (target === null || chip.parentNode !== box) return;
+    const from = unitsBefore(box, chip);
+    if (target === from || target === from + 1) {
+      placeCaret(box, target);
+      rememberRange();
+      return;
+    }
+    chip.remove();
+    placeCaret(box, target > from ? target - 1 : target);
+    const selection = window.getSelection();
+    if (!selection?.rangeCount) return;
+    selection.getRangeAt(0).insertNode(chip);
+    const after = document.createRange();
+    after.setStartAfter(chip);
+    after.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(after);
+    commit();
+    rememberRange();
+  };
+
+  // Pressing a chip is a click (caret beside it) or, after moving 4 px, the
+  // start of a drag that MOVES it, as in Trados: while dragging the caret shows
+  // where it will land. Own drag on mouse events: the browser's native drag
+  // inserts its own HTML when dropping into a contenteditable.
   const handleMouseDown = (event) => {
     const box = boxRef.current;
     const chip = event.target?.closest?.("[data-raw]");
     if (!box || !chip || chip.parentNode !== box) return;
     event.preventDefault();
     box.focus();
-    const rect = chip.getBoundingClientRect();
-    const rightHalf = event.clientX > rect.left + rect.width / 2;
-    const after = dir === "rtl" ? !rightHalf : rightHalf;
-    let units = 0;
-    for (const child of box.childNodes) {
-      if (child === chip) break;
-      units += isText(child) ? visibleLength(child) : isChip(child) ? 1 : toText(child).length;
+    if (event.button !== 0) {
+      caretBesideChip(box, chip, event.clientX);
+      return;
     }
-    placeCaret(box, units + (after ? 1 : 0));
-    rememberRange();
+    dragRef.current = { chip, x: event.clientX, y: event.clientY, moved: false };
+    const move = (ev) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+      if (!drag.moved && Math.hypot(ev.clientX - drag.x, ev.clientY - drag.y) < 4) return;
+      if (!drag.moved) {
+        drag.moved = true;
+        drag.chip.classList.add("tag-dragging");
+        box.classList.add("tag-editor-dragging");
+      }
+      const units = dropUnits(box, ev.clientX, ev.clientY, dir);
+      if (units !== null) placeCaret(box, units);
+    };
+    const up = (ev) => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      const drag = dragRef.current;
+      dragRef.current = null;
+      if (!drag) return;
+      drag.chip.classList.remove("tag-dragging");
+      box.classList.remove("tag-editor-dragging");
+      if (!drag.moved) {
+        caretBesideChip(box, drag.chip, drag.x);
+        return;
+      }
+      moveChip(box, drag.chip, dropUnits(box, ev.clientX, ev.clientY, dir));
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
   };
 
   // Inserts a missing source tag at the caret; a paired tag wraps the
@@ -398,6 +527,7 @@ const TagEditor = ({
   const copySource = () => {
     const box = boxRef.current;
     if (!box) return;
+    inTransitRef.current = [];
     box.innerHTML = toHtml(source, infoRef.current);
     placeCaretAtEnd(box);
     commit();
@@ -409,6 +539,7 @@ const TagEditor = ({
     const box = boxRef.current;
     if (!box) return;
     const before = { html: snapshotRef.current.html, text: snapshotRef.current.text };
+    inTransitRef.current = [];
     box.innerHTML = toHtml(fixTags(source, toText(box)), infoRef.current);
     placeCaretAtEnd(box);
     commit();
@@ -418,6 +549,7 @@ const TagEditor = ({
   const undoFix = () => {
     const box = boxRef.current;
     if (!box || !undoState) return;
+    inTransitRef.current = [];
     box.innerHTML = undoState.html;
     snapshotRef.current = { ...undoState };
     setText(undoState.text);
@@ -432,12 +564,50 @@ const TagEditor = ({
   const issue = source ? tagIssue(source, text, { ordered }) : { ok: true };
 
   // Paste as plain text: HTML would bring duplicated chips (or foreign markup).
+  // From this editor (2026-11-12, moving tags with Ctrl+X → Ctrl+V): the exact
+  // text with its chips; checkTagEdit still refuses a duplicated tag.
   const handlePaste = (event) => {
     event.preventDefault();
-    const text = (event.clipboardData || window.clipboardData)
-      .getData("text")
-      .replace(/[\r\n]+/g, " ");
+    const clipboard = event.clipboardData || window.clipboardData;
+    const exact = clipboard.getData(CLIPBOARD_MIME);
+    const box = boxRef.current;
+    const selection = window.getSelection();
+    if (exact && box && selection?.rangeCount && box.contains(selection.getRangeAt(0).commonAncestorContainer)) {
+      const range = selection.getRangeAt(0);
+      range.deleteContents();
+      const scratch = document.createElement("div");
+      scratch.innerHTML = toHtml(exact.replace(/[\r\n]+/g, " "), infoRef.current);
+      const fragment = document.createDocumentFragment();
+      while (scratch.firstChild) fragment.appendChild(scratch.firstChild);
+      const last = fragment.lastChild;
+      range.insertNode(fragment);
+      if (last) {
+        const after = document.createRange();
+        after.setStartAfter(last);
+        after.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(after);
+      }
+      commit();
+      rememberRange();
+      return;
+    }
+    const text = clipboard.getData("text").replace(/[\r\n]+/g, " ");
     document.execCommand("insertText", false, text);
+  };
+
+  // Ctrl+X: the exact text (tags included) goes to the clipboard and the cut
+  // source tags stay "in transit" -- they may be missing until pasted where
+  // they go. Meanwhile the missing-tags bar still offers them.
+  const handleCut = (event) => {
+    const box = boxRef.current;
+    const raw = box ? selectionRaw(box) : null;
+    if (raw === null) return;
+    event.preventDefault();
+    event.clipboardData.setData(CLIPBOARD_MIME, raw);
+    event.clipboardData.setData("text/plain", raw.replace(/<\/?[a-z]\d+\/?>/gi, ""));
+    inTransitRef.current = [...inTransitRef.current, ...tagList(raw)];
+    document.execCommand("delete");
   };
 
   const handleKeyDown = (event) => {
@@ -523,6 +693,7 @@ const TagEditor = ({
         style={{ textAlign: dir === "rtl" ? "right" : "left" }}
         onInput={handleInput}
         onPaste={handlePaste}
+        onCut={handleCut}
         onKeyDown={handleKeyDown}
         onKeyUp={rememberRange}
         onMouseDown={handleMouseDown}

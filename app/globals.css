@@ -348,6 +348,21 @@
     box-shadow: 0 0 0 2px rgba(152, 196, 68, 0.2);
 }
 
+/* Moving tags (2026-11-12, as in Trados): a tag of the target is dragged. */
+.tag-editor .inline-tag {
+    cursor: grab;
+}
+
+.tag-editor.tag-editor-dragging,
+.tag-editor.tag-editor-dragging * {
+    cursor: grabbing;
+}
+
+.tag-editor .inline-tag.tag-dragging {
+    opacity: 0.45;
+    outline: 1px dashed currentColor;
+}
+
 .tag-editor .inline-tag {
     font-size: 12px;
 }
