@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { suggestionKeepsTags, toQeReferences } from "../../modules/documents/qe-payload.js";
 import { exportTarget } from "../../modules/documents/export-target.js";
-import { checkTagEdit, missingTags, tagsComplete } from "../../components/TagEditor/tag-rules.js";
+import { checkTagEdit, missingTags, stillInTransit, tagsComplete } from "../../components/TagEditor/tag-rules.js";
 
 const SRC = "Pulse <g1>aquí</g1> y <x2/> luego.";
 
@@ -91,4 +91,18 @@ test("inlineTagsMatch usa la misma forma de marcador que el resto (<h1> no es et
   assert.deepEqual(extractInlineTags("Título <h1> y <p2> con <x1/>"), ["<x1/>"]);
   assert.equal(inlineTagsMatch("A <g1>b</g1>", "B <g1>c</g1>"), true);
   assert.equal(inlineTagsMatch("A <g1>b</g1>", "B c"), false);
+});
+
+test("mover etiquetas (2026-11-12): lo cortado con Ctrl+X puede faltar hasta pegarlo, y solo eso", () => {
+  const prev = "Click <g1>here</g1> and <x2/> then.";
+  const cut = "Click <g1>here</g1> and then.";
+  assert.equal(checkTagEdit(prev, cut, SRC).ok, false, "sin cortar, sigue protegida");
+  assert.equal(checkTagEdit(prev, cut, SRC, ["<x2/>"]).ok, true, "cortada: en tránsito");
+  assert.equal(checkTagEdit(prev, "Click here</g1> and then.", SRC, ["<x2/>"]).ok, false, "borrar OTRA no");
+  const pasted = "<x2/>Click <g1>here</g1> and then.";
+  assert.equal(checkTagEdit(cut, pasted, SRC).ok, true, "pegarla la devuelve");
+  assert.equal(checkTagEdit(pasted, pasted + "<x2/>", SRC, ["<x2/>"]).ok, false, "duplicar sigue sin poder");
+  assert.deepEqual(stillInTransit(["<x2/>"], cut, SRC), ["<x2/>"]);
+  assert.deepEqual(stillInTransit(["<x2/>"], pasted, SRC), []);
+  assert.deepEqual(stillInTransit(["<g1>", "</g1>"], "Click <g1>here and <x2/>.", SRC), ["</g1>"]);
 });

@@ -589,7 +589,9 @@
         "reject": "Rechazar el segmento",
         "save": "Guardar los borradores sin confirmar",
         "prevNextShift": "Segmento anterior / siguiente",
-        "whitespace": "Mostrar espacios"
+        "whitespace": "Mostrar espacios",
+        "dragTag": "Mover una etiqueta del destino con el ratón",
+        "moveTag": "Mover una etiqueta del destino con el teclado: cortarla y pegarla donde va"
       },
       "readOnly": "El segmento no se puede editar (bloqueado o edición cerrada)",
       "reloaded": "Segmento recargado",
@@ -647,7 +649,8 @@
         "quotesGerman": "Comillas alemanas („ “)",
         "quotesEnglish": "Comillas inglesas (“ ”)",
         "quotesFrench": "Comillas angulares (« »)"
-      }
+      },
+      "dragKeys": "Arrastrarla"
     },
     "verify": {
       "button": "Verificar (F8)",
