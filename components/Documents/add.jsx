@@ -11,7 +11,7 @@ import {
   Upload,
   message,
 } from "antd";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { useLanguageOptions } from "@/components/shared/useLanguageOptions";
@@ -20,6 +20,13 @@ import { fetchProfileByIdRequest } from "@/services/profiles.services";
 import { ArrowLeft, ArrowRight, Plus, Upload as UploadIcon } from "lucide-react";
 
 const { Dragger } = Upload;
+
+// Several files at once (2026-11-12): at most MAX_FILES per upload, with a
+// clear message when more are chosen, and PARALLEL at a time. Before, every
+// file went out at once and the dialog closed when the FIRST one finished:
+// that unmounted the uploader (destroyOnHidden) and silently cancelled the rest.
+const MAX_FILES = 20;
+const PARALLEL = 3;
 
 // Documents are always translated with the project's profile. Step 2 lets
 // the user narrow which of the profile's TMs/glossaries apply to this
@@ -63,6 +70,13 @@ const DocumentAdd = ({ project, refetch }) => {
   // the user edits the selection.
   const [tmSelection, setTmSelection] = useState(null);
   const [glossarySelection, setGlossarySelection] = useState(null);
+  // Upload of several files: how many are accepted in this dialog, the batch
+  // being checked, the queue (PARALLEL at a time) and the progress shown.
+  const acceptedRef = useRef(0);
+  const batchRef = useRef({ list: null, room: 0 });
+  const queueRef = useRef({ running: 0, waiting: [] });
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
+  const uploading = progress.total > 0 && progress.done < progress.total;
 
   // Only the profile's resources for the chosen pair are offered.
   const matchingTms = useMemo(
@@ -108,6 +122,9 @@ const DocumentAdd = ({ project, refetch }) => {
     setProfileId(defaultProfileId);
     setTmSelection(null);
     setGlossarySelection(null);
+    acceptedRef.current = 0;
+    batchRef.current = { list: null, room: 0 };
+    setProgress({ done: 0, total: 0 });
   };
 
   const showModal = () => {
@@ -116,8 +133,26 @@ const DocumentAdd = ({ project, refetch }) => {
   };
 
   const handleCancel = () => {
+    // Closing would cancel the uploads still running or waiting.
+    if (uploading) {
+      message.warning(t("documents.add.waitUploads"));
+      return;
+    }
     setIsModalOpen(false);
     resetWizard();
+  };
+
+  // Runs the queued uploads, PARALLEL at a time.
+  const runQueue = () => {
+    const queue = queueRef.current;
+    while (queue.running < PARALLEL && queue.waiting.length) {
+      const job = queue.waiting.shift();
+      queue.running += 1;
+      job().finally(() => {
+        queue.running -= 1;
+        runQueue();
+      });
+    }
   };
 
   // Re-fetches the chosen profile's own TMs/glossaries and resets the
@@ -161,15 +196,43 @@ const DocumentAdd = ({ project, refetch }) => {
       tm_ids: JSON.stringify(tmIds),
       glossary_ids: JSON.stringify(glossaryIds),
     }),
+    // Own request, queued: at most PARALLEL files travel at the same time.
+    customRequest({ file, data, onProgress, onSuccess, onError }) {
+      queueRef.current.waiting.push(
+        () =>
+          new Promise((resolve) => {
+            const body = new FormData();
+            Object.entries(data ?? {}).forEach(([key, value]) => body.append(key, value));
+            body.append("file", file);
+            const xhr = new XMLHttpRequest();
+            xhr.upload.onprogress = (event) => {
+              if (event.lengthComputable) onProgress({ percent: (event.loaded / event.total) * 100 });
+            };
+            xhr.onload = () => {
+              let response = xhr.responseText;
+              try {
+                response = JSON.parse(xhr.responseText);
+              } catch {
+                // not JSON: kept as text
+              }
+              if (xhr.status >= 200 && xhr.status < 300) onSuccess(response);
+              else onError(new Error(response?.message || `HTTP ${xhr.status}`), response);
+              resolve();
+            };
+            xhr.onerror = () => {
+              onError(new Error("network"));
+              resolve();
+            };
+            xhr.open("POST", `/api/projects/${project.id}/documents`);
+            xhr.withCredentials = true;
+            xhr.send(body);
+          }),
+      );
+      runQueue();
+      return { abort() {} };
+    },
     onChange(info) {
-      if (info.file.status === "done") {
-        message.success(
-          t("documents.add.uploadSuccess", { name: info.file.name }),
-        );
-        refetch?.();
-        setIsModalOpen(false);
-        resetWizard();
-      } else if (info.file.status === "error") {
+      if (info.file.status === "error") {
         // Show the API reason when there is one (e.g. the profile does not
         // match the language pair or no longer exists in DAAIT).
         message.error(
@@ -177,8 +240,37 @@ const DocumentAdd = ({ project, refetch }) => {
             t("documents.add.uploadError", { name: info.file.name }),
         );
       }
+      // Only the files that were sent count (a rejected type/size is not).
+      const sent = info.fileList.filter((f) => ["uploading", "done", "error"].includes(f.status));
+      const finished = sent.filter((f) => f.status === "done" || f.status === "error");
+      setProgress({ done: finished.length, total: sent.length });
+      if (sent.length === 0 || finished.length < sent.length) return;
+      // All of them finished: one summary; the dialog closes only when none failed
+      // (so the failed ones stay listed with their reason).
+      const ok = finished.filter((f) => f.status === "done").length;
+      if (ok) message.success(t("documents.add.uploadedN", { ok, total: sent.length }));
+      refetch?.();
+      if (ok === sent.length) {
+        setIsModalOpen(false);
+        resetWizard();
+      }
     },
-    beforeUpload: (file) => {
+    beforeUpload: (file, fileList) => {
+      // At most MAX_FILES per dialog: the extra ones are left out, saying how many.
+      if (batchRef.current.list !== fileList) {
+        batchRef.current = { list: fileList, room: Math.max(0, MAX_FILES - acceptedRef.current) };
+        if (fileList.length > batchRef.current.room) {
+          message.warning(
+            t("documents.add.tooMany", {
+              chosen: fileList.length,
+              added: batchRef.current.room,
+              max: MAX_FILES,
+            }),
+            8,
+          );
+        }
+      }
+      if (fileList.indexOf(file) >= batchRef.current.room) return Upload.LIST_IGNORE;
       const extension = checkFile(file);
       if (!extension) {
         message.error(t("documents.add.invalidType"));
@@ -189,6 +281,7 @@ const DocumentAdd = ({ project, refetch }) => {
         message.error(t("documents.add.tooLarge", { max: maxMb }));
         return false;
       }
+      acceptedRef.current += 1;
       return true;
     },
     disabled: !src || !tgt || !hasProfile,
@@ -371,7 +464,13 @@ const DocumentAdd = ({ project, refetch }) => {
           </p>
           <p className="ant-upload-text">{t("documents.add.dropText")}</p>
           <p className="ant-upload-hint">{t("documents.add.dropHint")}</p>
+          <p className="ant-upload-hint">{t("documents.add.maxFiles", { max: MAX_FILES })}</p>
         </Dragger>
+        {uploading ? (
+          <p className="mt-3 text-sm text-slate-600" role="status" data-testid="upload-progress">
+            {t("documents.add.progress", { done: progress.done, total: progress.total })}
+          </p>
+        ) : null}
       </section>
     );
   };
@@ -401,7 +500,7 @@ const DocumentAdd = ({ project, refetch }) => {
         footer={
           isLastStep ? (
             <div className="flex justify-start">
-              <Button icon={<ArrowLeft size={15} />} onClick={goBack}>
+              <Button icon={<ArrowLeft size={15} />} onClick={goBack} disabled={uploading}>
                 {t("common.back")}
               </Button>
             </div>
@@ -428,6 +527,7 @@ const DocumentAdd = ({ project, refetch }) => {
         }
         width={860}
         centered
+        maskClosable={!uploading}
         destroyOnHidden
         styles={{ body: { padding: 0, overflow: "hidden" } }}
       >

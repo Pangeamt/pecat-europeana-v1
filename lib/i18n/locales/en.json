@@ -248,7 +248,12 @@
       "uploadSuccess": "{name} uploaded successfully",
       "uploadError": "{name} upload failed.",
       "tooLarge": "Files must be smaller than {max}MB",
-      "invalidType": "File type not supported"
+      "invalidType": "File type not supported",
+      "tooMany": "You chose {chosen} files and the maximum per upload is {max}: {added} are uploaded and the rest were left out. Upload them in another batch.",
+      "maxFiles": "Up to {max} files per upload; they are sent 3 at a time.",
+      "progress": "{done} of {total} uploaded. Do not close this window until they finish.",
+      "uploadedN": "{ok} of {total} files uploaded.",
+      "waitUploads": "Wait for the uploads to finish: closing now would cancel them."
     },
     "submission": {
       "markTranslated": "Mark translation submitted",
