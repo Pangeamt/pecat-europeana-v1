@@ -248,7 +248,12 @@
       "uploadSuccess": "{name} subido correctamente",
       "uploadError": "Error al subir {name}.",
       "tooLarge": "Los archivos deben ser menores de {max} MB",
-      "invalidType": "Tipo de archivo no admitido"
+      "invalidType": "Tipo de archivo no admitido",
+      "tooMany": "Ha elegido {chosen} ficheros y el máximo por subida es {max}: se suben {added} y el resto se ha quedado fuera. Súbalos en otra tanda.",
+      "maxFiles": "Hasta {max} ficheros por subida; se envían de 3 en 3.",
+      "progress": "Subidos {done} de {total}. No cierre esta ventana hasta que terminen.",
+      "uploadedN": "Subidos {ok} de {total} ficheros.",
+      "waitUploads": "Espere a que terminen las subidas: cerrar ahora las cancelaría."
     },
     "submission": {
       "markTranslated": "Marcar traducción entregada",
