@@ -485,7 +485,7 @@
     },
     "whitespace": {
       "button": "Mostrar espacios",
-      "tooltip": "Mostrar espacios: · espacio normal, ° espacio de no separación, ∘ otros espacios, → tabulador, ↵ salto de línea, ¶ retorno de carro"
+      "tooltip": "Mostrar espacios: · espacio normal, ° espacio de no separación, ∘ otros espacios, → tabulador, ↵ salto de línea, ¶ retorno de carro, ⤶ separador de línea (U+2028), ⁋ separador de párrafo (U+2029)"
     },
     "bulk": {
       "button": "Confirmar todo",
@@ -659,7 +659,7 @@
     },
     "verify": {
       "button": "Verificar (F8)",
-      "tooltip": "Lista los segmentos que impiden una entrega limpia (etiquetas con error, vacíos, sin guardar o sin confirmar), con un botón para ir a cada uno",
+      "tooltip": "Lista los segmentos que impiden una entrega limpia (etiquetas con error, vacíos, sin guardar o sin confirmar) y los que tienen saltos de línea distintos del origen, con un botón para ir a cada uno",
       "title": "Verificación: {count} avisos",
       "none": "Sin avisos: todo listo para entregar",
       "go": "Ir",
@@ -668,7 +668,8 @@
         "empty": "Vacío",
         "pending": "Sin confirmar",
         "rejected": "Rechazado",
-        "draft": "Sin guardar"
+        "draft": "Sin guardar",
+        "breaks": "Saltos de línea"
       }
     },
     "concordance": {
