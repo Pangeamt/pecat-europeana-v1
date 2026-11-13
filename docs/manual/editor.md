@@ -139,6 +139,8 @@ dentro del texto.
   pueden ir **en otro orden** si el idioma lo pide (por ejemplo, si la traducción automática las trae giradas). Lo único
   que no vale es cruzar dos parejas: abrir una dentro de otra y cerrarla fuera.
 - Escribe y corrige el texto alrededor de ellas. El editor no deja borrarlas ni cambiarlas de orden.
+- Para partir la línea dentro del segmento, `Mayús+Intro`, como en Trados. Lo que cortas (`Ctrl+X`) y pegas (`Ctrl+V`)
+  dentro del editor conserva sus saltos de línea; el texto que pegas de fuera (Word, una web) entra en una sola línea.
 - Cada pareja rodea el texto al que da formato: lo que quede entre la ficha de apertura y la de cierre saldrá, por
   ejemplo, en negrita.
 - Si a la traducción le falta alguna etiqueta del origen, `Ctrl+,` inserta la siguiente que falta (no comprobado en
@@ -155,7 +157,8 @@ son. Esos segmentos no se pueden confirmar y la descarga no los escribe. Hay tre
   se puede combinar con las otras opciones, por ejemplo con **Sin revisar**.
 - **Verificar (F8)** (*Verify (F8)*), en la barra de trabajo, o la tecla `F8`: abre la lista de todo lo que impide
   entregar el documento (etiquetas con error, segmentos vacíos, sin guardar o sin confirmar), con un botón **Ir** para
-  saltar a cada uno.
+  saltar a cada uno. También avisa, sin impedir nada, de los segmentos cuyos **saltos de línea** no coinciden con los del
+  origen (por ejemplo `↵ 0 → 1`: la traducción automática añadió uno).
 
 En cada uno, pulsa **Fix tags** o coloca a mano las etiquetas que faltan. Al confirmarlo deja de contar en el aviso.
 El aviso cuenta lo guardado: un segmento que se está editando cuenta como estaba la última vez que se guardó.

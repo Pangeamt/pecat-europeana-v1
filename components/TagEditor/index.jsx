@@ -77,6 +77,24 @@ function toHtml(text, info) {
     .join("");
 }
 
+/**
+ * The same as toHtml, as DOM nodes (2026-11-13): text stays a text node, so a
+ * CR or CRLF survives (innerHTML would turn both into LF).
+ */
+function toFragment(text, info) {
+  const fragment = document.createDocumentFragment();
+  const holder = document.createElement("div");
+  for (const piece of editorPieces(text)) {
+    if (piece.type === "tag") {
+      holder.innerHTML = chipHtml(piece.raw, info);
+      fragment.appendChild(holder.firstChild);
+    } else {
+      fragment.appendChild(document.createTextNode(piece.type === "anchor" ? CARET_ANCHOR : piece.value));
+    }
+  }
+  return fragment;
+}
+
 /** Editor DOM -> plain text with placeholders (chips serialize via data-raw). */
 function toText(node) {
   let out = "";
@@ -563,35 +581,53 @@ const TagEditor = ({
   // SDLXLIFF/XLIFF no crossed pairs. Shown as soon as it is not met.
   const issue = source ? tagIssue(source, text, { ordered }) : { ok: true };
 
+  // Puts `raw` (placeholders as chips) at the caret, exactly: chips, NBSP and
+  // line breaks as they are. checkTagEdit (commit) still refuses a duplicated
+  // tag. Returns false when the caret is not in the box.
+  const insertExact = (raw) => {
+    const box = boxRef.current;
+    const selection = window.getSelection();
+    if (!box || !selection?.rangeCount || !box.contains(selection.getRangeAt(0).commonAncestorContainer)) return false;
+    const range = selection.getRangeAt(0);
+    range.deleteContents();
+    const fragment = toFragment(raw, infoRef.current);
+    const last = fragment.lastChild;
+    range.insertNode(fragment);
+    if (last) {
+      const after = document.createRange();
+      after.setStartAfter(last);
+      after.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(after);
+    }
+    commit();
+    // A break at the very end has no line to hold the caret: an anchor goes
+    // after it (after commit, which would tidy it away; typing removes it and
+    // the text lands on the new line). As in PECAT de Pangeanic 0.50.2.
+    if (/[\r\n\u2028\u2029]$/.test(raw) && !last?.nextSibling) {
+      const anchor = document.createTextNode(CARET_ANCHOR);
+      const at = selection.getRangeAt(0);
+      at.insertNode(anchor);
+      const caret = document.createRange();
+      caret.setStartAfter(anchor);
+      caret.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(caret);
+    }
+    rememberRange();
+    return true;
+  };
+
   // Paste as plain text: HTML would bring duplicated chips (or foreign markup).
   // From this editor (2026-11-12, moving tags with Ctrl+X → Ctrl+V): the exact
-  // text with its chips; checkTagEdit still refuses a duplicated tag.
+  // text with its chips -- and, since 2026-11-13 (user decision), with its line
+  // breaks: cutting and pasting a piece with a break used to turn it into a
+  // space. Text from outside (Word, a web page) still comes in on one line.
   const handlePaste = (event) => {
     event.preventDefault();
     const clipboard = event.clipboardData || window.clipboardData;
     const exact = clipboard.getData(CLIPBOARD_MIME);
-    const box = boxRef.current;
-    const selection = window.getSelection();
-    if (exact && box && selection?.rangeCount && box.contains(selection.getRangeAt(0).commonAncestorContainer)) {
-      const range = selection.getRangeAt(0);
-      range.deleteContents();
-      const scratch = document.createElement("div");
-      scratch.innerHTML = toHtml(exact.replace(/[\r\n]+/g, " "), infoRef.current);
-      const fragment = document.createDocumentFragment();
-      while (scratch.firstChild) fragment.appendChild(scratch.firstChild);
-      const last = fragment.lastChild;
-      range.insertNode(fragment);
-      if (last) {
-        const after = document.createRange();
-        after.setStartAfter(last);
-        after.collapse(true);
-        selection.removeAllRanges();
-        selection.addRange(after);
-      }
-      commit();
-      rememberRange();
-      return;
-    }
+    if (exact && insertExact(exact)) return;
     const text = clipboard.getData("text").replace(/[\r\n]+/g, " ");
     document.execCommand("insertText", false, text);
   };
@@ -617,8 +653,16 @@ const TagEditor = ({
       insertTag(missing[0]);
       return;
     }
-    // Segments are sentences: a raw Enter would insert line breaks the
-    // XLIFF target cannot represent. Ctrl+Enter & co. belong to the parent.
+    // Shift+Enter: a line break, as in Trados and in the Quill editor of the
+    // untagged segments (2026-11-13, user decision): the MT may drop a break
+    // the source has, and the reviewer had no way to put it back. The F1 list
+    // already offered it (softBreak), but this editor swallowed it.
+    if (event.key === "Enter" && event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
+      event.preventDefault();
+      insertExact("\n");
+      return;
+    }
+    // A plain Enter does nothing (Ctrl+Enter & co. belong to the parent).
     if (event.key === "Enter" && !event.ctrlKey) {
       event.preventDefault();
       return;

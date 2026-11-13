@@ -485,7 +485,7 @@
     },
     "whitespace": {
       "button": "Show spaces",
-      "tooltip": "Show spaces: · normal space, ° non-breaking space, ∘ other spaces, → tab, ↵ line break, ¶ carriage return"
+      "tooltip": "Show spaces: · normal space, ° non-breaking space, ∘ other spaces, → tab, ↵ line break, ¶ carriage return, ⤶ line separator (U+2028), ⁋ paragraph separator (U+2029)"
     },
     "bulk": {
       "button": "Confirm all",
@@ -659,7 +659,7 @@
     },
     "verify": {
       "button": "Verify (F8)",
-      "tooltip": "Lists the segments that prevent a clean delivery (tag errors, empty, unsaved or not confirmed), with a button to go to each one",
+      "tooltip": "Lists the segments that prevent a clean delivery (tag errors, empty, unsaved or not confirmed) and those whose line breaks differ from the source, with a button to go to each one",
       "title": "Verification: {count} issues",
       "none": "No issues: ready to deliver",
       "go": "Go",
@@ -668,7 +668,8 @@
         "empty": "Empty",
         "pending": "Not confirmed",
         "rejected": "Rejected",
-        "draft": "Unsaved"
+        "draft": "Unsaved",
+        "breaks": "Line breaks"
       }
     },
     "concordance": {
