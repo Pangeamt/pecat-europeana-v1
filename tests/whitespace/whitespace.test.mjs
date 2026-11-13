@@ -7,6 +7,8 @@ import assert from "node:assert/strict";
 import {
   isQuillFlood,
   keepReviewerSpaces,
+  lineBreakMismatch,
+  lineBreaks,
   looksFlooded,
   repairQuillFlood,
   splitWhitespace,
@@ -80,4 +82,24 @@ test("splitWhitespace keeps every character and tags each kind", () => {
   const parts = splitWhitespace(text);
   assert.equal(parts.map((p) => p.text).join(""), text);
   assert.deepEqual(parts.filter((p) => p.ws).map((p) => p.ws.kind), ["space", "nbsp", "nnbsp", "other", "tab"]);
+});
+
+test("2026-11-13: U+2028 and U+2029 (from Word) get their own marks, not the LF's", () => {
+  const text = "a\u2028b\u2029c\nd";
+  const parts = splitWhitespace(text);
+  assert.equal(parts.map((p) => p.text).join(""), text);
+  const marks = parts.filter((p) => p.ws).map((p) => [p.ws.kind, p.ws.mark]);
+  assert.deepEqual(marks, [["break", "⤶"], ["break", "⁋"], ["break", "↵"]]);
+});
+
+test("2026-11-13: F8 line breaks -- the MT Markdown break and a dropped break are reported, kind by kind", () => {
+  // Real cases: "C056A17" -> "C056A17  \n" (vstest02) and a break the MT dropped (Panasonic #817).
+  assert.equal(lineBreakMismatch("C056A17", "C056A17  \n"), "↵ 0 → 1");
+  assert.equal(lineBreakMismatch("35 <x1/>C", "  \n35 <x1/>C  \n"), "↵ 0 → 2");
+  assert.equal(lineBreakMismatch("Line one\nLine two", "Ligne un Ligne deux"), "↵ 1 → 0");
+  assert.equal(lineBreakMismatch("a\u2028b", "a\nb"), "↵ 0 → 1 · ⤶ 1 → 0");
+  // Same breaks: nothing. A CRLF against a LF is not a count difference (the CR shows as ¶).
+  assert.equal(lineBreakMismatch("a\r\nb", "x\ny"), "");
+  assert.equal(lineBreakMismatch("plain", "simple"), "");
+  assert.deepEqual(lineBreaks("a\r\nb\rc\nd\u2028e\u2029"), { lf: 3, ls: 1, ps: 1 });
 });

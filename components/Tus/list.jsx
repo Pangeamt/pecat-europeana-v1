@@ -117,6 +117,7 @@ import SegmentHistory from "./SegmentHistory";
 import { describeTagIssue, tagIssue } from "@/modules/documents/tag-check";
 import { hasTagError } from "@/lib/tag-errors";
 import { isSpliceFormat } from "@/lib/utils";
+import { lineBreakMismatch } from "@/lib/whitespace";
 
 const stripHTML = (html) => {
   let temporalDiv = document.createElement("div");
@@ -1867,6 +1868,12 @@ const TusList = ({ shareToken } = {}) => {
       const tags = tagIssue(row.srcLiteral, text, { ordered });
       if (!tags.ok) {
         issues.push({ id: row.id, number, kind: "tags", severity: "error", detail: describeTagIssue(tags) });
+      }
+      // 2026-11-13 (user decision): line breaks that differ from the source's
+      // (the MT adds or drops them). Only a warning: nothing changes on its own.
+      const breaks = lineBreakMismatch(row.srcLiteral, text);
+      if (breaks) {
+        issues.push({ id: row.id, number, kind: "breaks", severity: "warning", detail: breaks });
       }
       if (draftsRef.current[row.id] != null) {
         issues.push({ id: row.id, number, kind: "draft", severity: "warning", detail: "" });
