@@ -368,11 +368,76 @@ function segmentSdlUnit({ raw, eol, sdl, unit, coded, sentences, edge, rows, tra
 }
 
 /**
- * @param raw  original file text (as read with "utf8": BOM kept)
+ * The second exception to rule 2: an SDLXLIFF unit whose <seg-source> IS
+ * segmented but whose <target> is missing, empty or self-closed (no
+ * <mrk mtype="seg"> in it). Rule 2 found no place for any of its segments and
+ * the original went out as it came, untranslated: the two "UnknownSegments"
+ * files of Owners_P_2026_1690_2L (2026-11-20, 169 of 169 `noPlace`). Studio
+ * opens such a unit with empty segments and, on save, writes a target that
+ * mirrors the seg-source -- so this does the same before writing: the
+ * seg-source's content with every segment mark emptied
+ * (<mrk mtype="seg" mid="N"/>), which the normal path then fills.
+ * Only units we have a translation for, translatable, with an <sdl:seg> for
+ * every mid and no lockTU reference in the copy (rule 5); anything else is
+ * left as it was. Returns the new text and how many targets it built.
+ */
+function addTargetSkeletons(raw, tus) {
+  if (sdlPrefix(raw) === null) return { raw, count: 0 };
+  const index = indexSdlxliff(raw);
+  const wanted = new Set();
+  for (const tu of tus) {
+    if (!tu.externalId || !exportTarget(tu).trim()) continue;
+    const sep = tu.externalId.indexOf("::");
+    if (sep === -1 || isVirtualMid(tu.externalId.slice(sep + 2))) continue;
+    const unitKey = tu.externalId.slice(0, sep);
+    const unit = index.unitByKey.get(unitKey) ?? index.unitById.get(unitKey);
+    if (unit) wanted.add(unit);
+  }
+  const splices = [];
+  for (const unit of wanted) {
+    const { segSource, target } = unit;
+    if (!unit.translatable || !segSource || segSource.selfClosing || unit.sourceMrks.size === 0) continue;
+    if (unit.targetMrks.size > 0) continue;
+    if (target && !target.selfClosing && raw.slice(target.openEnd, target.closeStart).trim() !== "") continue;
+    if ([...unit.sourceMrks.keys()].some((mid) => !unit.sdlSegs.has(mid))) continue;
+    let skeleton = "";
+    let at = segSource.openEnd;
+    for (const mrk of [...unit.sourceMrks.values()].sort((a, b) => a.start - b.start)) {
+      skeleton += raw.slice(at, mrk.start) + raw.slice(mrk.start, mrk.openEnd).replace(/\s*\/?>$/, "/>");
+      at = mrk.end;
+    }
+    skeleton += raw.slice(at, segSource.closeStart);
+    if (lockTuXids(skeleton).length) continue;
+    if (!target) {
+      const targetName = segSource.name.replace(/seg-source$/, "target");
+      splices.push({ start: segSource.end, end: segSource.end, text: `<${targetName}>${skeleton}</${targetName}>` });
+    } else if (target.selfClosing) {
+      const open = raw.slice(target.start, target.end).replace(/\s*\/>$/, ">");
+      splices.push({ start: target.start, end: target.end, text: `${open}${skeleton}</${target.name}>` });
+    } else {
+      splices.push({ start: target.openEnd, end: target.closeStart, text: skeleton });
+    }
+  }
+  splices.sort((a, b) => b.start - a.start);
+  let text = raw;
+  for (const s of splices) text = text.slice(0, s.start) + s.text + text.slice(s.end);
+  return { raw: text, count: splices.length };
+}
+
+/** Not one segment of ours in the file (no text, no confirmation, no lock): the original as it came. */
+export function nothingWritten(report) {
+  return report.written === 0 && report.confirmed === 0 && report.lockWritten === 0;
+}
+
+/**
+ * @param original  original file text (as read with "utf8": BOM kept)
  * @param tus  Tu rows: { externalId, srcLiteral, translatedLiteral, reviewLiteral, Status, blockReason }
  * @returns { text, report }
  */
-export function writeSdlxliff(raw, tus) {
+export function writeSdlxliff(original, tus) {
+  // Segmented units with an empty target get their segment marks first.
+  const skeletons = addTargetSkeletons(original, tus);
+  const raw = skeletons.raw;
   const index = indexSdlxliff(raw);
   const eol = raw.includes("\r\n") ? "\r\n" : "\n";
   const report = {
@@ -396,6 +461,8 @@ export function writeSdlxliff(raw, tus) {
     // Segments of SDLXLIFF units that arrived without segment marks, written
     // with the marks Trados needs to show them.
     segmentedForTrados: 0,
+    // Segmented units whose empty <target> got its segment marks (addTargetSkeletons).
+    targetSkeleton: skeletons.count,
   };
   const splices = [];
   // Units the import cut into sentences (segmenter.js): unit -> mid -> tu.
@@ -718,9 +785,9 @@ export function writeSdlxliff(raw, tus) {
   let text = raw;
   for (const s of splices) text = text.slice(0, s.start) + s.text + text.slice(s.end);
 
-  if (splices.length) {
+  if (splices.length || text !== original) {
     assertWellFormed(text);
-    const before = invariants(raw);
+    const before = invariants(original);
     const after = invariants(text);
     for (const k of Object.keys(after)) {
       if (after[k] > before[k]) {

@@ -22,6 +22,10 @@ export const useProcessedDownload = (baseURL) => {
       window.location.assign(link);
     } catch (error) {
       const body = error?.response?.data;
+      if (body?.code === "EXPORT_NOTHING_WRITTEN") {
+        message.error(t("documents.nothingWritten", { skipped: body.data?.skipped ?? "?" }));
+        return;
+      }
       if (body?.code !== "DOCUMENT_INCOMPLETE") {
         console.error(error);
         message.error(body?.message || t("documents.downloadError"));
