@@ -136,6 +136,7 @@
     "deleteDescription": "Are you sure to delete this task?",
     "empty": "No documents yet",
     "downloadError": "Could not download file",
+    "nothingWritten": "None of the {skipped} translated segments could be written into the original file, so it is not delivered. Please tell the technical team.",
     "removeError": "Could not delete document",
     "editTooltip": "Edit label",
     "editModalTitle": "Edit document label",

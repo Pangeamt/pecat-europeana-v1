@@ -308,11 +308,18 @@ export async function generateProjectShareUuidService(
     throw new HttpError(404, "Project not found");
   }
 
-  const completion = completionOf(await findTusByProjectId(project.id));
+  const tus = await findTusByProjectId(project.id);
+  const completion = completionOf(tus);
   const isAdmin = ["ADMIN", "SUPER"].includes(actorUser?.role);
   const partialLink = !completion.complete && partial && isAdmin;
   if (!mayDeliver(completion, { partialLink })) {
     throw incompleteError(completion);
+  }
+  // SDLXLIFF / XLIFF are written once here too: a file that would go out with
+  // none of our segments in it (EXPORT_NOTHING_WRITTEN) is refused now, while
+  // the UI can still say so -- the download itself is a plain navigation.
+  if (isSpliceFormat(project.extension)) {
+    await exportSdlxliffWithReport(resolveUploadPath(project.filePath), tus);
   }
 
   const uuid = `${partialLink ? PARTIAL_LINK_PREFIX : ""}${uid()}`;

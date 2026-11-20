@@ -6,7 +6,7 @@ import { tagIssue } from './tag-check';
 import { needsMachineTranslation } from '../../lib/splice-formats';
 import { ImportSupersededError } from '../../lib/import-runs';
 import { readSdlxliffSegments } from './sdlxliff/reader';
-import { writeSdlxliff } from './sdlxliff/writer';
+import { nothingWritten, writeSdlxliff } from './sdlxliff/writer';
 
 // SDLXLIFF import/export (2026-09-30): the model of module-file-translate
 // (app/xliff/sdl_merge.py), see modules/documents/sdlxliff/*. Before this the
@@ -282,6 +282,17 @@ export async function exportSdlxliffWithReport(originalFilePath, tus) {
     const skipped = skippedSegments(report);
     if (skipped) {
       console.warn(`[sdlxliff] export of ${originalFilePath}: ${skipped} segment(s) not written`, report);
+    }
+    // There was something to write and none of it made it into the file: that
+    // file is the original as it came. Refused, never delivered -- the two
+    // files of Owners_P_2026_1690_2L (2026-11-20) went out untranslated.
+    if (skipped && nothingWritten(report)) {
+      throw new HttpError(
+        422,
+        `None of the ${skipped} translated segment(s) could be written into the original file; nothing was delivered`,
+        'EXPORT_NOTHING_WRITTEN',
+        { skipped },
+      );
     }
     return { text, report };
   } catch (error) {

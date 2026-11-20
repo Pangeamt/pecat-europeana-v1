@@ -136,6 +136,7 @@
     "deleteDescription": "¿Seguro que quieres eliminar esta tarea?",
     "empty": "Aún no hay documentos",
     "downloadError": "No se pudo descargar el archivo",
+    "nothingWritten": "No se ha podido escribir en el fichero original ninguno de los {skipped} segmentos traducidos, así que no se entrega. Avise al equipo técnico.",
     "removeError": "No se pudo eliminar el documento",
     "editTooltip": "Editar etiqueta",
     "editModalTitle": "Editar etiqueta del documento",
